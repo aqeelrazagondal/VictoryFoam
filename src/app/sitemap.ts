@@ -2,9 +2,8 @@ import type { MetadataRoute } from "next";
 
 import { products } from "@/data/products";
 
-const siteUrl = (
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.example.com"
-).replace(/\/+$/, "");
+const raw = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/+$/, "");
+const siteUrl = raw && raw.startsWith("http") ? raw : "https://www.example.com";
 
 export const dynamic = "force-static";
 
