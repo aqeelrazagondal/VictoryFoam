@@ -1,0 +1,7 @@
+DirectoryIndex index.html
+ErrorDocument 404 /404.html
+Options -MultiViews
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.+)/$ /$1/index.html [L]
