@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-import { AnimateOnScroll } from "@/components/ui/animate-on-scroll";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { galleryImages } from "@/data/company";
 import type { GalleryImage } from "@/types";
@@ -63,31 +62,29 @@ export function GalleryBrowser() {
           const images = galleryImages.filter((image) => image.type === collection.value);
           return (
             <TabsContent key={collection.value} value={collection.value}>
-              <AnimateOnScroll>
-                <div className="grid auto-rows-[240px] gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {images.map((image, index) => (
-                    <button
-                      key={`${image.src}-${image.alt}`}
-                      type="button"
-                      onClick={() => setLightboxIndex(index)}
-                      className="group relative overflow-hidden rounded-xl bg-white text-left"
-                      aria-label={`Open larger image: ${image.alt}`}
-                    >
-                      <Image
-                        src={image.src}
-                        alt={image.alt}
-                        width={1200}
-                        height={900}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                        sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-                      />
-                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 to-transparent px-5 pb-5 pt-16 text-sm text-white">
-                        {image.alt}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </AnimateOnScroll>
+              <div className="grid auto-rows-[240px] gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {images.map((image, index) => (
+                  <button
+                    key={`${image.src}-${image.alt}`}
+                    type="button"
+                    onClick={() => setLightboxIndex(index)}
+                    className="glass-card group relative overflow-hidden rounded-xl text-left transition-transform duration-300 hover:-translate-y-1 motion-reduce:hover:translate-y-0"
+                    aria-label={`Open larger image: ${image.alt}`}
+                  >
+                    <Image
+                      src={image.src}
+                      alt={image.alt}
+                      width={1200}
+                      height={900}
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                      sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                    />
+                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/85 to-transparent px-5 pb-5 pt-16 text-sm text-white">
+                      {image.alt}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </TabsContent>
           );
         })}

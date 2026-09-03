@@ -19,6 +19,7 @@ export interface Category {
   name: string;
   description: string;
   image: string;
+  accent: "cyan" | "teal" | "amber" | "purple";
 }
 
 export interface CompanyInfo {

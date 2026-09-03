@@ -1,34 +1,48 @@
 "use client";
 
-import { motion, useInView, useReducedMotion } from "framer-motion";
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
-type AnimateOnScrollProps = {
+import { cn } from "@/lib/utils";
+
+interface AnimateOnScrollProps {
   children: ReactNode;
   className?: string;
-};
+  delay?: number;
+}
 
 export function AnimateOnScroll({
   children,
   className,
+  delay = 0,
 }: AnimateOnScrollProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-48px" });
-  const reduceMotion = useReducedMotion();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "-80px", threshold: 0.1 },
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <motion.div
+    <div
       ref={ref}
-      className={className}
-      initial={reduceMotion ? false : { opacity: 0, y: 20 }}
-      animate={
-        reduceMotion || inView
-          ? { opacity: 1, y: 0 }
-          : { opacity: 0, y: 20 }
-      }
-      transition={{ duration: reduceMotion ? 0 : 0.5, ease: "easeOut" }}
+      className={cn("animate-on-scroll", visible && "animate-on-scroll-visible", className)}
+      style={{ animationDelay: visible ? `${delay}s` : undefined }}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }

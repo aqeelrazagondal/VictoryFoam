@@ -1,17 +1,24 @@
 import Image from "next/image";
+import type { CSSProperties } from "react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import type { Product } from "@/types";
 
-export function ProductCard({ product }: { product: Product }) {
+export function ProductCard({
+  product,
+  index = 0,
+}: {
+  product: Product;
+  index?: number;
+}) {
   return (
     <Link
       href={`/products/${product.slug}/`}
-      className="group block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="stagger-fade group block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      style={{ "--stagger-index": index } as CSSProperties}
     >
-      <Card className="h-full overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
+      <div className="glass-card h-full overflow-hidden rounded-xl transition-transform duration-300 group-hover:-translate-y-1 motion-reduce:group-hover:translate-y-0">
         <div className="relative aspect-[4/3] overflow-hidden bg-muted">
           <Image
             width={1200}
@@ -22,8 +29,8 @@ export function ProductCard({ product }: { product: Product }) {
             sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
           />
         </div>
-        <CardContent>
-          <h3 className="font-heading text-xl font-semibold transition-colors group-hover:text-primary">
+        <div className="p-5">
+          <h3 className="font-heading text-xl font-semibold text-foreground transition-colors group-hover:text-primary">
             {product.name}
           </h3>
           <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
@@ -36,8 +43,8 @@ export function ProductCard({ product }: { product: Product }) {
               </Badge>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </Link>
   );
 }

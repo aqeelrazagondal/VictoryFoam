@@ -39,8 +39,9 @@ export function Header() {
       </a>
       <header
         className={cn(
-          "sticky top-0 z-40 border-b border-transparent bg-background/95 transition-all",
-          scrolled && "border-border bg-background/80 shadow-sm backdrop-blur-xl",
+          "sticky top-0 z-40 bg-background/95 transition-all",
+          "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-primary/30 after:to-transparent after:opacity-0 after:transition-opacity after:duration-300 after:content-['']",
+          scrolled && "bg-background/80 backdrop-blur-xl after:opacity-100",
         )}
       >
         <div className="container-site flex h-18 items-center justify-between">
@@ -66,8 +67,9 @@ export function Header() {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
-                    active && "text-foreground",
+                    "relative px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
+                    "after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-primary after:transition-all after:duration-300 after:content-[''] hover:after:w-full",
+                    active && "text-foreground after:w-full",
                   )}
                 >
                   {item.label}

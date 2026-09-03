@@ -14,7 +14,6 @@ import Image from "next/image";
 import { SectionHeader } from "@/components/sections/section-header";
 import { SectionWrapper } from "@/components/sections/section-wrapper";
 import { AnimateOnScroll } from "@/components/ui/animate-on-scroll";
-import { Card, CardContent } from "@/components/ui/card";
 import { company } from "@/data/company";
 import { buildMetadata } from "@/lib/seo";
 
@@ -118,13 +117,13 @@ export default function AboutPage() {
           />
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {values.map(({ icon: Icon, title, description }) => (
-              <Card key={title}>
-                <CardContent className="p-6">
-                  <Icon className="size-6 text-primary" />
-                  <h3 className="mt-5 font-heading text-lg font-semibold">{title}</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">{description}</p>
-                </CardContent>
-              </Card>
+              <div key={title} className="glass-card rounded-xl p-6">
+                <div className="flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary glow-sm">
+                  <Icon className="size-6" aria-hidden />
+                </div>
+                <h3 className="mt-5 font-heading text-lg font-semibold text-foreground">{title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+              </div>
             ))}
           </div>
           </section>
@@ -139,12 +138,14 @@ export default function AboutPage() {
             title="Our Capabilities"
             subtitle="Technical and production support from material selection through finished part."
           />
-          <div className="mt-10 grid gap-x-10 gap-y-8 md:grid-cols-2">
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
             {capabilities.map(({ icon: Icon, title, description }) => (
-              <div key={title} className="flex gap-4 border-t border-border pt-6">
-                <Icon className="mt-0.5 size-6 shrink-0 text-primary" />
+              <div key={title} className="glass-card flex gap-4 rounded-xl p-6">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary glow-sm">
+                  <Icon className="size-6" aria-hidden />
+                </div>
                 <div>
-                  <h3 className="font-heading text-xl font-semibold">{title}</h3>
+                  <h3 className="font-heading text-xl font-semibold text-foreground">{title}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">{description}</p>
                 </div>
               </div>

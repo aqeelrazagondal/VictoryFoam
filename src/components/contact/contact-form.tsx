@@ -1,48 +1,77 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { type FormEvent } from "react";
 
+import { ContactSubjectField } from "@/components/contact/contact-subject-field";
 import { Button } from "@/components/ui/button";
+import { company } from "@/data/company";
 
 const fieldClass =
-  "mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground shadow-sm placeholder:text-muted-foreground";
+  "mt-2 w-full rounded-lg border border-border/50 bg-card/50 px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/20 focus:outline-none";
+
+function readField(data: FormData, name: string): string {
+  const value = data.get(name);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function buildMailtoHref(data: FormData): string {
+  const name = readField(data, "name");
+  const email = readField(data, "email");
+  const phone = readField(data, "phone");
+  const subject = readField(data, "subject") || "Victory Foam enquiry";
+  const message = readField(data, "message");
+  const body = [
+    `Name: ${name}`,
+    `Email: ${email}`,
+    ...(phone ? [`Phone: ${phone}`] : []),
+    "",
+    message,
+  ].join("\n");
+
+  return `mailto:${company.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
 
 export function ContactForm({ formId }: { formId?: string }) {
-  const searchParams = useSearchParams();
-  const product = searchParams.get("product");
-  const [subject, setSubject] = useState(product ? `Enquiry about ${product}` : "");
-  const configured = Boolean(formId);
+  const formspreeId = formId?.trim();
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (formspreeId) {
+      return;
+    }
+
+    event.preventDefault();
+    window.location.href = buildMailtoHref(new FormData(event.currentTarget));
+  }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6 md:p-8">
+    <div className="glass-card gradient-border rounded-xl p-6 md:p-8">
       <h2 className="font-heading text-2xl font-semibold">Send an enquiry</h2>
-      {!configured && (
-        <p className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/10 p-4 text-sm">
-          Form delivery is not configured. Add{" "}
-          <code>NEXT_PUBLIC_FORMSPREE_FORM_ID</code> to enable submission, or
-          email us directly.
-        </p>
-      )}
       <form
         className="mt-8 grid gap-5"
         method="POST"
-        action={configured ? `https://formspree.io/f/${formId}` : undefined}
+        action={formspreeId ? `https://formspree.io/f/${formspreeId}` : undefined}
+        onSubmit={handleSubmit}
       >
-        <input type="hidden" name="_subject" value={subject || "Victory Foam enquiry"} />
         <div className="hidden" aria-hidden="true">
-          <label>
+          <label htmlFor="_gotcha">
             Leave this field empty
-            <input name="_gotcha" tabIndex={-1} autoComplete="off" />
+            <input id="_gotcha" name="_gotcha" tabIndex={-1} autoComplete="off" />
           </label>
         </div>
-        <label className="text-sm font-medium">
+        <label htmlFor="contact-name" className="text-sm font-medium">
           Name
-          <input className={fieldClass} name="name" autoComplete="name" required />
+          <input
+            id="contact-name"
+            className={fieldClass}
+            name="name"
+            autoComplete="name"
+            required
+          />
         </label>
-        <label className="text-sm font-medium">
+        <label htmlFor="contact-email" className="text-sm font-medium">
           Email
           <input
+            id="contact-email"
             className={fieldClass}
             type="email"
             name="email"
@@ -50,9 +79,10 @@ export function ContactForm({ formId }: { formId?: string }) {
             required
           />
         </label>
-        <label className="text-sm font-medium">
+        <label htmlFor="contact-phone" className="text-sm font-medium">
           Phone
           <input
+            id="contact-phone"
             className={fieldClass}
             type="tel"
             name="phone"
@@ -61,18 +91,14 @@ export function ContactForm({ formId }: { formId?: string }) {
             title="Enter at least seven digits using spaces, brackets, plus, or hyphens."
           />
         </label>
-        <label className="text-sm font-medium">
+        <label htmlFor="contact-subject" className="text-sm font-medium">
           Subject
-          <input
-            className={fieldClass}
-            name="subject"
-            value={subject}
-            onChange={(event) => setSubject(event.target.value)}
-          />
+          <ContactSubjectField className={fieldClass} />
         </label>
-        <label className="text-sm font-medium">
+        <label htmlFor="contact-message" className="text-sm font-medium">
           Message
           <textarea
+            id="contact-message"
             className={`${fieldClass} min-h-36 resize-y`}
             name="message"
             placeholder="Application, dimensions, quantity, timing, or relevant standards"
@@ -80,14 +106,23 @@ export function ContactForm({ formId }: { formId?: string }) {
             minLength={20}
           />
         </label>
-        <Button type="submit" size="lg" disabled={!configured}>
+        <Button type="submit" size="lg" className="w-full hover:glow-sm">
           Send Message
         </Button>
-        {configured && (
-          <p className="text-xs text-muted-foreground">
-            After sending, Formspree will display a confirmation message.
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground">
+          {formspreeId
+            ? "You will see a confirmation page after sending."
+            : "This will open your email app with the message ready to send."}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          You can also email us directly at{" "}
+          <a
+            href={`mailto:${company.email}`}
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            {company.email}
+          </a>
+        </p>
       </form>
     </div>
   );

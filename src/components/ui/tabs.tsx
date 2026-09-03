@@ -13,10 +13,7 @@ export function TabsList({
 }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
-      className={cn(
-        "inline-flex flex-wrap gap-2 rounded-xl bg-secondary p-1",
-        className,
-      )}
+      className={cn("inline-flex flex-wrap gap-2", className)}
       {...props}
     />
   );
@@ -29,7 +26,7 @@ export function TabsTrigger({
   return (
     <TabsPrimitive.Trigger
       className={cn(
-        "rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm",
+        "glass-card rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:glow-sm",
         className,
       )}
       {...props}

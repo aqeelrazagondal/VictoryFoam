@@ -42,8 +42,9 @@ Create a form at [Formspree](https://formspree.io/), then set its ID:
 NEXT_PUBLIC_FORMSPREE_FORM_ID=your_form_id
 ```
 
-The contact page uses a native HTML `POST`. When the ID is absent, the submit
-button remains disabled and direct email details stay available.
+The contact page posts to Formspree when the ID is set. When it is absent,
+submit opens a `mailto:` draft to `enquiries@victoryfoam.co.uk`, and the form
+always offers that address as a direct-email option.
 
 Set `NEXT_PUBLIC_SITE_URL` to the public origin before building so canonical
 URLs, sitemap entries, and structured data use the production domain.
@@ -77,7 +78,7 @@ The repository currently keeps one realistic mock business record in
 
 - No lorem ipsum or unfinished labels
 - Internal links resolve
-- Contact form submits only after a real Formspree ID is set
+- Contact form is always usable; Formspree when configured, otherwise mailto
 - Product records in `src/data/products.ts` are complete
 - Company address, phone, and email in `src/data/company.ts` are client-verified
 

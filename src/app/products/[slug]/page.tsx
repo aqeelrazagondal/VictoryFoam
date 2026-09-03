@@ -1,4 +1,4 @@
-import { ArrowLeft, Check } from "lucide-react";
+import { ArrowLeft, CheckCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -63,27 +63,24 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <div className="grid gap-12 lg:grid-cols-[1.08fr_.92fr]">
           <ProductGallery images={gallery} productName={product.name} />
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
-              {product.category.replaceAll("-", " ")}
-            </p>
-            <h1 className="mt-4 font-heading text-4xl font-semibold tracking-tight md:text-5xl">
+            <h1 className="font-heading text-4xl font-semibold tracking-tight md:text-5xl">
               {product.name}
             </h1>
             <p className="mt-5 text-lg leading-8 text-muted-foreground">
               {product.shortDescription}
             </p>
 
-            <div className="mt-8 overflow-hidden rounded-xl border border-border">
+            <div className="glass-card mt-8 overflow-hidden rounded-xl">
               <table className="w-full text-left text-sm">
-                <thead className="bg-secondary">
+                <thead>
                   <tr>
                     <th className="px-4 py-3 font-semibold">Spec</th>
                     <th className="px-4 py-3 font-semibold">Value</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border">
+                <tbody className="divide-y divide-border/30">
                   {product.specs.map((spec) => (
-                    <tr key={spec.label}>
+                    <tr key={spec.label} className="odd:bg-card/30">
                       <th scope="row" className="px-4 py-3 font-medium text-muted-foreground">
                         {spec.label}
                       </th>
@@ -98,7 +95,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
             <ul className="mt-4 grid gap-3">
               {product.features.map((feature) => (
                 <li key={feature} className="flex gap-3 text-sm">
-                  <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                  <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-primary glow-sm">
+                    <CheckCircle className="size-5" aria-hidden />
+                  </span>
                   <span>{feature}</span>
                 </li>
               ))}
@@ -122,7 +121,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </div>
             )}
 
-            <Button asChild size="lg" className="mt-8">
+            <Button asChild size="lg" className="mt-8 h-auto px-8 py-3 glow-sm">
               <Link href={`/contact/?${enquiryQuery}`}>Enquire About This Product</Link>
             </Button>
           </div>
@@ -131,10 +130,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <SectionWrapper background="muted">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">
-            About this product
-          </p>
-          <h2 className="mt-3 font-heading text-3xl font-semibold">{product.name}</h2>
+          <h2 className="font-heading text-3xl font-semibold">{product.name}</h2>
           <p className="mt-5 text-lg leading-8 text-muted-foreground">
             {product.fullDescription}
           </p>

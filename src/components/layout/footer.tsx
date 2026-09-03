@@ -19,7 +19,8 @@ const socialIcons = {
 
 export function Footer() {
   return (
-    <footer className="border-t border-slate-800 bg-slate-950 text-slate-300">
+    <footer className="bg-slate-950 text-slate-300">
+      <div className="h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
       <div className="container-site grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <p className="font-heading text-xl font-semibold text-white">{company.name}</p>
@@ -34,7 +35,7 @@ export function Footer() {
                   target="_blank"
                   rel="noreferrer"
                   aria-label={social.platform}
-                  className="grid size-10 place-items-center rounded-lg border border-slate-700 transition-colors hover:border-sky-400 hover:text-sky-400"
+                  className="grid size-10 place-items-center rounded-lg border border-slate-700 transition-[color,border-color,box-shadow] hover:border-sky-400 hover:text-sky-400 hover:glow-sm"
                 >
                   {Icon && <Icon className="size-4" />}
                 </a>
@@ -44,7 +45,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h2 className="font-heading text-sm font-semibold uppercase tracking-wider text-white">
+          <h2 className="font-heading text-sm font-semibold text-white">
             Products
           </h2>
           <ul className="mt-4 space-y-3 text-sm">
@@ -59,7 +60,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h2 className="font-heading text-sm font-semibold uppercase tracking-wider text-white">
+          <h2 className="font-heading text-sm font-semibold text-white">
             Company
           </h2>
           <ul className="mt-4 space-y-3 text-sm">
@@ -74,7 +75,7 @@ export function Footer() {
         </div>
 
         <div>
-          <h2 className="font-heading text-sm font-semibold uppercase tracking-wider text-white">
+          <h2 className="font-heading text-sm font-semibold text-white">
             Contact
           </h2>
           <ul className="mt-4 space-y-4 text-sm">
@@ -91,11 +92,11 @@ export function Footer() {
               <span>{company.address}</span>
             </li>
           </ul>
-          <p className="mt-5 text-xs text-slate-500">{company.workingHours}</p>
+          <p className="mt-5 text-xs text-slate-400">{company.workingHours}</p>
         </div>
       </div>
       <div className="border-t border-slate-800">
-        <div className="container-site py-5 text-xs text-slate-500">
+        <div className="container-site py-5 text-xs text-slate-400">
           © 2026 {company.name}. All rights reserved.
         </div>
       </div>

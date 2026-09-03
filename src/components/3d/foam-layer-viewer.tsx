@@ -1,233 +1,117 @@
 "use client";
 
-import { Environment, OrbitControls, RoundedBox } from "@react-three/drei";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useInView, useReducedMotion } from "framer-motion";
-import { useRef, useState } from "react";
-import { BackSide, MathUtils, type Mesh } from "three";
+import dynamic from "next/dynamic";
+import Image from "next/image";
+import { Component, useEffect, useState, type ReactNode } from "react";
 
-const layers = [
-  {
-    name: "Top cover",
-    material: "Knitted comfort cover",
-    detail: "Creates a breathable, soft-touch sleeping surface.",
-    color: "#f5f0e8",
-    height: 0.2,
-    explodedY: 2,
-    assembledY: 1.05,
-  },
-  {
-    name: "Comfort layer",
-    material: "Open-cell cooling foam",
-    detail: "Improves airflow and cushions immediate surface pressure.",
-    color: "#93c5fd",
-    height: 0.45,
-    explodedY: 1,
-    assembledY: 0.7,
-  },
-  {
-    name: "Memory foam",
-    material: "Viscoelastic foam",
-    detail: "Contours to the body and redistributes pressure.",
-    color: "#6366f1",
-    height: 0.65,
-    explodedY: 0,
-    assembledY: 0.15,
-  },
-  {
-    name: "Transition layer",
-    material: "High-resilience transition foam",
-    detail: "Balances deep comfort with progressive support.",
-    color: "#2dd4bf",
-    height: 0.35,
-    explodedY: -1,
-    assembledY: -0.38,
-  },
-  {
-    name: "Support base",
-    material: "High-density support foam",
-    detail: "Stabilises the construction and carries long-term load.",
-    color: "#64748b",
-    height: 0.9,
-    explodedY: -2,
-    assembledY: -1.03,
-  },
-];
+const FoamLayerViewerScene = dynamic(() => import("./foam-layer-viewer-scene"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-[360px] w-full items-center justify-center rounded-xl bg-slate-950 text-slate-300 md:h-[460px]">
+      Loading 3D viewer...
+    </div>
+  ),
+});
 
-function FoamLayer({
-  layer,
-  index,
-  selected,
-  hovered,
-  exploded,
-  setSelected,
-  setHovered,
-  reduceMotion,
-}: {
-  layer: (typeof layers)[number];
-  index: number;
-  selected: number;
-  hovered: number | null;
-  exploded: boolean;
-  setSelected: (index: number) => void;
-  setHovered: (index: number | null) => void;
-  reduceMotion: boolean;
-}) {
-  const meshRef = useRef<Mesh>(null);
+type ConnectionNavigator = Navigator & {
+  connection?: {
+    effectiveType?: string;
+    saveData?: boolean;
+  };
+};
 
-  useFrame(() => {
-    if (!meshRef.current) return;
-    const targetY = exploded ? layer.explodedY : layer.assembledY;
-    meshRef.current.position.y = reduceMotion
-      ? targetY
-      : MathUtils.lerp(meshRef.current.position.y, targetY, 0.09);
-    const highlighted = hovered === index || selected === index;
-    const targetScale = highlighted ? 1.035 : 1;
-    const scale = reduceMotion
-      ? targetScale
-      : MathUtils.lerp(meshRef.current.scale.x, targetScale, 0.14);
-    meshRef.current.scale.setScalar(scale);
-  });
+function canUseWebGl() {
+  try {
+    const canvas = document.createElement("canvas");
+    return Boolean(
+      window.WebGLRenderingContext &&
+        (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")),
+    );
+  } catch {
+    return false;
+  }
+}
 
+function FoamFallback({ action }: { action?: ReactNode }) {
   return (
-    <RoundedBox
-      ref={meshRef}
-      args={[5, layer.height, 3.2]}
-      radius={Math.min(0.16, layer.height / 3)}
-      smoothness={4}
-      position={[0, layer.explodedY, 0]}
-      onClick={(event) => {
-        event.stopPropagation();
-        setSelected(index);
-      }}
-      onPointerEnter={() => setHovered(index)}
-      onPointerLeave={() => setHovered(null)}
-    >
-      <meshStandardMaterial color={layer.color} roughness={0.78} />
-    </RoundedBox>
+    <div className="relative min-h-[360px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950 text-slate-100 md:min-h-[400px]">
+      <Image
+        src="/images/products/foam-layer-fallback.webp"
+        alt="Exploded five-layer mattress foam construction"
+        width={1200}
+        height={900}
+        className="absolute inset-0 h-full w-full object-cover opacity-65"
+      />
+      <div className="relative z-10 grid min-h-[360px] place-items-center bg-slate-950/40 p-8 text-center md:min-h-[400px]">
+        <div>
+          <p className="font-heading text-xl font-semibold">Five-layer foam construction</p>
+          <p className="mx-auto mt-2 max-w-md text-sm text-slate-300">
+            A static preview is shown while the interactive model is unavailable.
+          </p>
+          {action}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function FoamScene({
-  selected,
-  hovered,
-  exploded,
-  setSelected,
-  setHovered,
-  reduceMotion,
-}: {
-  selected: number;
-  hovered: number | null;
-  exploded: boolean;
-  setSelected: (index: number) => void;
-  setHovered: (index: number | null) => void;
-  reduceMotion: boolean;
-}) {
-  return (
-    <>
-      <ambientLight intensity={1.25} />
-      <directionalLight position={[4, 6, 4]} intensity={2.4} />
-      <Environment frames={1} resolution={64}>
-        <mesh scale={12}>
-          <sphereGeometry args={[1, 16, 16]} />
-          <meshBasicMaterial color="#dbeafe" side={BackSide} />
-        </mesh>
-      </Environment>
-      {layers.map((layer, index) => (
-        <FoamLayer
-          key={layer.name}
-          layer={layer}
-          index={index}
-          selected={selected}
-          hovered={hovered}
-          exploded={exploded}
-          setSelected={setSelected}
-          setHovered={setHovered}
-          reduceMotion={reduceMotion}
-        />
-      ))}
-      <OrbitControls
-        enablePan={false}
-        minDistance={6}
-        maxDistance={11}
-        autoRotate={!reduceMotion}
-        autoRotateSpeed={0.45}
-      />
-    </>
-  );
+class ViewerErrorBoundary extends Component<
+  { children: ReactNode; onError: () => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch() {
+    this.props.onError();
+  }
+
+  render() {
+    if (this.state.failed) return <FoamFallback />;
+    return this.props.children;
+  }
 }
 
 export default function FoamLayerViewer() {
-  const [selected, setSelected] = useState(0);
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [exploded, setExploded] = useState(true);
-  const reduceMotion = useReducedMotion() ?? false;
-  const viewerRef = useRef<HTMLDivElement>(null);
-  const inView = useInView(viewerRef, { margin: "120px 0px", amount: 0.1 });
-  const activeLayer = layers[hovered ?? selected];
+  const [mode, setMode] = useState<"loading" | "interactive" | "fallback">("loading");
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const connection = (navigator as ConnectionNavigator).connection;
+      const slowConnection =
+        connection?.saveData ||
+        connection?.effectiveType === "slow-2g" ||
+        connection?.effectiveType === "2g";
+      setMode(canUseWebGl() && !slowConnection ? "interactive" : "fallback");
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (mode !== "interactive") {
+    return (
+      <FoamFallback
+        action={
+          mode === "fallback" ? (
+            <button
+              type="button"
+              onClick={() => setMode("interactive")}
+              className="mt-5 rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-400"
+            >
+              Load interactive view
+            </button>
+          ) : null
+        }
+      />
+    );
+  }
 
   return (
-    <div
-      ref={viewerRef}
-      className="grid overflow-hidden rounded-xl border border-slate-700 bg-slate-950 lg:grid-cols-[1.5fr_1fr]"
-    >
-      <div className="h-[360px] md:h-[460px]" aria-hidden="true">
-        <Canvas
-          camera={{ position: [6, 4, 7], fov: 42 }}
-          frameloop={inView ? "always" : "never"}
-          dpr={[1, 1.5]}
-        >
-          <FoamScene
-            selected={selected}
-            hovered={hovered}
-            exploded={exploded}
-            setSelected={setSelected}
-            setHovered={setHovered}
-            reduceMotion={reduceMotion}
-          />
-        </Canvas>
-      </div>
-      <div className="border-t border-slate-800 p-6 text-slate-200 lg:border-l lg:border-t-0">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-400">
-            Explore the build
-          </p>
-          <button
-            type="button"
-            aria-pressed={exploded}
-            onClick={() => setExploded((current) => !current)}
-            className="rounded-full border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-200 transition-colors hover:border-sky-400"
-          >
-            {exploded ? "Assembled View" : "Exploded View"}
-          </button>
-        </div>
-        <div
-          className="mt-5 rounded-lg border border-sky-400/30 bg-sky-400/10 p-4"
-          aria-live="polite"
-        >
-          <p className="font-heading font-semibold">{activeLayer.name}</p>
-          <p className="mt-1 text-sm text-sky-300">{activeLayer.material}</p>
-          <p className="mt-2 text-sm text-slate-400">{activeLayer.detail}</p>
-        </div>
-        <div className="mt-5 grid gap-2" role="list" aria-label="Foam layers">
-          {layers.map((layer, index) => (
-            <button
-              key={layer.name}
-              type="button"
-              onClick={() => setSelected(index)}
-              onFocus={() => setHovered(index)}
-              onBlur={() => setHovered(null)}
-              aria-pressed={selected === index}
-              className="rounded-lg border border-slate-800 px-4 py-3 text-left transition-colors hover:border-sky-500 aria-pressed:border-sky-400 aria-pressed:bg-sky-400/10"
-            >
-              <span className="block font-medium">{layer.name}</span>
-            </button>
-          ))}
-        </div>
-        <p className="mt-5 text-xs text-slate-500">
-          Drag to rotate, scroll to zoom, or choose a layer.
-        </p>
-      </div>
-    </div>
+    <ViewerErrorBoundary onError={() => setMode("fallback")}>
+      <FoamLayerViewerScene />
+    </ViewerErrorBoundary>
   );
 }

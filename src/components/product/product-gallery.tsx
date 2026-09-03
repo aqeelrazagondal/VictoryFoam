@@ -16,16 +16,18 @@ export function ProductGallery({
 
   return (
     <div>
-      <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-white">
-        <Image
-          src={images[selected]}
-          alt={productName}
-          width={1200}
-          height={900}
-          priority
-          className="h-full w-full object-cover"
-          sizes="(min-width: 1024px) 55vw, 100vw"
-        />
+      <div className="gradient-border rounded-xl">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-white">
+          <Image
+            src={images[selected]}
+            alt={productName}
+            width={1200}
+            height={900}
+            priority
+            className="h-full w-full object-cover"
+            sizes="(min-width: 1024px) 55vw, 100vw"
+          />
+        </div>
       </div>
       {images.length > 1 && (
         <div className="mt-4 flex gap-3" aria-label={`${productName} image gallery`}>

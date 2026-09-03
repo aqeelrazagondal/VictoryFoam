@@ -44,7 +44,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8f7f4" },
+    { media: "(prefers-color-scheme: light)", color: "#F5F7F9" },
     { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
   ],
 };
@@ -59,7 +59,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${plusJakarta.variable} flex min-h-full flex-col font-sans antialiased`}
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <JsonLd data={buildOrganizationSchema(company)} />
           <Header />
           <Breadcrumbs />

@@ -3,25 +3,25 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: 40 22% 96%;
+  --background: 210 25% 97%;
   --foreground: 222 47% 11%;
   --card: 0 0% 100%;
   --card-foreground: 222 47% 11%;
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
-  --primary: 199 89% 48%;
+  --primary: 199 96% 34%;
   --primary-foreground: 0 0% 100%;
   --secondary: 210 40% 96%;
   --secondary-foreground: 222 47% 11%;
   --muted: 214 32% 91%;
-  --muted-foreground: 215 16% 47%;
-  --accent: 199 89% 48%;
+  --muted-foreground: 215 20% 38%;
+  --accent: 199 96% 34%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
   --border: 214 32% 91%;
   --input: 214 32% 91%;
-  --ring: 199 89% 48%;
+  --ring: 199 96% 34%;
   --radius: 0.625rem;
 }
 
@@ -81,14 +81,34 @@
 
 html {
   scroll-behavior: smooth;
+  background-color: hsl(var(--background));
 }
 
 body {
-  background: hsl(var(--background));
+  background: transparent;
   color: hsl(var(--foreground));
   font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 1rem;
   line-height: 1.625rem;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 50% at 15% 0%, hsl(199 89% 48% / 0.06), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 90% 10%, hsl(220 40% 70% / 0.08), transparent 50%),
+    hsl(var(--background));
+}
+
+.dark body::before {
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 20%, hsl(199 89% 48% / 0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 80% at 80% 80%, hsl(260 80% 50% / 0.04) 0%, transparent 70%),
+    hsl(var(--background));
 }
 
 h1,
@@ -129,9 +149,128 @@ p {
   @apply mx-auto w-full max-w-[1280px] px-4 md:px-6;
 }
 
+.glass-card {
+  color: hsl(var(--card-foreground));
+  @apply backdrop-blur-[12px];
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+
+html:not(.dark) .glass-card {
+  background: hsl(0 0% 100% / 0.7);
+  border: 1px solid hsl(var(--border) / 0.3);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+html:not(.dark) .glass-card:hover {
+  background: hsl(0 0% 100% / 0.85);
+  border-color: hsl(var(--primary) / 0.3);
+  box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.15);
+}
+
+.dark .glass-card {
+  background: hsl(var(--card) / 0.6);
+  @apply backdrop-blur-[12px] backdrop-saturate-[1.2];
+  border: 1px solid hsl(var(--border) / 0.5);
+}
+
+.dark .glass-card:hover {
+  background: hsl(var(--card) / 0.75);
+  border-color: hsl(var(--primary) / 0.3);
+  box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.15);
+}
+
+.gradient-border {
+  position: relative;
+  border: none;
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary) / 0.5),
+    hsl(260 80% 60% / 0.3),
+    hsl(var(--primary) / 0.1)
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+@utility glow-sm {
+  box-shadow: 0 0 15px -3px hsl(var(--primary) / 0.3);
+}
+
+@utility glow-md {
+  box-shadow: 0 0 25px -5px hsl(var(--primary) / 0.4);
+}
+
+@utility glow-lg {
+  box-shadow: 0 0 40px -8px hsl(var(--primary) / 0.5);
+}
+
+@utility glow-text {
+  text-shadow: 0 0 20px hsl(var(--primary) / 0.5);
+}
+
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(24px);
+}
+
+.animate-on-scroll-visible {
+  animation: stagger-fade-in 0.5s ease-out both;
+}
+
+.stagger-fade {
+  animation: stagger-fade-in 0.35s ease-out both;
+  animation-delay: calc(var(--stagger-index, 0) * 0.1s);
+}
+
+button.glass-card[data-state="inactive"] {
+  color: hsl(var(--muted-foreground));
+}
+
+button.glass-card[data-state="active"],
+button.glass-card[data-state="active"]:hover {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 0 15px -3px hsl(var(--primary) / 0.3);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .animate-on-scroll,
+  .animate-on-scroll-visible {
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
 
   *,

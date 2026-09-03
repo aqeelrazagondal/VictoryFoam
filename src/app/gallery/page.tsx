@@ -26,7 +26,9 @@ export default function GalleryPage() {
         </AnimateOnScroll>
       </SectionWrapper>
       <SectionWrapper background="muted" className="pt-10">
-        <GalleryBrowser />
+        <AnimateOnScroll>
+          <GalleryBrowser />
+        </AnimateOnScroll>
       </SectionWrapper>
     </>
   );

@@ -21,7 +21,7 @@ export function generateMetadata(): Metadata {
 export default function ProductsPage() {
   return (
     <>
-      <SectionWrapper className="pb-10">
+      <SectionWrapper className="bg-gradient-to-br from-primary/20 via-background to-background pb-10">
         <AnimateOnScroll>
           <SectionHeader
             as="h1"
@@ -31,27 +31,25 @@ export default function ProductsPage() {
         </AnimateOnScroll>
       </SectionWrapper>
       <SectionWrapper background="muted" className="pt-10">
-        <AnimateOnScroll>
-          <h2 className="sr-only">Product catalogue</h2>
-          <Tabs defaultValue="all">
-            <TabsList aria-label="Filter products by category">
-              <TabsTrigger value="all">All products</TabsTrigger>
-              {categories.map((category) => (
-                <TabsTrigger id={category.slug} key={category.slug} value={category.slug}>
-                  {category.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <TabsContent value="all">
-              <ProductGrid products={products} />
-            </TabsContent>
+        <h2 className="sr-only">Product catalogue</h2>
+        <Tabs defaultValue="all">
+          <TabsList aria-label="Filter products by category">
+            <TabsTrigger value="all">All products</TabsTrigger>
             {categories.map((category) => (
-              <TabsContent key={category.slug} value={category.slug}>
-                <ProductGrid products={products.filter((product) => product.category === category.slug)} />
-              </TabsContent>
+              <TabsTrigger id={category.slug} key={category.slug} value={category.slug}>
+                {category.name}
+              </TabsTrigger>
             ))}
-          </Tabs>
-        </AnimateOnScroll>
+          </TabsList>
+          <TabsContent value="all">
+            <ProductGrid products={products} />
+          </TabsContent>
+          {categories.map((category) => (
+            <TabsContent key={category.slug} value={category.slug}>
+              <ProductGrid products={products.filter((product) => product.category === category.slug)} />
+            </TabsContent>
+          ))}
+        </Tabs>
       </SectionWrapper>
     </>
   );

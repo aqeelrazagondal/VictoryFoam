@@ -12,10 +12,11 @@ export function ProductGrid({ products }: { products: Product[] }) {
 
   return (
     <div className="grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
-      {products.map((product) => (
+      {products.map((product, index) => (
         <ProductCard
           key={`${product.category}-${product.slug}`}
           product={product}
+          index={index}
         />
       ))}
     </div>

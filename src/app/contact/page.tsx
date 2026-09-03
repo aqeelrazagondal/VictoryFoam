@@ -1,6 +1,5 @@
 import { Clock3, Mail, MapPin, Phone } from "lucide-react";
 import type { Metadata } from "next";
-import { Suspense } from "react";
 
 import { ContactForm } from "@/components/contact/contact-form";
 import { SectionHeader } from "@/components/sections/section-header";
@@ -33,34 +32,26 @@ export default function ContactPage() {
       <SectionWrapper background="muted" className="pt-10">
         <AnimateOnScroll>
         <div className="grid gap-10 lg:grid-cols-[1.15fr_.85fr]">
-          <Suspense
-            fallback={
-              <div className="min-h-[560px] rounded-xl border border-border bg-card p-8">
-                Loading enquiry form…
-              </div>
-            }
-          >
-            <ContactForm formId={process.env.NEXT_PUBLIC_FORMSPREE_FORM_ID} />
-          </Suspense>
+          <ContactForm formId={process.env.NEXT_PUBLIC_FORMSPREE_FORM_ID} />
 
-          <aside className="overflow-hidden rounded-xl bg-slate-950 text-slate-200">
+          <aside className="glass-card gradient-border overflow-hidden rounded-xl text-foreground">
             <div className="p-7 md:p-8">
-              <h2 className="font-heading text-2xl font-semibold text-white">{company.name}</h2>
+              <h2 className="font-heading text-2xl font-semibold">{company.name}</h2>
               <ul className="mt-8 space-y-6 text-sm">
                 <li className="flex gap-3">
-                  <MapPin className="mt-0.5 size-5 shrink-0 text-sky-400" />
+                  <MapPin className="mt-0.5 size-5 shrink-0 text-primary" />
                   <span>{company.address}</span>
                 </li>
                 <li className="flex gap-3">
-                  <Phone className="mt-0.5 size-5 shrink-0 text-sky-400" />
+                  <Phone className="mt-0.5 size-5 shrink-0 text-primary" />
                   <a href={`tel:${company.phone.replace(/[^\d+]/g, "")}`}>{company.phone}</a>
                 </li>
                 <li className="flex gap-3">
-                  <Mail className="mt-0.5 size-5 shrink-0 text-sky-400" />
+                  <Mail className="mt-0.5 size-5 shrink-0 text-primary" />
                   <a href={`mailto:${company.email}`}>{company.email}</a>
                 </li>
                 <li className="flex gap-3">
-                  <Clock3 className="mt-0.5 size-5 shrink-0 text-sky-400" />
+                  <Clock3 className="mt-0.5 size-5 shrink-0 text-primary" />
                   <span>{company.workingHours}</span>
                 </li>
               </ul>

@@ -23,7 +23,7 @@ export function SectionHeader({
     <header className={cn("max-w-3xl", align === "center" && "mx-auto text-center", className)}>
       {createElement(
         as,
-        { id, className: "font-heading font-semibold tracking-tight" },
+        { id, className: "font-heading font-semibold tracking-tight text-foreground" },
         title,
       )}
       {subtitle && (
