@@ -62,7 +62,7 @@ export function GalleryBrowser() {
           const images = galleryImages.filter((image) => image.type === collection.value);
           return (
             <TabsContent key={collection.value} value={collection.value}>
-              <div className="grid auto-rows-[240px] gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid auto-rows-[200px] gap-3 grid-cols-2 sm:auto-rows-[240px] sm:gap-4 lg:grid-cols-3">
                 {images.map((image, index) => (
                   <button
                     key={`${image.src}-${image.alt}`}
@@ -116,7 +116,7 @@ export function GalleryBrowser() {
                 (lightboxIndex - 1 + selectedImages.length) % selectedImages.length,
               )
             }
-            className="absolute left-4 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            className="absolute left-2 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:left-4 sm:size-11"
             aria-label="Previous image"
           >
             <ChevronLeft />
@@ -139,7 +139,7 @@ export function GalleryBrowser() {
           <button
             type="button"
             onClick={() => setLightboxIndex((lightboxIndex + 1) % selectedImages.length)}
-            className="absolute right-4 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            className="absolute right-2 top-1/2 grid size-10 -translate-y-1/2 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20 sm:right-4 sm:size-11"
             aria-label="Next image"
           >
             <ChevronRight />

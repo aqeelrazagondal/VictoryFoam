@@ -70,8 +70,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
               {product.shortDescription}
             </p>
 
-            <div className="glass-card mt-8 overflow-hidden rounded-xl">
-              <table className="w-full text-left text-sm">
+            <div className="glass-card mt-8 overflow-x-auto overflow-hidden rounded-xl">
+              <table className="w-full min-w-[320px] text-left text-sm">
                 <thead>
                   <tr>
                     <th className="px-4 py-3 font-semibold">Spec</th>

@@ -13,7 +13,7 @@ export function TabsList({
 }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
-      className={cn("inline-flex flex-wrap gap-2", className)}
+      className={cn("flex flex-wrap gap-2", className)}
       {...props}
     />
   );

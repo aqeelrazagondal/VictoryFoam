@@ -91,7 +91,7 @@ export function Header() {
                   <Menu />
                 </Button>
               </SheetTrigger>
-              <SheetContent className="w-full max-w-none p-6 sm:max-w-none" side="right">
+              <SheetContent className="!w-full !max-w-full p-6" side="right">
                 <SheetHeader>
                   <SheetTitle className="font-heading text-xl">{company.name}</SheetTitle>
                 </SheetHeader>

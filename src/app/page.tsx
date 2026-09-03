@@ -76,11 +76,11 @@ const process = [
 export default function HomePage() {
   return (
     <>
-      <SectionWrapper className="hero-gradient-bg flex min-h-[90vh] items-center overflow-hidden py-16">
+      <SectionWrapper className="hero-gradient-bg flex min-h-[80vh] items-center overflow-hidden py-10 sm:min-h-[90vh] sm:py-16">
         <AnimateOnScroll>
-          <div className="grid w-full items-center gap-12 lg:grid-cols-[1.05fr_.95fr]">
+          <div className="grid w-full items-center gap-8 sm:gap-12 lg:grid-cols-[1.05fr_.95fr]">
             <div>
-              <h1 className="max-w-4xl font-heading text-5xl font-semibold tracking-[-0.045em] sm:text-6xl lg:text-7xl">
+              <h1 className="max-w-4xl font-heading text-3xl font-semibold tracking-[-0.045em] sm:text-5xl md:text-6xl lg:text-7xl">
                 <span className="gradient-text">Victory Foam</span>
                 <span className="text-foreground"> — Precision Foam Manufacturing</span>
               </h1>
@@ -98,7 +98,7 @@ export default function HomePage() {
                 </Button>
               </div>
             </div>
-            <div className="gradient-border rounded-[2rem] bg-slate-950 p-6 shadow-2xl md:p-8">
+            <div className="gradient-border rounded-xl bg-slate-950 p-4 shadow-2xl sm:rounded-[2rem] sm:p-6 md:p-8">
               <FoamLayerViewerDynamic />
             </div>
           </div>
