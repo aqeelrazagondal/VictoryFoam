@@ -3,11 +3,8 @@ import type { Metadata } from "next";
 import { company } from "@/data/company";
 import type { CompanyInfo, Product } from "@/types";
 
-const configuredUrl =
-  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") ??
-  "https://www.example.com";
-
-export const SITE_URL = configuredUrl;
+const raw = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+export const SITE_URL = raw && raw.startsWith("http") ? raw : "https://www.example.com";
 
 export function getCanonicalUrl(path = "/") {
   return new URL(path, `${SITE_URL}/`).toString();
