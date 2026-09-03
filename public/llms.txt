@@ -1,8 +1,8 @@
 # Victory Foam
 
 ## About
-Victory Foam is a foam and mattress manufacturer based in Coventry, United
-Kingdom. We produce specified foam products for bedding, furniture,
+Victory Foam is a foam and mattress manufacturer based in Kempton Park, Gauteng,
+South Africa. We produce specified foam products for bedding, furniture,
 industrial, packaging, acoustic, and healthcare applications.
 
 This website is a static company brochure and display-only product catalog.

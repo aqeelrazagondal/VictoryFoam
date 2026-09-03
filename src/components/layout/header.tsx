@@ -49,7 +49,7 @@ export function Header() {
             href="/"
             className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight"
           >
-            <span className="grid size-9 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <span className="grid size-9 place-items-center rounded-lg bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--color-secondary-accent))] text-white shadow-sm">
               <Layers3 className="size-5" />
             </span>
             {company.name}
@@ -67,8 +67,8 @@ export function Header() {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
-                    "after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-primary after:transition-all after:duration-300 after:content-[''] hover:after:w-full",
+                    "relative px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground",
+                    "after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-0 after:-translate-x-1/2 after:rounded-full after:bg-gradient-to-r after:from-[hsl(var(--primary))] after:to-[hsl(var(--color-secondary-accent))] after:transition-all after:duration-300 after:content-[''] hover:after:w-full",
                     active && "text-foreground after:w-full",
                   )}
                 >

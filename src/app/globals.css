@@ -23,10 +23,22 @@
   --input: 214 32% 91%;
   --ring: 199 96% 34%;
   --radius: 0.625rem;
+  --color-secondary-accent: 260 80% 60%;
+  --color-success: 142 71% 45%;
+  --color-warning: 38 92% 50%;
+  --color-glow: 199 96% 34% / 0.5;
+  --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--color-secondary-accent)));
+  --gradient-hero: radial-gradient(ellipse at 20% 20%, hsl(199 89% 48% / 0.06), transparent 70%),
+    radial-gradient(ellipse at 80% 80%, hsl(260 80% 50% / 0.04), transparent 70%);
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
+  --shadow-glow: 0 0 25px -5px hsl(var(--color-glow));
+  --tracking-tight: -0.02em;
 }
 
 .dark {
-  --background: 222 46% 11%;
+  --background: 222 47% 11%;
   --foreground: 210 40% 96%;
   --card: 217 33% 17%;
   --card-foreground: 210 40% 96%;
@@ -45,6 +57,12 @@
   --border: 215 25% 27%;
   --input: 215 25% 27%;
   --ring: 198 93% 60%;
+  --color-glow: 198 93% 60% / 0.5;
+  --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--color-secondary-accent)));
+  --gradient-hero:
+    radial-gradient(ellipse 80% 60% at 20% 20%, hsl(199 89% 48% / 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 80% at 80% 80%, hsl(260 80% 50% / 0.06) 0%, transparent 70%);
+  --shadow-glow: 0 0 25px -5px hsl(var(--color-glow));
 }
 
 @theme inline {
@@ -71,6 +89,7 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 14px);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-plus-jakarta);
 }
@@ -106,8 +125,7 @@ body::before {
 
 .dark body::before {
   background:
-    radial-gradient(ellipse 80% 60% at 20% 20%, hsl(199 89% 48% / 0.06) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 80% at 80% 80%, hsl(260 80% 50% / 0.04) 0%, transparent 70%),
+    var(--gradient-hero),
     hsl(var(--background));
 }
 
@@ -119,6 +137,7 @@ h5,
 h6 {
   font-family: var(--font-plus-jakarta), system-ui, sans-serif;
   text-wrap: balance;
+  letter-spacing: var(--tracking-tight);
 }
 
 h1 {
@@ -149,6 +168,8 @@ p {
   @apply mx-auto w-full max-w-[1280px] px-4 md:px-6;
 }
 
+/* --------------- Glass card --------------- */
+
 .glass-card {
   color: hsl(var(--card-foreground));
   @apply backdrop-blur-[12px];
@@ -158,7 +179,7 @@ p {
 html:not(.dark) .glass-card {
   background: hsl(0 0% 100% / 0.7);
   border: 1px solid hsl(var(--border) / 0.3);
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 html:not(.dark) .glass-card:hover {
@@ -175,9 +196,11 @@ html:not(.dark) .glass-card:hover {
 
 .dark .glass-card:hover {
   background: hsl(var(--card) / 0.75);
-  border-color: hsl(var(--primary) / 0.3);
-  box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.15);
+  border-color: hsl(var(--primary) / 0.4);
+  box-shadow: var(--shadow-glow);
 }
+
+/* --------------- Gradient border --------------- */
 
 .gradient-border {
   position: relative;
@@ -195,7 +218,7 @@ html:not(.dark) .glass-card:hover {
   background: linear-gradient(
     135deg,
     hsl(var(--primary) / 0.5),
-    hsl(260 80% 60% / 0.3),
+    hsl(var(--color-secondary-accent) / 0.3),
     hsl(var(--primary) / 0.1)
   );
   -webkit-mask:
@@ -207,6 +230,8 @@ html:not(.dark) .glass-card:hover {
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }
+
+/* --------------- Glow utilities --------------- */
 
 @utility glow-sm {
   box-shadow: 0 0 15px -3px hsl(var(--primary) / 0.3);
@@ -224,6 +249,27 @@ html:not(.dark) .glass-card:hover {
   text-shadow: 0 0 20px hsl(var(--primary) / 0.5);
 }
 
+/* --------------- Gradient text --------------- */
+
+@utility gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* --------------- Gradient button --------------- */
+
+@utility btn-gradient {
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  box-shadow: var(--shadow-glow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* --------------- Scroll animations --------------- */
+
 @keyframes stagger-fade-in {
   from {
     opacity: 0;
@@ -232,6 +278,15 @@ html:not(.dark) .glass-card:hover {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes gradient-drift {
+  0%, 100% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
   }
 }
 
@@ -249,6 +304,8 @@ html:not(.dark) .glass-card:hover {
   animation-delay: calc(var(--stagger-index, 0) * 0.1s);
 }
 
+/* --------------- Tab active state --------------- */
+
 button.glass-card[data-state="inactive"] {
   color: hsl(var(--muted-foreground));
 }
@@ -261,6 +318,34 @@ button.glass-card[data-state="active"]:hover {
   box-shadow: 0 0 15px -3px hsl(var(--primary) / 0.3);
 }
 
+/* --------------- Hero gradient animation --------------- */
+
+.hero-gradient-bg {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-gradient-bg::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 50% 50% at 20% 30%, hsl(var(--primary) / 0.15), transparent 70%),
+    radial-gradient(ellipse 40% 60% at 80% 70%, hsl(var(--color-secondary-accent) / 0.1), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 50% 50%, hsl(var(--primary) / 0.05), transparent 80%);
+  background-size: 200% 200%;
+  animation: gradient-drift 20s ease-in-out infinite;
+}
+
+.hero-gradient-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* --------------- Reduced motion --------------- */
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -270,6 +355,10 @@ button.glass-card[data-state="active"]:hover {
   .animate-on-scroll-visible {
     opacity: 1;
     transform: none;
+    animation: none;
+  }
+
+  .hero-gradient-bg::before {
     animation: none;
   }
 

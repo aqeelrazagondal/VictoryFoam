@@ -6,24 +6,24 @@ export const company: CompanyInfo = {
   tagline: "Foam engineered for the way your product is used.",
   description:
     "Victory Foam manufactures mattress, comfort, industrial, and custom-cut foam components for trade customers.",
-  phone: "+44 (0) 24 7618 4200",
-  email: "enquiries@victoryfoam.co.uk",
-  address: "Unit 14 Meridian Works, Coventry, West Midlands CV6 4BX, United Kingdom",
+  phone: "+27 (0) 11 234 5678",
+  email: "enquiries@victoryfoam.co.za",
+  address: "Unit 7 Alton Industrial Park, 14 Electron Avenue, Kempton Park, Gauteng 1619, South Africa",
   postalAddress: {
-    streetAddress: "Unit 14 Meridian Works",
-    addressLocality: "Coventry",
-    addressRegion: "West Midlands",
-    postalCode: "CV6 4BX",
-    addressCountry: "GB",
+    streetAddress: "Unit 7 Alton Industrial Park, 14 Electron Avenue",
+    addressLocality: "Kempton Park",
+    addressRegion: "Gauteng",
+    postalCode: "1619",
+    addressCountry: "ZA",
   },
-  workingHours: "Monday–Friday, 08:00–17:00",
-  openingHours: "Mo-Fr 08:00-17:00",
+  workingHours: "Monday–Friday, 07:30–16:30",
+  openingHours: "Mo-Fr 07:30-16:30",
   mapEmbedUrl:
-    "https://www.google.com/maps?q=Coventry%20West%20Midlands%20CV6%204BX&output=embed",
+    "https://www.google.com/maps?q=Kempton+Park+Gauteng+1619+South+Africa&output=embed",
   socialLinks: [
-    { platform: "LinkedIn", url: "https://www.linkedin.com/company/victory-foam-uk/" },
-    { platform: "Facebook", url: "https://www.facebook.com/victoryfoamuk/" },
-    { platform: "Instagram", url: "https://www.instagram.com/victoryfoamuk/" },
+    { platform: "LinkedIn", url: "https://www.linkedin.com/company/victory-foam-za/" },
+    { platform: "Facebook", url: "https://www.facebook.com/victoryfoamza/" },
+    { platform: "Instagram", url: "https://www.instagram.com/victoryfoamza/" },
   ],
 };
 

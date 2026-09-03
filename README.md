@@ -43,7 +43,7 @@ NEXT_PUBLIC_FORMSPREE_FORM_ID=your_form_id
 ```
 
 The contact page posts to Formspree when the ID is set. When it is absent,
-submit opens a `mailto:` draft to `enquiries@victoryfoam.co.uk`, and the form
+submit opens a `mailto:` draft to `enquiries@victoryfoam.co.za`, and the form
 always offers that address as a direct-email option.
 
 Set `NEXT_PUBLIC_SITE_URL` to the public origin before building so canonical

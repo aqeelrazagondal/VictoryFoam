@@ -14,6 +14,6 @@ export const certifications: Certification[] = [
   {
     name: "BS 7177",
     image: "/images/certifications/bs-7177.svg",
-    description: "UK mattress fire safety",
+    description: "South African mattress fire safety",
   },
 ];

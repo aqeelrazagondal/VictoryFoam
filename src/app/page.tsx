@@ -17,7 +17,7 @@ import type { Category } from "@/types";
 export const metadata: Metadata = buildMetadata({
   title: "Precision Foam Manufacturing",
   description:
-    "Victory Foam manufactures specified mattresses, comfort products, industrial foam, and custom-cut components for trade customers across the UK.",
+    "Victory Foam manufactures specified mattresses, comfort products, industrial foam, and custom-cut components for trade customers across South Africa.",
   path: "/",
 });
 
@@ -61,8 +61,8 @@ const strengths = [
   },
   {
     icon: MapPin,
-    title: "UK Manufacturing",
-    description: "Responsive development and production support from a UK-based operation.",
+    title: "South African Manufacturing",
+    description: "Responsive development and production support from a South Africa-based operation.",
   },
 ];
 
@@ -76,18 +76,19 @@ const process = [
 export default function HomePage() {
   return (
     <>
-      <SectionWrapper className="flex min-h-[90vh] items-center overflow-hidden bg-gradient-to-br from-primary/20 via-background to-background py-16">
+      <SectionWrapper className="hero-gradient-bg flex min-h-[90vh] items-center overflow-hidden py-16">
         <AnimateOnScroll>
           <div className="grid w-full items-center gap-12 lg:grid-cols-[1.05fr_.95fr]">
             <div>
-              <h1 className="max-w-4xl font-heading text-5xl font-semibold tracking-[-0.045em] text-foreground sm:text-6xl lg:text-7xl">
-                Victory Foam — Precision Foam Manufacturing
+              <h1 className="max-w-4xl font-heading text-5xl font-semibold tracking-[-0.045em] sm:text-6xl lg:text-7xl">
+                <span className="gradient-text">Victory Foam</span>
+                <span className="text-foreground"> — Precision Foam Manufacturing</span>
               </h1>
               <p className="mt-6 text-lg leading-8 text-muted-foreground">
                 We manufacture mattress, comfort, industrial, and custom-cut foam products around your specification.
               </p>
               <div className="gradient-border mt-8 inline-flex flex-wrap gap-3 rounded-xl p-3">
-                <Button asChild size="lg">
+                <Button asChild size="lg" variant="gradient">
                   <Link href="/products/">
                     View Our Products <ArrowRight />
                   </Link>
@@ -235,12 +236,12 @@ export default function HomePage() {
             />
             <div className="relative">
               <h2 className="font-heading text-3xl font-semibold md:text-4xl">
-                Ready to discuss your project?
+                <span className="gradient-text">Ready to discuss your project?</span>
               </h2>
               <p className="mt-4 text-muted-foreground">
                 Send your dimensions, drawing, sample, or performance brief and we will help define the next step.
               </p>
-              <Button asChild size="lg" className="mt-8 glow-sm">
+              <Button asChild size="lg" variant="gradient" className="mt-8">
                 <Link href="/contact/">
                   Get in Touch <ArrowRight />
                 </Link>

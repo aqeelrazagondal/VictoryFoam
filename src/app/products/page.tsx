@@ -21,7 +21,7 @@ export function generateMetadata(): Metadata {
 export default function ProductsPage() {
   return (
     <>
-      <SectionWrapper className="bg-gradient-to-br from-primary/20 via-background to-background pb-10">
+      <SectionWrapper className="hero-gradient-bg pb-10">
         <AnimateOnScroll>
           <SectionHeader
             as="h1"
