@@ -1,9 +1,9 @@
 "use client";
 
-import { Layers3, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Layers3, Menu, Phone } from "lucide-react";
 
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -21,13 +21,48 @@ import { cn } from "@/lib/utils";
 export function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
+  const [showPhone, setShowPhone] = useState(false);
+  const [headerVisible, setHeaderVisible] = useState(pathname !== "/");
+  const [overCinema, setOverCinema] = useState(pathname === "/");
 
   useEffect(() => {
-    const update = () => setScrolled(window.scrollY > 12);
+    const update = () => {
+      const y = window.scrollY;
+      setScrolled(y > 20);
+      if (pathname === "/") {
+        const cinema = document.getElementById("mattress-cinema");
+        if (cinema && window.matchMedia("(min-width: 768px)").matches) {
+          const rect = cinema.getBoundingClientRect();
+          const pastCinema = rect.bottom < 120;
+          const stillInCinema = rect.top < 80 && rect.bottom > 120;
+          setShowPhone(pastCinema);
+          setOverCinema(stillInCinema && !pastCinema);
+          setHeaderVisible(y > 40 || pastCinema || y > window.innerHeight * 0.15);
+        } else {
+          setShowPhone(y > 200);
+          setOverCinema(false);
+          setHeaderVisible(true);
+        }
+      } else {
+        setShowPhone(false);
+        setOverCinema(false);
+        setHeaderVisible(true);
+      }
+    };
+
     update();
+    const timer =
+      pathname === "/"
+        ? window.setTimeout(() => setHeaderVisible(true), 2000)
+        : undefined;
     window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
-  }, []);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [pathname]);
 
   return (
     <>
@@ -39,9 +74,14 @@ export function Header() {
       </a>
       <header
         className={cn(
-          "sticky top-0 z-40 bg-background/95 transition-all",
+          "relative sticky top-0 z-50 transition-all duration-300",
           "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-primary/30 after:to-transparent after:opacity-0 after:transition-opacity after:duration-300 after:content-['']",
-          scrolled && "bg-background/80 backdrop-blur-xl after:opacity-100",
+          headerVisible ? "opacity-100" : "pointer-events-none opacity-0",
+          overCinema
+            ? "border-b border-white/10 bg-[#0B1121]/70 text-white backdrop-blur-xl after:opacity-100"
+            : scrolled
+              ? "border-b border-border/50 bg-background/80 shadow-lg shadow-black/10 backdrop-blur-xl after:opacity-100"
+              : "bg-transparent",
         )}
       >
         <div className="container-site flex h-18 items-center justify-between">
@@ -67,9 +107,12 @@ export function Header() {
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "relative px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground",
+                    "relative px-3 py-2 text-sm font-medium transition-colors duration-200",
+                    overCinema
+                      ? "text-slate-300 hover:text-white"
+                      : "text-muted-foreground hover:text-foreground",
                     "after:absolute after:bottom-0 after:left-1/2 after:h-0.5 after:w-0 after:-translate-x-1/2 after:rounded-full after:bg-gradient-to-r after:from-[hsl(var(--primary))] after:to-[hsl(var(--color-secondary-accent))] after:transition-all after:duration-300 after:content-[''] hover:after:w-full",
-                    active && "text-foreground after:w-full",
+                    active && (overCinema ? "text-white after:w-full" : "text-foreground after:w-full"),
                   )}
                 >
                   {item.label}
@@ -79,6 +122,15 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-1">
+            {showPhone && (
+              <a
+                href={`tel:${company.phone.replace(/[^\d+]/g, "")}`}
+                className="mr-1 hidden items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-foreground transition-colors hover:text-primary md:inline-flex"
+              >
+                <Phone className="size-4 text-primary" />
+                {company.phone}
+              </a>
+            )}
             <ThemeToggle />
             <Sheet>
               <SheetTrigger asChild>

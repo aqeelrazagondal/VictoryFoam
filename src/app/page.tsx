@@ -3,7 +3,12 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-import { FoamLayerViewerDynamic } from "@/components/3d/foam-layer-viewer-dynamic";
+import { MattressScrollDynamic } from "@/components/3d/mattress-scroll-dynamic";
+import { MobileMattressHeroDynamic } from "@/components/3d/mobile-mattress-hero-dynamic";
+import { QuickEnquiryFab } from "@/components/conversion/quick-enquiry-fab";
+import { StickyCtaBar } from "@/components/conversion/sticky-cta-bar";
+import { TrustStrip } from "@/components/conversion/trust-strip";
+import { SmoothScroll } from "@/components/smooth-scroll";
 import { SectionHeader } from "@/components/sections/section-header";
 import { SectionWrapper } from "@/components/sections/section-wrapper";
 import { AnimateOnScroll } from "@/components/ui/animate-on-scroll";
@@ -66,7 +71,7 @@ const strengths = [
   },
 ];
 
-const process = [
+const workflow = [
   { title: "Enquire", description: "Share the application, dimensions, volume, and performance target." },
   { title: "Design", description: "We select materials and develop a practical construction or sample." },
   { title: "Manufacture", description: "Controlled conversion turns the approved design into repeatable parts." },
@@ -75,35 +80,12 @@ const process = [
 
 export default function HomePage() {
   return (
-    <>
-      <SectionWrapper className="hero-gradient-bg flex min-h-[80vh] items-center overflow-hidden py-10 sm:min-h-[90vh] sm:py-16">
-        <AnimateOnScroll>
-          <div className="grid w-full items-center gap-8 sm:gap-12 lg:grid-cols-[1.05fr_.95fr]">
-            <div>
-              <h1 className="max-w-4xl font-heading text-3xl font-semibold tracking-[-0.045em] sm:text-5xl md:text-6xl lg:text-7xl">
-                <span className="gradient-text">Victory Foam</span>
-                <span className="text-foreground"> — Precision Foam Manufacturing</span>
-              </h1>
-              <p className="mt-6 text-lg leading-8 text-muted-foreground">
-                We manufacture mattress, comfort, industrial, and custom-cut foam products around your specification.
-              </p>
-              <div className="gradient-border mt-8 inline-flex flex-wrap gap-3 rounded-xl p-3">
-                <Button asChild size="lg" variant="gradient">
-                  <Link href="/products/">
-                    View Our Products <ArrowRight />
-                  </Link>
-                </Button>
-                <Button asChild size="lg" variant="outline">
-                  <Link href="/contact/">Get in Touch</Link>
-                </Button>
-              </div>
-            </div>
-            <div className="gradient-border rounded-xl bg-slate-950 p-4 shadow-2xl sm:rounded-[2rem] sm:p-6 md:p-8">
-              <FoamLayerViewerDynamic />
-            </div>
-          </div>
-        </AnimateOnScroll>
-      </SectionWrapper>
+    <SmoothScroll>
+      <MattressScrollDynamic />
+      <MobileMattressHeroDynamic />
+
+      <TrustStrip />
+      <div className="section-divider" />
 
       <SectionWrapper>
         <AnimateOnScroll>
@@ -119,13 +101,12 @@ export default function HomePage() {
                   key={category.slug}
                   href={`/products/#${category.slug}`}
                   className={cn(
-                    "glass-card group overflow-hidden rounded-xl border-t-2 transition-transform duration-300",
-                    "hover:-translate-y-0.5 motion-reduce:hover:translate-y-0",
+                    "glass-card group overflow-hidden rounded-xl border-t-2",
                     accent.border,
                     accent.glow,
                   )}
                 >
-                  <div className="relative aspect-[4/3] overflow-hidden bg-white">
+                  <div className="relative aspect-[4/3] overflow-hidden bg-slate-800">
                     <Image
                       src={category.image}
                       alt={`${category.name} foam product category`}
@@ -150,8 +131,10 @@ export default function HomePage() {
         </AnimateOnScroll>
       </SectionWrapper>
 
+      <div className="section-divider" />
+
       <SectionWrapper background="muted">
-        <AnimateOnScroll>
+        <AnimateOnScroll delay={0.1}>
           <SectionHeader
             title="Why Choose Us"
             subtitle="Practical technical support from first brief through repeat production."
@@ -170,8 +153,10 @@ export default function HomePage() {
         </AnimateOnScroll>
       </SectionWrapper>
 
+      <div className="section-divider" />
+
       <SectionWrapper>
-        <AnimateOnScroll>
+        <AnimateOnScroll delay={0.1}>
           <SectionHeader
             title="How We Work"
             subtitle="A clear four-stage route from requirement to finished foam product."
@@ -186,7 +171,7 @@ export default function HomePage() {
               className="pointer-events-none absolute left-0 right-0 top-6 hidden h-px bg-gradient-to-r from-primary via-primary/40 to-muted-foreground/30 lg:block"
             />
             <ol className="relative grid gap-8 lg:grid-cols-4 lg:gap-5">
-              {process.map((step, index) => (
+              {workflow.map((step, index) => (
                 <li
                   key={step.title}
                   className="relative grid grid-cols-[3rem_1fr] gap-4 lg:block lg:pt-20"
@@ -196,7 +181,7 @@ export default function HomePage() {
                   </span>
                   <div className="glass-card rounded-xl p-5">
                     <h3 className="font-heading text-xl font-semibold text-foreground">{step.title}</h3>
-                    <p className="mt-2 text-sm text-foreground/80">{step.description}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{step.description}</p>
                   </div>
                 </li>
               ))}
@@ -205,8 +190,10 @@ export default function HomePage() {
         </AnimateOnScroll>
       </SectionWrapper>
 
+      <div className="section-divider" />
+
       <SectionWrapper background="muted">
-        <AnimateOnScroll>
+        <AnimateOnScroll delay={0.1}>
           <SectionHeader
             title="Certifications"
             subtitle="Standards are matched to the selected material and finished construction."
@@ -227,29 +214,40 @@ export default function HomePage() {
         </AnimateOnScroll>
       </SectionWrapper>
 
-      <SectionWrapper>
-        <AnimateOnScroll>
-          <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-primary/10 via-background to-transparent p-8 md:p-12">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute left-1/2 top-1/2 size-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/20 blur-3xl"
-            />
-            <div className="relative">
-              <h2 className="font-heading text-3xl font-semibold md:text-4xl">
-                <span className="gradient-text">Ready to discuss your project?</span>
+      <div className="section-divider" />
+
+      <section className="relative overflow-hidden py-20">
+        <div aria-hidden className="absolute inset-0 bg-gradient-to-b from-primary/5 via-primary/10 to-primary/5" />
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_hsl(199_89%_48%_/_0.1)_0%,_transparent_70%)]"
+        />
+        <div className="container-site relative">
+          <AnimateOnScroll delay={0.1}>
+            <div className="mx-auto max-w-2xl px-4 text-center">
+              <h2 className="mb-4 font-heading text-3xl font-bold text-foreground md:text-4xl">
+                Ready to discuss your project?
               </h2>
-              <p className="mt-4 text-muted-foreground">
+              <p className="mb-8 text-lg text-slate-600 dark:text-slate-300">
                 Send your dimensions, drawing, sample, or performance brief and we will help define the next step.
               </p>
-              <Button asChild size="lg" variant="gradient" className="mt-8">
+              <Button
+                asChild
+                size="lg"
+                variant="gradient"
+                className="px-8 py-4 text-lg shadow-lg shadow-primary/25 hover:shadow-primary/40"
+              >
                 <Link href="/contact/">
-                  Get in Touch <ArrowRight />
+                  Get in Touch <ArrowRight className="size-5" />
                 </Link>
               </Button>
             </div>
-          </div>
-        </AnimateOnScroll>
-      </SectionWrapper>
-    </>
+          </AnimateOnScroll>
+        </div>
+      </section>
+
+      <StickyCtaBar />
+      <QuickEnquiryFab formId={process.env.NEXT_PUBLIC_FORMSPREE_FORM_ID} />
+    </SmoothScroll>
   );
 }

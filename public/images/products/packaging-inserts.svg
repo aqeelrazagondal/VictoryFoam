@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-label="Protective Packaging Inserts">
+  <rect width="1200" height="900" fill="#1E293B"/>
+  <circle cx="80" cy="-40" r="260" fill="none" stroke="#FB923C" stroke-width="28" opacity="0.4"/>
+  <rect x="250" y="220" width="700" height="420" rx="28" fill="#F97316" opacity="0.28"/>
+  <rect x="310" y="280" width="250" height="300" rx="20" fill="#FB923C" opacity="0.7"/>
+  <rect x="600" y="280" width="280" height="140" rx="20" fill="#FDBA74" opacity="0.75"/>
+  <rect x="600" y="440" width="280" height="140" rx="20" fill="#F97316" opacity="0.8"/>
+  <text x="80" y="760" fill="#F8FAFC" font-family="Arial, sans-serif" font-size="42" font-weight="700">Packaging inserts</text>
+  <text x="80" y="810" fill="#FB923C" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">VICTORY FOAM</text>
+</svg>

@@ -18,8 +18,8 @@ export function ProductCard({
       className="stagger-fade group block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       style={{ "--stagger-index": index } as CSSProperties}
     >
-        <div className="glass-card h-full overflow-hidden rounded-xl transition-[transform,box-shadow] duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_0_25px_-5px_hsl(var(--primary)/0.2)] motion-reduce:group-hover:translate-y-0">
-        <div className="relative aspect-[4/3] overflow-hidden bg-muted">
+        <div className="glass-card h-full overflow-hidden rounded-xl">
+        <div className="relative aspect-[4/3] overflow-hidden bg-slate-800">
           <Image
             width={1200}
             height={900}

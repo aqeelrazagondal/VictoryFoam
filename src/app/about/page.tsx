@@ -92,9 +92,9 @@ export default function AboutPage() {
                 </p>
               </div>
             </div>
-            <div className="relative aspect-[4/3] overflow-hidden rounded-[2rem] bg-white">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-[2rem] bg-slate-800">
               <Image
-                src="/images/factory/foam-blocks.webp"
+                src="/images/factory/foam-blocks.svg"
                 alt="Foam blocks arranged for conversion in the Victory Foam factory"
                 width={1200}
                 height={900}

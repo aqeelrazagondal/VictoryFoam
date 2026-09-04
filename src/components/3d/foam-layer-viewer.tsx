@@ -36,7 +36,7 @@ function FoamFallback({ action }: { action?: ReactNode }) {
   return (
     <div className="relative min-h-[360px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950 text-slate-100 md:min-h-[400px]">
       <Image
-        src="/images/products/foam-layer-fallback.webp"
+        src="/images/products/foam-layer-fallback.svg"
         alt="Exploded five-layer mattress foam construction"
         width={1200}
         height={900}

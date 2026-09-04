@@ -31,6 +31,7 @@ export default function ProductsPage() {
         </AnimateOnScroll>
       </SectionWrapper>
       <SectionWrapper background="muted" className="pt-10">
+        <AnimateOnScroll delay={0.1}>
         <h2 className="sr-only">Product catalogue</h2>
         <Tabs defaultValue="all">
           <TabsList aria-label="Filter products by category">
@@ -50,6 +51,7 @@ export default function ProductsPage() {
             </TabsContent>
           ))}
         </Tabs>
+        </AnimateOnScroll>
       </SectionWrapper>
     </>
   );

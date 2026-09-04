@@ -132,7 +132,7 @@ export function GalleryBrowser() {
                 sizes="90vw"
               />
             </div>
-            <figcaption className="mt-4 text-center text-sm text-slate-300">
+            <figcaption className="mt-4 text-center text-sm text-muted-foreground">
               {selectedImages[lightboxIndex].alt}
             </figcaption>
           </figure>

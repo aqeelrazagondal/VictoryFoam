@@ -18,7 +18,7 @@ export function SectionWrapper({
       className={cn(
         "py-16 md:py-24",
         background === "muted" && "bg-secondary/80 dark:bg-[hsl(var(--card)/0.3)]",
-        background === "dark" && "bg-[hsl(222_47%_8%)] text-slate-50",
+        background === "dark" && "bg-[hsl(222_47%_8%)] text-foreground",
         className,
       )}
       {...props}

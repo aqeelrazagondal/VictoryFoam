@@ -8,7 +8,13 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   experimental: {
-    optimizePackageImports: ["framer-motion", "lucide-react", "@react-three/drei"],
+    optimizePackageImports: [
+      "framer-motion",
+      "lucide-react",
+      "@react-three/drei",
+      "gsap",
+      "lenis",
+    ],
   },
 };
 

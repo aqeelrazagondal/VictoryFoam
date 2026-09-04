@@ -6,7 +6,7 @@ export const categories: Category[] = [
     name: "Mattresses",
     description:
       "Layered foam constructions engineered for repeatable comfort and support.",
-    image: "/images/products/memory-foam-mattress.webp",
+    image: "/images/products/memory-foam-mattress.svg",
     accent: "cyan",
   },
   {
@@ -14,7 +14,7 @@ export const categories: Category[] = [
     name: "Toppers & Pillows",
     description:
       "Pressure-relieving sleep accessories in custom profiles and firmnesses.",
-    image: "/images/products/cooling-gel-topper.webp",
+    image: "/images/products/cooling-gel-topper.svg",
     accent: "teal",
   },
   {
@@ -22,7 +22,7 @@ export const categories: Category[] = [
     name: "Industrial Foam",
     description:
       "Durable foam grades for acoustic, packaging, seating, and protection.",
-    image: "/images/products/industrial-foam.webp",
+    image: "/images/products/industrial-foam.svg",
     accent: "amber",
   },
   {
@@ -30,7 +30,7 @@ export const categories: Category[] = [
     name: "Custom Cut Foam",
     description:
       "Made-to-drawing components cut to your dimensions and tolerances.",
-    image: "/images/products/custom-cut-foam.webp",
+    image: "/images/products/custom-cut-foam.svg",
     accent: "purple",
   },
 ];

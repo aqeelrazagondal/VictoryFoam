@@ -17,7 +17,7 @@ export function ProductGallery({
   return (
     <div>
       <div className="gradient-border rounded-xl">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-white">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-800">
           <Image
             src={images[selected]}
             alt={productName}
@@ -39,7 +39,7 @@ export function ProductGallery({
               aria-pressed={selected === index}
               onClick={() => setSelected(index)}
               className={cn(
-                "relative aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-white sm:w-20",
+                "relative aspect-square w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-slate-800 sm:w-20",
                 selected === index ? "border-primary" : "border-transparent",
               )}
             >

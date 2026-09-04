@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { company } from "@/data/company";
 
 const fieldClass =
-  "mt-2 w-full rounded-lg border border-border/50 bg-card/50 px-3 py-2 text-foreground placeholder:text-muted-foreground focus:border-primary/50 focus:ring-2 focus:ring-primary/20 focus:outline-none";
+  "mt-2 w-full rounded-lg border border-input bg-background px-4 py-3 text-foreground placeholder:text-muted-foreground transition-all duration-200 focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600/50 dark:bg-slate-800/50 dark:placeholder:text-slate-500";
 
 function readField(data: FormData, name: string): string {
   const value = data.get(name);
@@ -58,7 +58,7 @@ export function ContactForm({ formId }: { formId?: string }) {
             <input id="_gotcha" name="_gotcha" tabIndex={-1} autoComplete="off" />
           </label>
         </div>
-        <label htmlFor="contact-name" className="text-sm font-medium">
+        <label htmlFor="contact-name" className="block text-sm font-medium text-foreground">
           Name
           <input
             id="contact-name"
@@ -68,7 +68,7 @@ export function ContactForm({ formId }: { formId?: string }) {
             required
           />
         </label>
-        <label htmlFor="contact-email" className="text-sm font-medium">
+        <label htmlFor="contact-email" className="block text-sm font-medium text-foreground">
           Email
           <input
             id="contact-email"
@@ -79,7 +79,7 @@ export function ContactForm({ formId }: { formId?: string }) {
             required
           />
         </label>
-        <label htmlFor="contact-phone" className="text-sm font-medium">
+        <label htmlFor="contact-phone" className="block text-sm font-medium text-foreground">
           Phone
           <input
             id="contact-phone"
@@ -91,22 +91,26 @@ export function ContactForm({ formId }: { formId?: string }) {
             title="Enter at least seven digits using spaces, brackets, plus, or hyphens."
           />
         </label>
-        <label htmlFor="contact-subject" className="text-sm font-medium">
+        <label htmlFor="contact-subject" className="block text-sm font-medium text-foreground">
           Subject
           <ContactSubjectField className={fieldClass} />
         </label>
-        <label htmlFor="contact-message" className="text-sm font-medium">
+        <label htmlFor="contact-message" className="block text-sm font-medium text-foreground">
           Message
           <textarea
             id="contact-message"
-            className={`${fieldClass} min-h-36 resize-y`}
+            className={`${fieldClass} min-h-[120px] resize-y`}
             name="message"
             placeholder="Application, dimensions, quantity, timing, or relevant standards"
             required
             minLength={20}
           />
         </label>
-        <Button type="submit" size="lg" className="w-full hover:glow-sm">
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full px-6 py-3 text-white shadow-lg shadow-primary/25 hover:bg-primary/90 hover:shadow-primary/40"
+        >
           Send Message
         </Button>
         <p className="text-xs text-muted-foreground">

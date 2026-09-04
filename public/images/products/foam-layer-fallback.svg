@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900" role="img" aria-label="Five-layer foam construction">
+  <rect width="1200" height="900" fill="#1E293B"/>
+  <circle cx="1120" cy="-40" r="280" fill="none" stroke="#0EA5E9" stroke-width="28" opacity="0.4"/>
+  <rect x="300" y="180" width="600" height="62" rx="18" fill="#7DD3FC" opacity="0.65"/>
+  <rect x="300" y="262" width="600" height="62" rx="18" fill="#38BDF8" opacity="0.75"/>
+  <rect x="300" y="344" width="600" height="70" rx="18" fill="#0EA5E9" opacity="0.8"/>
+  <rect x="300" y="434" width="600" height="78" rx="18" fill="#0284C7" opacity="0.85"/>
+  <rect x="300" y="532" width="600" height="90" rx="18" fill="#0369A1" opacity="0.9"/>
+  <text x="80" y="760" fill="#F8FAFC" font-family="Arial, sans-serif" font-size="42" font-weight="700">Five-layer construction</text>
+  <text x="80" y="810" fill="#38BDF8" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="4">VICTORY FOAM</text>
+</svg>
