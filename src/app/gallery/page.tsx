@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { GalleryBrowser } from "@/components/gallery/gallery-browser";
+import { PageCta } from "@/components/layout/page-cta";
 import { SectionHeader } from "@/components/sections/section-header";
 import { SectionWrapper } from "@/components/sections/section-wrapper";
 import { AnimateOnScroll } from "@/components/ui/animate-on-scroll";
@@ -30,6 +31,10 @@ export default function GalleryPage() {
           <GalleryBrowser />
         </AnimateOnScroll>
       </SectionWrapper>
+      <PageCta
+        title="See a construction that fits your range?"
+        description="Browse product platforms or send a drawing, sample, or specification for a manufacturing review."
+      />
     </>
   );
 }

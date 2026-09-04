@@ -5,7 +5,7 @@ import Link from "next/link";
 
 import { MattressScrollDynamic } from "@/components/3d/mattress-scroll-dynamic";
 import { MobileMattressHeroDynamic } from "@/components/3d/mobile-mattress-hero-dynamic";
-import { QuickEnquiryFab } from "@/components/conversion/quick-enquiry-fab";
+import { TrackedLink } from "@/components/analytics/tracked-link";
 import { StickyCtaBar } from "@/components/conversion/sticky-cta-bar";
 import { TrustStrip } from "@/components/conversion/trust-strip";
 import { SmoothScroll } from "@/components/smooth-scroll";
@@ -237,9 +237,9 @@ export default function HomePage() {
                 variant="gradient"
                 className="px-8 py-4 text-lg shadow-lg shadow-primary/25 hover:shadow-primary/40"
               >
-                <Link href="/contact/">
+                <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "start-your-project" }}>
                   Get in Touch <ArrowRight className="size-5" />
-                </Link>
+                </TrackedLink>
               </Button>
             </div>
           </AnimateOnScroll>
@@ -247,7 +247,6 @@ export default function HomePage() {
       </section>
 
       <StickyCtaBar />
-      <QuickEnquiryFab formId={process.env.NEXT_PUBLIC_FORMSPREE_FORM_ID} />
     </SmoothScroll>
   );
 }

@@ -2,9 +2,9 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import Link from "next/link";
 import { Component, useEffect, useState, type ReactNode } from "react";
 
+import { TrackedLink } from "@/components/analytics/tracked-link";
 import { Button } from "@/components/ui/button";
 import { shouldUseHeavyWebGl } from "@/lib/webgl";
 
@@ -23,7 +23,10 @@ function CinemaFallback({
   action?: ReactNode;
 }) {
   return (
-    <section className="relative flex min-h-screen items-center overflow-hidden bg-[#0B1121] dark">
+    <section
+      id="mattress-cinema"
+      className="relative flex min-h-screen items-center overflow-hidden bg-[#0B1121] dark"
+    >
       <Image
         src="/images/products/foam-layer-fallback.svg"
         alt="Exploded five-layer mattress foam construction"
@@ -42,7 +45,9 @@ function CinemaFallback({
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <Button asChild size="lg" variant="gradient">
-            <Link href="/contact/">Start Your Project</Link>
+            <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "start-your-project" }}>
+              Start Your Project
+            </TrackedLink>
           </Button>
           {action}
         </div>

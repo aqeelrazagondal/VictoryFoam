@@ -179,6 +179,8 @@ export default function FoamLayerViewerScene() {
     <div
       ref={viewerRef}
       className="grid overflow-hidden rounded-xl border border-slate-700 bg-slate-950 lg:grid-cols-[1.5fr_1fr]"
+      role="region"
+      aria-label="Interactive five-layer mattress foam construction"
     >
       <div className="h-[360px] md:h-[460px]" aria-hidden="true">
         <Canvas

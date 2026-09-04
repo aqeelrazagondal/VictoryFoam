@@ -14,6 +14,7 @@ import Image from "next/image";
 import { SectionHeader } from "@/components/sections/section-header";
 import { SectionWrapper } from "@/components/sections/section-wrapper";
 import { AnimateOnScroll } from "@/components/ui/animate-on-scroll";
+import { PageCta } from "@/components/layout/page-cta";
 import { company } from "@/data/company";
 import { buildMetadata } from "@/lib/seo";
 
@@ -155,11 +156,10 @@ export default function AboutPage() {
         </AnimateOnScroll>
       </SectionWrapper>
 
-      {/*
-        Team photos and names are omitted until the client provides them.
-        When ready, render a section of cards: photo, name, and role from
-        src/data/company.ts using /images/team/.
-      */}
+      <PageCta
+        title="Talk to us about a specification"
+        description="Review the product catalogue or send dimensions, volumes, and performance targets."
+      />
     </article>
   );
 }

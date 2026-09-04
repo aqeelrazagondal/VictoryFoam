@@ -4,7 +4,6 @@ import { OrbitControls, RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ArrowRight, Layers3 } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { MathUtils, type Mesh } from "three";
 
@@ -12,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { mattressLayers } from "@/data/mattress-scroll";
 import { shouldUseHeavyWebGl } from "@/lib/webgl";
 import { cn } from "@/lib/utils";
+import { TrackedLink } from "@/components/analytics/tracked-link";
 
 function MobileLayer({
   index,
@@ -141,6 +141,7 @@ export default function MobileMattressHero() {
     <section
       id="mobile-mattress-hero-inner"
       className="relative overflow-hidden bg-[#0B1121] text-white md:hidden"
+      aria-label="Five-layer mattress foam construction"
     >
       <div className="container-site flex min-h-[88vh] flex-col justify-center py-10">
         <h1 className="font-heading text-4xl font-bold tracking-tight text-white">
@@ -236,7 +237,7 @@ export default function MobileMattressHero() {
                 ))}
               </div>
 
-              <p className="mt-3 text-xs text-slate-500">
+              <p className="mt-3 text-xs text-slate-400">
                 Tap a layer chip or the model. Drag to rotate.
               </p>
             </div>
@@ -256,9 +257,9 @@ export default function MobileMattressHero() {
             {exploring ? "Hide layers" : "Explore layers"}
           </Button>
           <Button asChild size="lg" variant="gradient" className="shadow-lg shadow-primary/25">
-            <Link href="/contact/">
+            <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "start-your-project" }}>
               Start Your Project <ArrowRight />
-            </Link>
+            </TrackedLink>
           </Button>
         </div>
       </div>

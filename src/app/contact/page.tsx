@@ -1,6 +1,7 @@
 import { Clock3, Mail, MapPin, Phone } from "lucide-react";
 import type { Metadata } from "next";
 
+import { TrackedAnchor } from "@/components/analytics/tracked-link";
 import { ContactForm } from "@/components/contact/contact-form";
 import { SectionHeader } from "@/components/sections/section-header";
 import { SectionWrapper } from "@/components/sections/section-wrapper";
@@ -8,6 +9,7 @@ import { AnimateOnScroll } from "@/components/ui/animate-on-scroll";
 import { JsonLd } from "@/components/seo/json-ld";
 import { company } from "@/data/company";
 import { buildLocalBusinessSchema, buildMetadata } from "@/lib/seo";
+import { toTelHref } from "@/lib/utils";
 
 export const metadata: Metadata = buildMetadata({
   title: "Contact",
@@ -44,11 +46,15 @@ export default function ContactPage() {
                 </li>
                 <li className="flex gap-3">
                   <Phone className="mt-0.5 size-5 shrink-0 text-primary" />
-                  <a href={`tel:${company.phone.replace(/[^\d+]/g, "")}`}>{company.phone}</a>
+                  <TrackedAnchor href={toTelHref(company.phone)} linkType="phone">
+                    {company.phone}
+                  </TrackedAnchor>
                 </li>
                 <li className="flex gap-3">
                   <Mail className="mt-0.5 size-5 shrink-0 text-primary" />
-                  <a href={`mailto:${company.email}`}>{company.email}</a>
+                  <TrackedAnchor href={`mailto:${company.email}`} linkType="email">
+                    {company.email}
+                  </TrackedAnchor>
                 </li>
                 <li className="flex gap-3">
                   <Clock3 className="mt-0.5 size-5 shrink-0 text-primary" />

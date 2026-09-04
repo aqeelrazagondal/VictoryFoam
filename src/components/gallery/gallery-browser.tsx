@@ -62,6 +62,9 @@ export function GalleryBrowser() {
           const images = galleryImages.filter((image) => image.type === collection.value);
           return (
             <TabsContent key={collection.value} value={collection.value}>
+              <h2 className="mb-4 font-heading text-xl font-semibold text-foreground">
+                {collection.label}
+              </h2>
               <div className="grid auto-rows-[200px] gap-3 grid-cols-2 sm:auto-rows-[240px] sm:gap-4 lg:grid-cols-3">
                 {images.map((image, index) => (
                   <button
@@ -95,7 +98,7 @@ export function GalleryBrowser() {
           className="fixed inset-0 z-50 grid place-items-center bg-slate-950/95 p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Gallery lightbox"
+          aria-labelledby="gallery-lightbox-caption"
           onMouseDown={(event) => {
             if (event.currentTarget === event.target) setLightboxIndex(null);
           }}
@@ -132,7 +135,7 @@ export function GalleryBrowser() {
                 sizes="90vw"
               />
             </div>
-            <figcaption className="mt-4 text-center text-sm text-muted-foreground">
+            <figcaption id="gallery-lightbox-caption" className="mt-4 text-center text-sm text-muted-foreground">
               {selectedImages[lightboxIndex].alt}
             </figcaption>
           </figure>

@@ -2,12 +2,12 @@
 
 import { ArrowRight, Mail, Phone } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import Link from "next/link";
 
+import { TrackedAnchor, TrackedLink } from "@/components/analytics/tracked-link";
 import { Button } from "@/components/ui/button";
 import { company } from "@/data/company";
 import { scrollSlides, type ScrollSlide } from "@/data/mattress-scroll";
-import { cn } from "@/lib/utils";
+import { cn, toTelHref } from "@/lib/utils";
 
 function activeSlide(progress: number): ScrollSlide | undefined {
   return scrollSlides.find(
@@ -105,27 +105,33 @@ export function ScrollOverlay({
                   variant="gradient"
                   className="px-10 py-5 text-lg shadow-lg shadow-primary/40 hover:shadow-primary/60"
                 >
-                  <Link href="/contact/">
+                  <TrackedLink
+                    href="/contact/"
+                    event="cta_click"
+                    eventParams={{ cta_id: "start-your-project" }}
+                  >
                     Start Your Project <ArrowRight className="size-5" />
-                  </Link>
+                  </TrackedLink>
                 </Button>
                 <div className="flex flex-col items-center gap-3 text-sm text-slate-400 md:flex-row md:gap-6">
-                  <a
-                    href={`tel:${company.phone.replace(/[^\d+]/g, "")}`}
+                  <TrackedAnchor
+                    href={toTelHref(company.phone)}
+                    linkType="phone"
                     className="inline-flex items-center gap-2 text-slate-300 hover:text-white"
                   >
                     <Phone className="size-4 text-primary" />
                     {company.phone}
-                  </a>
-                  <a
+                  </TrackedAnchor>
+                  <TrackedAnchor
                     href={`mailto:${company.email}`}
+                    linkType="email"
                     className="inline-flex items-center gap-2 text-slate-300 hover:text-white"
                   >
                     <Mail className="size-4 text-primary" />
                     {company.email}
-                  </a>
+                  </TrackedAnchor>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
+                <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400">
                   <span>Response within 24 hours</span>
                   <span>Sample development available</span>
                   <span>South African manufacturing</span>

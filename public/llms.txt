@@ -1,24 +1,29 @@
 # Victory Foam
+> Precision foam manufacturing for trade customers
 
 ## About
-Victory Foam is a foam and mattress manufacturer based in Kempton Park, Gauteng,
-South Africa. We produce specified foam products for bedding, furniture,
-industrial, packaging, acoustic, and healthcare applications.
+Victory Foam manufactures mattress, comfort, industrial, and custom-cut foam
+components. Based in Kempton Park, Gauteng, South Africa.
 
 This website is a static company brochure and display-only product catalog.
 It does not publish prices, accept orders, or provide a shopping cart.
 
-## Main Sections
-- Products: /products/
-- About: /about/
-- Gallery: /gallery/
-- Contact: /contact/
+## Products
+- Mattresses: Memory foam, orthopaedic support
+- Toppers & Pillows: Cooling gel, contour foam
+- Industrial Foam: High-density, acoustic panels
+- Custom Cut Foam: Made-to-drawing components
 
-## Product Categories
-- Mattresses
-- Toppers & Pillows
-- Industrial Foam
-- Custom Cut Foam
+## Contact
+- Phone: +27 (0) 11 234 5678
+- Email: enquiries@victoryfoam.co.za
+- Address: Unit 7 Alton Industrial Park, 14 Electron Avenue, Kempton Park, Gauteng 1619, South Africa
+- Hours: Monday–Friday, 07:30–16:30
 
-Product details are available at /products/{product-slug}/. For specifications,
-availability, or manufacturing enquiries, use /contact/.
+## Pages
+- /products/ - Full product catalogue
+- /about/ - Company information
+- /gallery/ - Factory and product photos
+- /contact/ - Enquiry form
+- /privacy/ - Privacy policy
+- /terms/ - Terms of use

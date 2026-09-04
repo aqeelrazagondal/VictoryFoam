@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { ProductGallery } from "@/components/product/product-gallery";
 import { ProductGrid } from "@/components/product/product-grid";
 import { SectionWrapper } from "@/components/sections/section-wrapper";
+import { TrackedLink } from "@/components/analytics/tracked-link";
 import { Button } from "@/components/ui/button";
 import { JsonLd } from "@/components/seo/json-ld";
 import { certifications } from "@/data/certifications";
@@ -122,7 +123,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
             )}
 
             <Button asChild size="lg" className="mt-8 h-auto px-8 py-3 glow-sm">
-              <Link href={`/contact/?${enquiryQuery}`}>Enquire About This Product</Link>
+              <TrackedLink
+                href={`/contact/?${enquiryQuery}`}
+                event="cta_click"
+                eventParams={{ cta_id: "product-enquire" }}
+              >
+                Enquire About This Product
+              </TrackedLink>
             </Button>
           </div>
         </div>
@@ -130,7 +137,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       <SectionWrapper background="muted">
         <div className="max-w-3xl">
-          <h2 className="font-heading text-3xl font-semibold">{product.name}</h2>
+          <h2 className="font-heading text-3xl font-semibold">About this product</h2>
           <p className="mt-5 text-lg leading-8 text-muted-foreground">
             {product.fullDescription}
           </p>

@@ -248,7 +248,13 @@ function CinemaInner({ reduceMotion }: { reduceMotion: boolean }) {
   }, [reduceMotion, setProgress, stateRef]);
 
   return (
-    <div ref={containerRef} className="relative h-[450vh] md:h-[500vh]" id="mattress-cinema">
+    <div
+      ref={containerRef}
+      className="relative h-[450vh] md:h-[500vh]"
+      id="mattress-cinema"
+      role="region"
+      aria-label="Interactive five-layer mattress foam construction"
+    >
       <div className="sticky top-0 h-dvh min-h-[100svh] overflow-hidden bg-[#0B1121] dark">
         <div
           className="pointer-events-none absolute inset-0 transition-[filter,opacity] duration-500"

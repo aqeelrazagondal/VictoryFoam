@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Layers3, Menu, Phone } from "lucide-react";
 
+import { TrackedAnchor } from "@/components/analytics/tracked-link";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,12 +17,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { company, navigation } from "@/data/company";
-import { cn } from "@/lib/utils";
+import { cn, toTelHref } from "@/lib/utils";
 
 export function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
-  const [showPhone, setShowPhone] = useState(false);
   const [headerVisible, setHeaderVisible] = useState(pathname !== "/");
   const [overCinema, setOverCinema] = useState(pathname === "/");
 
@@ -35,16 +35,13 @@ export function Header() {
           const rect = cinema.getBoundingClientRect();
           const pastCinema = rect.bottom < 120;
           const stillInCinema = rect.top < 80 && rect.bottom > 120;
-          setShowPhone(pastCinema);
           setOverCinema(stillInCinema && !pastCinema);
           setHeaderVisible(y > 40 || pastCinema || y > window.innerHeight * 0.15);
         } else {
-          setShowPhone(y > 200);
           setOverCinema(false);
           setHeaderVisible(true);
         }
       } else {
-        setShowPhone(false);
         setOverCinema(false);
         setHeaderVisible(true);
       }
@@ -68,7 +65,7 @@ export function Header() {
     <>
       <a
         href="#main-content"
-        className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground transition-transform focus:translate-y-0"
+        className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground transition-transform focus-visible:translate-y-0"
       >
         Skip to content
       </a>
@@ -122,15 +119,19 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-1">
-            {showPhone && (
-              <a
-                href={`tel:${company.phone.replace(/[^\d+]/g, "")}`}
-                className="mr-1 hidden items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-foreground transition-colors hover:text-primary md:inline-flex"
-              >
-                <Phone className="size-4 text-primary" />
-                {company.phone}
-              </a>
-            )}
+            <TrackedAnchor
+              href={toTelHref(company.phone)}
+              linkType="phone"
+              className={cn(
+                "mr-1 hidden min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors md:inline-flex",
+                overCinema
+                  ? "text-slate-200 hover:text-white"
+                  : "text-foreground hover:text-primary",
+              )}
+            >
+              <Phone className="size-4 text-primary" />
+              {company.phone}
+            </TrackedAnchor>
             <ThemeToggle />
             <Sheet>
               <SheetTrigger asChild>

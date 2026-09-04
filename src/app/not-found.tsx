@@ -4,12 +4,15 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { buildMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = buildMetadata({
-  title: "Page Not Found",
-  description:
-    "The requested Victory Foam page could not be found. Return to the company overview or browse our mattress, industrial, and custom foam products.",
-  path: "/404.html",
-});
+export const metadata: Metadata = {
+  ...buildMetadata({
+    title: "Page Not Found",
+    description:
+      "The requested Victory Foam page could not be found. Return to the company overview or browse our mattress, industrial, and custom foam products.",
+    path: "/404.html",
+  }),
+  robots: { index: false, follow: false },
+};
 
 export default function NotFound() {
   return (

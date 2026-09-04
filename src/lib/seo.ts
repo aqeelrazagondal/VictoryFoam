@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import { company } from "@/data/company";
 import type { CompanyInfo, Product } from "@/types";
 
+const DEFAULT_SITE_URL = "https://victoryfoam.co.za";
 const raw = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
-export const SITE_URL = raw && raw.startsWith("http") ? raw : "https://www.example.com";
+export const SITE_URL = raw && raw.startsWith("http") ? raw : DEFAULT_SITE_URL;
 
 export function getCanonicalUrl(path = "/") {
   return new URL(path, `${SITE_URL}/`).toString();
@@ -37,6 +38,7 @@ export function buildMetadata({
       url: canonical,
       siteName: company.name,
       type: "website",
+      locale: "en_ZA",
       images: [{ url: imageUrl, width: 1200, height: 630 }],
     },
     twitter: {
@@ -60,11 +62,20 @@ export function buildOrganizationSchema(info: CompanyInfo) {
     name: info.name,
     description: info.description,
     url: SITE_URL,
+    logo: getCanonicalUrl("/logo.png"),
     email: info.email,
     telephone: info.phone,
     address: {
       "@type": "PostalAddress",
       ...info.postalAddress,
+    },
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: info.phone,
+      email: info.email,
+      contactType: "sales",
+      areaServed: "ZA",
+      availableLanguage: ["en"],
     },
     sameAs: info.socialLinks.map((social) => social.url),
   };
@@ -78,6 +89,7 @@ export function buildLocalBusinessSchema(info: CompanyInfo) {
     name: info.name,
     description: info.description,
     url: SITE_URL,
+    logo: getCanonicalUrl("/logo.png"),
     image: getCanonicalUrl("/og-image.jpg"),
     email: info.email,
     telephone: info.phone,
@@ -85,6 +97,23 @@ export function buildLocalBusinessSchema(info: CompanyInfo) {
     address: {
       "@type": "PostalAddress",
       ...info.postalAddress,
+    },
+    ...(info.geo
+      ? {
+          geo: {
+            "@type": "GeoCoordinates",
+            latitude: info.geo.latitude,
+            longitude: info.geo.longitude,
+          },
+        }
+      : {}),
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: info.phone,
+      email: info.email,
+      contactType: "sales",
+      areaServed: "ZA",
+      availableLanguage: ["en"],
     },
     sameAs: info.socialLinks.map((social) => social.url),
   };
@@ -101,6 +130,10 @@ export function buildProductSchema(product: Product) {
     url: getCanonicalUrl(`/products/${product.slug}/`),
     brand: {
       "@type": "Brand",
+      name: company.name,
+    },
+    manufacturer: {
+      "@type": "Organization",
       name: company.name,
     },
     additionalProperty: product.specs.map((spec) => ({

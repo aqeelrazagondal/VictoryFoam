@@ -39,6 +39,10 @@ export interface CompanyInfo {
   workingHours: string;
   openingHours: string;
   mapEmbedUrl: string;
+  geo?: {
+    latitude: number;
+    longitude: number;
+  };
   socialLinks: {
     platform: string;
     url: string;

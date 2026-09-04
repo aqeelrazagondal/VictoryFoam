@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { TrackedAnchor } from "@/components/analytics/tracked-link";
 import { categories } from "@/data/categories";
 import { company, navigation } from "@/data/company";
+import { toTelHref } from "@/lib/utils";
 
 const socialIcons = {
   LinkedIn: BriefcaseBusiness,
@@ -19,7 +21,7 @@ const socialIcons = {
 
 export function Footer() {
   return (
-    <footer className="bg-slate-950 text-slate-300">
+    <footer id="site-footer" className="bg-slate-950 text-slate-300">
       <div className="h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
       <div className="container-site grid gap-10 py-14 sm:grid-cols-2 lg:grid-cols-4">
         <div>
@@ -81,11 +83,15 @@ export function Footer() {
           <ul className="mt-4 space-y-4 text-sm">
             <li className="flex gap-3">
               <Phone className="mt-0.5 size-4 shrink-0 text-sky-400" />
-              <a href={`tel:${company.phone.replace(/[^\d+]/g, "")}`}>{company.phone}</a>
+              <TrackedAnchor href={toTelHref(company.phone)} linkType="phone">
+                {company.phone}
+              </TrackedAnchor>
             </li>
             <li className="flex gap-3">
               <Mail className="mt-0.5 size-4 shrink-0 text-sky-400" />
-              <a href={`mailto:${company.email}`}>{company.email}</a>
+              <TrackedAnchor href={`mailto:${company.email}`} linkType="email">
+                {company.email}
+              </TrackedAnchor>
             </li>
             <li className="flex gap-3">
               <MapPin className="mt-0.5 size-4 shrink-0 text-sky-400" />
@@ -96,8 +102,16 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-slate-800">
-        <div className="container-site py-5 text-xs text-slate-400">
-          © 2026 {company.name}. All rights reserved.
+        <div className="container-site flex flex-col gap-3 py-5 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+          <p>© 2026 {company.name}. All rights reserved.</p>
+          <nav aria-label="Legal" className="flex gap-4">
+            <Link className="hover:text-sky-400" href="/privacy/">
+              Privacy Policy
+            </Link>
+            <Link className="hover:text-sky-400" href="/terms/">
+              Terms of Use
+            </Link>
+          </nav>
         </div>
       </div>
     </footer>

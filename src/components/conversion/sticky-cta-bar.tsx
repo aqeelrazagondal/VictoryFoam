@@ -1,14 +1,18 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
-import Link from "next/link";
+import { Phone } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useConsent } from "@/components/analytics/consent-provider";
+import { TrackedAnchor, TrackedLink } from "@/components/analytics/tracked-link";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { company } from "@/data/company";
+import { cn, toTelHref } from "@/lib/utils";
 
 export function StickyCtaBar({ triggerId = "mattress-cinema" }: { triggerId?: string }) {
-  const [visible, setVisible] = useState(false);
+  const { bannerVisible } = useConsent();
+  const [pastHero, setPastHero] = useState(false);
+  const [footerVisible, setFooterVisible] = useState(false);
 
   useEffect(() => {
     const update = () => {
@@ -17,21 +21,21 @@ export function StickyCtaBar({ triggerId = "mattress-cinema" }: { triggerId?: st
 
       if (window.matchMedia("(min-width: 768px)").matches) {
         if (!cinema) {
-          setVisible(false);
+          setPastHero(false);
           return;
         }
         const rect = cinema.getBoundingClientRect();
-        setVisible(rect.bottom <= 0);
+        setPastHero(rect.bottom <= 0);
         return;
       }
 
       if (mobileHero) {
         const rect = mobileHero.getBoundingClientRect();
-        setVisible(rect.bottom <= 0);
+        setPastHero(rect.bottom <= 0);
         return;
       }
 
-      setVisible(false);
+      setPastHero(false);
     };
 
     update();
@@ -45,6 +49,19 @@ export function StickyCtaBar({ triggerId = "mattress-cinema" }: { triggerId?: st
     };
   }, [triggerId]);
 
+  useEffect(() => {
+    const footer = document.getElementById("site-footer");
+    if (!footer) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setFooterVisible(entry.isIntersecting),
+      { threshold: 0.08 },
+    );
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
+
+  const visible = pastHero && !footerVisible && !bannerVisible;
+
   return (
     <div
       aria-hidden={!visible}
@@ -54,14 +71,22 @@ export function StickyCtaBar({ triggerId = "mattress-cinema" }: { triggerId?: st
       )}
     >
       <div className="container-site flex items-center justify-between gap-4 py-3">
-        <p className="hidden text-sm text-muted-foreground sm:block">
-          Have a project in mind?
-        </p>
-        <Button asChild size="sm" variant="gradient" className="ml-auto shadow-md shadow-primary/25">
-          <Link href="/contact/">
-            Get in Touch <ArrowRight className="size-4" />
-          </Link>
-        </Button>
+        <p className="hidden text-sm text-muted-foreground md:block">Have a project in mind?</p>
+        <div className="ml-auto flex items-center gap-3">
+          <TrackedAnchor
+            href={toTelHref(company.phone)}
+            linkType="phone"
+            className="hidden items-center gap-1.5 text-sm text-foreground hover:text-primary md:inline-flex"
+          >
+            <Phone className="size-4" />
+            {company.phone}
+          </TrackedAnchor>
+          <Button asChild size="sm" variant="gradient" className="min-h-11 shadow-md shadow-primary/25">
+            <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "sticky-get-in-touch" }}>
+              Get in Touch
+            </TrackedLink>
+          </Button>
+        </div>
       </div>
     </div>
   );

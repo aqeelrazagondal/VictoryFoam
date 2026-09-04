@@ -20,7 +20,7 @@ export function ProductGallery({
         <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-slate-800">
           <Image
             src={images[selected]}
-            alt={productName}
+            alt={`${productName} — view ${selected + 1} of ${images.length}`}
             width={1200}
             height={900}
             priority

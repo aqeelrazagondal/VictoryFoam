@@ -1,7 +1,7 @@
 import type { CompanyInfo, GalleryImage } from "@/types";
 
 export const company: CompanyInfo = {
-  // Mock business identity: replace this one record before production launch.
+  // Confirm phone, email, and social URLs before launch.
   name: "Victory Foam",
   tagline: "Foam engineered for the way your product is used.",
   description:
