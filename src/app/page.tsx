@@ -80,7 +80,7 @@ const workflow = [
 
 export default function HomePage() {
   return (
-    <SmoothScroll>
+    <SmoothScroll enabled={false}>
       <MattressScrollDynamic />
       <MobileMattressHeroDynamic />
 

@@ -11,28 +11,35 @@ export function StickyCtaBar({ triggerId = "mattress-cinema" }: { triggerId?: st
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const cinema = document.getElementById(triggerId);
-    const mobileHero = document.getElementById("mobile-mattress-hero");
-
     const update = () => {
-      if (window.matchMedia("(min-width: 768px)").matches && cinema) {
+      const cinema = document.getElementById(triggerId);
+      const mobileHero = document.getElementById("mobile-mattress-hero");
+
+      if (window.matchMedia("(min-width: 768px)").matches) {
+        if (!cinema) {
+          setVisible(false);
+          return;
+        }
         const rect = cinema.getBoundingClientRect();
-        // Only after the cinema section has fully left the viewport.
         setVisible(rect.bottom <= 0);
         return;
       }
+
       if (mobileHero) {
         const rect = mobileHero.getBoundingClientRect();
         setVisible(rect.bottom <= 0);
         return;
       }
-      setVisible(window.scrollY > window.innerHeight * 0.75);
+
+      setVisible(false);
     };
 
     update();
+    const poll = window.setInterval(update, 500);
     window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
     return () => {
+      window.clearInterval(poll);
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
@@ -40,9 +47,10 @@ export function StickyCtaBar({ triggerId = "mattress-cinema" }: { triggerId?: st
 
   return (
     <div
+      aria-hidden={!visible}
       className={cn(
         "fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-background/90 backdrop-blur-xl transition-transform duration-300",
-        visible ? "translate-y-0" : "translate-y-full",
+        visible ? "translate-y-0" : "pointer-events-none translate-y-full",
       )}
     >
       <div className="container-site flex items-center justify-between gap-4 py-3">

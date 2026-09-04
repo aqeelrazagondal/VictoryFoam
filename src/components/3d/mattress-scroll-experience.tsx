@@ -106,8 +106,10 @@ function CinemaInner({ reduceMotion }: { reduceMotion: boolean }) {
       scrollTrigger: {
         trigger: element,
         start: "top top",
+        // Match CSS sticky lifetime: animation completes as the spacer bottom
+        // reaches the viewport bottom, then native scroll reveals content below.
         end: "bottom bottom",
-        scrub: 1,
+        scrub: 0.35,
         invalidateOnRefresh: true,
         onUpdate: applyProxy,
         onRefresh: (self) => {
@@ -208,15 +210,27 @@ function CinemaInner({ reduceMotion }: { reduceMotion: boolean }) {
       6.5,
     );
 
-    ScrollTrigger.refresh();
-    requestAnimationFrame(() => {
+    const syncFromScroll = () => {
       const st = tl.scrollTrigger;
       if (st) {
         tl.progress(st.progress);
         applyProxy();
       }
       ScrollTrigger.update();
-    });
+    };
+
+    ScrollTrigger.refresh();
+    requestAnimationFrame(syncFromScroll);
+    const refreshTimer = window.setTimeout(() => {
+      ScrollTrigger.refresh();
+      syncFromScroll();
+    }, 250);
+
+    const onResize = () => {
+      ScrollTrigger.refresh();
+      syncFromScroll();
+    };
+    window.addEventListener("resize", onResize);
 
     const observer = new IntersectionObserver(
       ([entry]) => setInView(entry.isIntersecting),
@@ -225,6 +239,8 @@ function CinemaInner({ reduceMotion }: { reduceMotion: boolean }) {
     observer.observe(element);
 
     return () => {
+      window.clearTimeout(refreshTimer);
+      window.removeEventListener("resize", onResize);
       tl.scrollTrigger?.kill();
       tl.kill();
       observer.disconnect();
@@ -232,10 +248,10 @@ function CinemaInner({ reduceMotion }: { reduceMotion: boolean }) {
   }, [reduceMotion, setProgress, stateRef]);
 
   return (
-    <div ref={containerRef} className="relative h-[600vh]" id="mattress-cinema">
-      <div className="sticky top-0 h-screen overflow-hidden bg-[#0B1121] dark">
+    <div ref={containerRef} className="relative h-[450vh] md:h-[500vh]" id="mattress-cinema">
+      <div className="sticky top-0 h-dvh min-h-[100svh] overflow-hidden bg-[#0B1121] dark">
         <div
-          className="absolute inset-0 transition-[filter,opacity] duration-500"
+          className="pointer-events-none absolute inset-0 transition-[filter,opacity] duration-500"
           style={{
             filter: progress > 0.85 ? `blur(${(progress - 0.85) * 20}px)` : undefined,
             opacity: progress > 0.9 ? 0.55 : 1,
@@ -246,6 +262,7 @@ function CinemaInner({ reduceMotion }: { reduceMotion: boolean }) {
             dpr={[1, 1.75]}
             frameloop={inView ? "always" : "demand"}
             gl={{ antialias: true, alpha: false, powerPreference: "high-performance" }}
+            style={{ pointerEvents: "none" }}
             onCreated={({ gl }) => {
               gl.setClearColor("#0B1121", 1);
             }}
@@ -257,7 +274,7 @@ function CinemaInner({ reduceMotion }: { reduceMotion: boolean }) {
         {progress > 0.85 && (
           <div
             aria-hidden
-            className="absolute inset-0 z-10 bg-background/60 backdrop-blur-sm"
+            className="pointer-events-none absolute inset-0 z-10 bg-background/60 backdrop-blur-sm"
             style={{ opacity: Math.min(1, (progress - 0.85) / 0.1) }}
           />
         )}
