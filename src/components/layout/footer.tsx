@@ -83,19 +83,33 @@ export function Footer() {
           <ul className="mt-4 space-y-4 text-sm">
             <li className="flex gap-3">
               <Phone className="mt-0.5 size-4 shrink-0 text-sky-400" />
-              <TrackedAnchor href={toTelHref(company.phone)} linkType="phone">
+              <TrackedAnchor
+                href={toTelHref(company.phone)}
+                linkType="phone"
+                className="underline-offset-2 hover:underline"
+              >
                 {company.phone}
               </TrackedAnchor>
             </li>
             <li className="flex gap-3">
               <Mail className="mt-0.5 size-4 shrink-0 text-sky-400" />
-              <TrackedAnchor href={`mailto:${company.email}`} linkType="email">
+              <TrackedAnchor
+                href={`mailto:${company.email}`}
+                linkType="email"
+                className="underline-offset-2 hover:underline"
+              >
                 {company.email}
               </TrackedAnchor>
             </li>
             <li className="flex gap-3">
               <MapPin className="mt-0.5 size-4 shrink-0 text-sky-400" />
-              <span>{company.address}</span>
+              <address className="not-italic">
+                {company.addressLines.map((line) => (
+                  <span key={line} className="block">
+                    {line}
+                  </span>
+                ))}
+              </address>
             </li>
           </ul>
           <p className="mt-5 text-xs text-slate-400">{company.workingHours}</p>

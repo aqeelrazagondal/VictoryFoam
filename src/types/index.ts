@@ -29,6 +29,7 @@ export interface CompanyInfo {
   phone: string;
   email: string;
   address: string;
+  addressLines: string[];
   postalAddress: {
     streetAddress: string;
     addressLocality: string;

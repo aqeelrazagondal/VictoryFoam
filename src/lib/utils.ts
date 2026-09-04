@@ -5,6 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function toTelNumber(phone: string) {
+  return phone.replace(/[^\d+]/g, "");
+}
+
 export function toTelHref(phone: string) {
-  return `tel:${phone.replace(/[^\d+]/g, "")}`;
+  return `tel:${toTelNumber(phone)}`;
 }

@@ -76,7 +76,7 @@ export function StickyCtaBar({ triggerId = "mattress-cinema" }: { triggerId?: st
           <TrackedAnchor
             href={toTelHref(company.phone)}
             linkType="phone"
-            className="hidden items-center gap-1.5 text-sm text-foreground hover:text-primary md:inline-flex"
+            className="inline-flex min-h-11 items-center gap-1.5 text-sm text-foreground underline-offset-2 hover:text-primary hover:underline"
           >
             <Phone className="size-4" />
             {company.phone}

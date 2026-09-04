@@ -42,17 +42,31 @@ export default function ContactPage() {
               <ul className="mt-8 space-y-6 text-sm">
                 <li className="flex gap-3">
                   <MapPin className="mt-0.5 size-5 shrink-0 text-primary" />
-                  <span>{company.address}</span>
+                  <address className="not-italic">
+                    {company.addressLines.map((line) => (
+                      <span key={line} className="block">
+                        {line}
+                      </span>
+                    ))}
+                  </address>
                 </li>
                 <li className="flex gap-3">
                   <Phone className="mt-0.5 size-5 shrink-0 text-primary" />
-                  <TrackedAnchor href={toTelHref(company.phone)} linkType="phone">
+                  <TrackedAnchor
+                    href={toTelHref(company.phone)}
+                    linkType="phone"
+                    className="underline-offset-2 hover:underline"
+                  >
                     {company.phone}
                   </TrackedAnchor>
                 </li>
                 <li className="flex gap-3">
                   <Mail className="mt-0.5 size-5 shrink-0 text-primary" />
-                  <TrackedAnchor href={`mailto:${company.email}`} linkType="email">
+                  <TrackedAnchor
+                    href={`mailto:${company.email}`}
+                    linkType="email"
+                    className="underline-offset-2 hover:underline"
+                  >
                     {company.email}
                   </TrackedAnchor>
                 </li>

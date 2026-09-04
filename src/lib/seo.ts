@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { company } from "@/data/company";
+import { toTelNumber } from "@/lib/utils";
 import type { CompanyInfo, Product } from "@/types";
 
 const DEFAULT_SITE_URL = "https://victoryfoam.co.za";
@@ -64,14 +65,14 @@ export function buildOrganizationSchema(info: CompanyInfo) {
     url: SITE_URL,
     logo: getCanonicalUrl("/logo.png"),
     email: info.email,
-    telephone: info.phone,
+    telephone: toTelNumber(info.phone),
     address: {
       "@type": "PostalAddress",
       ...info.postalAddress,
     },
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: info.phone,
+      telephone: toTelNumber(info.phone),
       email: info.email,
       contactType: "sales",
       areaServed: "ZA",
@@ -92,7 +93,7 @@ export function buildLocalBusinessSchema(info: CompanyInfo) {
     logo: getCanonicalUrl("/logo.png"),
     image: getCanonicalUrl("/og-image.jpg"),
     email: info.email,
-    telephone: info.phone,
+    telephone: toTelNumber(info.phone),
     openingHours: info.openingHours,
     address: {
       "@type": "PostalAddress",
@@ -109,7 +110,7 @@ export function buildLocalBusinessSchema(info: CompanyInfo) {
       : {}),
     contactPoint: {
       "@type": "ContactPoint",
-      telephone: info.phone,
+      telephone: toTelNumber(info.phone),
       email: info.email,
       contactType: "sales",
       areaServed: "ZA",

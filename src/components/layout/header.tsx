@@ -127,6 +127,7 @@ export function Header() {
                 overCinema
                   ? "text-slate-200 hover:text-white"
                   : "text-foreground hover:text-primary",
+                "underline-offset-2 hover:underline",
               )}
             >
               <Phone className="size-4 text-primary" />

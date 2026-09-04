@@ -1,25 +1,33 @@
 import type { CompanyInfo, GalleryImage } from "@/types";
 
+const ADDRESS_LINES = [
+  "7684 Matlotlo Street",
+  "Lawley Ext 2",
+  "Ennerdale",
+  "1830",
+  "Gauteng, South Africa",
+];
+
 export const company: CompanyInfo = {
-  // Confirm phone, email, and social URLs before launch.
   name: "Victory Foam",
   tagline: "Foam engineered for the way your product is used.",
   description:
     "Victory Foam manufactures mattress, comfort, industrial, and custom-cut foam components for trade customers.",
-  phone: "+27 (0) 11 234 5678",
+  phone: "+27 73 799 3932",
   email: "enquiries@victoryfoam.co.za",
-  address: "Unit 7 Alton Industrial Park, 14 Electron Avenue, Kempton Park, Gauteng 1619, South Africa",
+  address: ADDRESS_LINES.join(", "),
+  addressLines: ADDRESS_LINES,
   postalAddress: {
-    streetAddress: "Unit 7 Alton Industrial Park, 14 Electron Avenue",
-    addressLocality: "Kempton Park",
+    streetAddress: "7684 Matlotlo Street, Lawley Ext 2",
+    addressLocality: "Ennerdale",
     addressRegion: "Gauteng",
-    postalCode: "1619",
+    postalCode: "1830",
     addressCountry: "ZA",
   },
   workingHours: "Monday–Friday, 07:30–16:30",
   openingHours: "Mo-Fr 07:30-16:30",
   mapEmbedUrl:
-    "https://www.google.com/maps?q=Kempton+Park+Gauteng+1619+South+Africa&output=embed",
+    "https://www.google.com/maps?q=7684+Matlotlo+Street,+Lawley+Ext+2,+Ennerdale,+1830,+Gauteng,+South+Africa&output=embed",
   socialLinks: [
     { platform: "LinkedIn", url: "https://www.linkedin.com/company/victory-foam-za/" },
     { platform: "Facebook", url: "https://www.facebook.com/victoryfoamza/" },

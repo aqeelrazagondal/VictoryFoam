@@ -4,6 +4,7 @@ import { SectionHeader } from "@/components/sections/section-header";
 import { SectionWrapper } from "@/components/sections/section-wrapper";
 import { company } from "@/data/company";
 import { buildMetadata } from "@/lib/seo";
+import { toTelHref } from "@/lib/utils";
 
 export const metadata: Metadata = buildMetadata({
   title: "Privacy Policy",
@@ -35,7 +36,11 @@ export default function PrivacyPage() {
             <a className="text-foreground underline underline-offset-2" href={`mailto:${company.email}`}>
               {company.email}
             </a>{" "}
-            or call {company.phone}.
+            or call{" "}
+            <a className="text-foreground underline underline-offset-2" href={toTelHref(company.phone)}>
+              {company.phone}
+            </a>
+            .
           </p>
         </section>
         <section>

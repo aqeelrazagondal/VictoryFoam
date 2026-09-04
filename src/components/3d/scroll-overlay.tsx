@@ -117,7 +117,7 @@ export function ScrollOverlay({
                   <TrackedAnchor
                     href={toTelHref(company.phone)}
                     linkType="phone"
-                    className="inline-flex items-center gap-2 text-slate-300 hover:text-white"
+                    className="inline-flex items-center gap-2 text-slate-300 underline-offset-2 hover:text-white hover:underline"
                   >
                     <Phone className="size-4 text-primary" />
                     {company.phone}
@@ -125,7 +125,7 @@ export function ScrollOverlay({
                   <TrackedAnchor
                     href={`mailto:${company.email}`}
                     linkType="email"
-                    className="inline-flex items-center gap-2 text-slate-300 hover:text-white"
+                    className="inline-flex items-center gap-2 text-slate-300 underline-offset-2 hover:text-white hover:underline"
                   >
                     <Mail className="size-4 text-primary" />
                     {company.email}

@@ -34,21 +34,21 @@ Reply by filling the blanks. If a placeholder is already correct, write **Keep a
 
 ## 2. Contact details — Required
 
-These appear on Contact, the footer, Google listing data, and the privacy page. **The phone number and street address on the site today are mock values and must be replaced.**
+These appear on Contact, the footer, Google listing data, and the privacy page. **Phone, email, and street address are now live.** Confirm Maps pin / GPS if you have an exact building share link.
 
-| Field | Placeholder on the site today | Your answer |
+| Field | On the site now | Your answer |
 | --- | --- | --- |
-| Public phone (with country code) | +27 (0) 11 234 5678 | |
+| Public phone (with country code) | +27 73 799 3932 | |
 | WhatsApp number (if different, or write “same”) | not on the site yet | |
 | Public enquiry email | enquiries@victoryfoam.co.za | |
-| Street address (as visitors should see it) | Unit 7 Alton Industrial Park, 14 Electron Avenue, Kempton Park, Gauteng 1619, South Africa | |
-| Suburb / city | Kempton Park | |
+| Street address (as visitors should see it) | 7684 Matlotlo Street, Lawley Ext 2, Ennerdale, 1830, Gauteng, South Africa | |
+| Suburb / city | Ennerdale | |
 | Province | Gauteng | |
-| Postal code | 1619 | |
+| Postal code | 1830 | |
 | Postal / PO Box address (if different) | same as street | |
 | Working hours (as you want them written) | Monday–Friday, 07:30–16:30 | |
 | Saturday hours | closed (assumed) | |
-| Google Maps pin | generic Kempton Park pin, **not your factory** | paste a Google Maps share link to the exact building |
+| Google Maps pin | address search for 7684 Matlotlo Street, Lawley Ext 2, Ennerdale | paste a Google Maps share link to the exact building |
 | GPS coordinates (optional but better for Google) | not set | lat / long if you have them |
 
 ---
