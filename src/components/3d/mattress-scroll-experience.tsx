@@ -280,7 +280,7 @@ function CinemaInner({ reduceMotion }: { reduceMotion: boolean }) {
         {progress > 0.85 && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 z-10 bg-background/60 backdrop-blur-sm"
+            className="pointer-events-none absolute inset-0 z-10 bg-[#0B1121]/60 backdrop-blur-sm"
             style={{ opacity: Math.min(1, (progress - 0.85) / 0.1) }}
           />
         )}

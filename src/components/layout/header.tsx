@@ -17,47 +17,50 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { company, navigation } from "@/data/company";
+import { computeCinemaHeaderState } from "@/lib/header-cinema-state";
 import { cn, toTelHref } from "@/lib/utils";
 
 export function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
-  const [headerVisible, setHeaderVisible] = useState(pathname !== "/");
   const [overCinema, setOverCinema] = useState(pathname === "/");
 
   useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+
     const update = () => {
-      const y = window.scrollY;
-      setScrolled(y > 20);
-      if (pathname === "/") {
-        const cinema = document.getElementById("mattress-cinema");
-        if (cinema && window.matchMedia("(min-width: 768px)").matches) {
-          const rect = cinema.getBoundingClientRect();
-          const pastCinema = rect.bottom < 120;
-          const stillInCinema = rect.top < 80 && rect.bottom > 120;
-          setOverCinema(stillInCinema && !pastCinema);
-          setHeaderVisible(y > 40 || pastCinema || y > window.innerHeight * 0.15);
-        } else {
-          setOverCinema(false);
-          setHeaderVisible(true);
-        }
-      } else {
-        setOverCinema(false);
-        setHeaderVisible(true);
-      }
+      setScrolled(window.scrollY > 20);
+      const cinema = document.getElementById("mattress-cinema");
+      const rect = cinema?.getBoundingClientRect();
+      const state = computeCinemaHeaderState({
+        isHome: pathname === "/",
+        isDesktop: media.matches,
+        cinemaRect: rect ? { top: rect.top, bottom: rect.bottom } : null,
+      });
+      setOverCinema(state.overCinema);
     };
 
     update();
-    const timer =
-      pathname === "/"
-        ? window.setTimeout(() => setHeaderVisible(true), 2000)
-        : undefined;
+
+    let observer: MutationObserver | undefined;
+    if (pathname === "/" && !document.getElementById("mattress-cinema")) {
+      observer = new MutationObserver(() => {
+        if (document.getElementById("mattress-cinema")) {
+          observer?.disconnect();
+          update();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+
     window.addEventListener("scroll", update, { passive: true });
     window.addEventListener("resize", update);
+    media.addEventListener("change", update);
     return () => {
+      observer?.disconnect();
       window.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
-      if (timer) window.clearTimeout(timer);
+      media.removeEventListener("change", update);
     };
   }, [pathname]);
 
@@ -71,20 +74,22 @@ export function Header() {
       </a>
       <header
         className={cn(
-          "relative sticky top-0 z-50 transition-all duration-300",
+          "relative sticky top-0 isolate z-50 w-full motion-safe:transition-colors motion-safe:duration-300",
           "after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-primary/30 after:to-transparent after:opacity-0 after:transition-opacity after:duration-300 after:content-['']",
-          headerVisible ? "opacity-100" : "pointer-events-none opacity-0",
           overCinema
-            ? "border-b border-white/10 bg-[#0B1121]/70 text-white backdrop-blur-xl after:opacity-100"
+            ? "dark border-b border-white/10 bg-[#0B1121] text-white after:opacity-100"
             : scrolled
-              ? "border-b border-border/50 bg-background/80 shadow-lg shadow-black/10 backdrop-blur-xl after:opacity-100"
-              : "bg-transparent",
+              ? "border-b border-border/50 bg-background/80 text-foreground shadow-lg shadow-black/10 backdrop-blur-xl after:opacity-100"
+              : "bg-transparent text-foreground",
         )}
       >
         <div className="container-site flex h-18 items-center justify-between">
           <Link
             href="/"
-            className="flex items-center gap-2 font-heading text-lg font-bold tracking-tight"
+            className={cn(
+              "flex items-center gap-2 font-heading text-lg font-bold tracking-tight",
+              overCinema ? "text-white" : "text-foreground",
+            )}
           >
             <span className="grid size-9 place-items-center rounded-lg bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--color-secondary-accent))] text-white shadow-sm">
               <Layers3 className="size-5" />
