@@ -25,8 +25,8 @@ export function PageCta({
             </TrackedLink>
           </Button>
           <Button asChild variant="gradient" className="min-h-11 w-full sm:w-auto">
-            <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "get-in-touch" }}>
-              Get in Touch <ArrowRight className="size-4" />
+            <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "request-a-quote" }}>
+              Request a Quote <ArrowRight className="size-4" />
             </TrackedLink>
           </Button>
         </div>

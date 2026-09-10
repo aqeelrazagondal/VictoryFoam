@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
   return buildMetadata({
     title: product.name,
-    description: `${product.shortDescription} Review its configurable construction, specifications, and manufacturing features.`,
+    description: product.metaDescription,
     path: `/products/${product.slug}/`,
   });
 }
@@ -123,9 +123,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <TrackedLink
                 href={`/contact/?${enquiryQuery}`}
                 event="cta_click"
-                eventParams={{ cta_id: "product-enquire" }}
+                eventParams={{ cta_id: "product-request-quote" }}
               >
-                Enquire About This Product
+                Request a Quote
               </TrackedLink>
             </Button>
           </div>

@@ -8,7 +8,7 @@ import { buildMetadata } from "@/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Terms of Use",
   description:
-    "Terms for using the Victory Foam website, including intellectual property, limitation of liability, and South African governing law.",
+    "Terms for using the Victory Foam website, covering intellectual property, limitation of liability, and South African governing law for all site visitors.",
   path: "/terms/",
 });
 

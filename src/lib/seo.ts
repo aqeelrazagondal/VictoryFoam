@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { certifications } from "@/data/certifications";
 import { company } from "@/data/company";
 import { toTelNumber } from "@/lib/utils";
 import type { CompanyInfo, Product } from "@/types";
@@ -55,6 +56,30 @@ export function serializeJsonLd(data: unknown) {
   return JSON.stringify(data).replace(/</g, "\\u003c");
 }
 
+function buildCertificationCredentials() {
+  return certifications.map((cert) => ({
+    "@type": "EducationalOccupationalCredential" as const,
+    name: cert.name,
+    description: cert.description,
+    credentialCategory: "certification",
+  }));
+}
+
+function buildOpeningHoursSpecification() {
+  return {
+    "@type": "OpeningHoursSpecification" as const,
+    dayOfWeek: [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+    ],
+    opens: "07:30",
+    closes: "16:30",
+  };
+}
+
 export function buildOrganizationSchema(info: CompanyInfo) {
   return {
     "@context": "https://schema.org",
@@ -78,6 +103,8 @@ export function buildOrganizationSchema(info: CompanyInfo) {
       areaServed: "ZA",
       availableLanguage: ["en"],
     },
+    hasCredential: buildCertificationCredentials(),
+    award: certifications.map((cert) => cert.name),
     sameAs: info.socialLinks.map((social) => social.url),
   };
 }
@@ -85,7 +112,7 @@ export function buildOrganizationSchema(info: CompanyInfo) {
 export function buildLocalBusinessSchema(info: CompanyInfo) {
   return {
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+    "@type": ["LocalBusiness", "ManufacturingBusiness"],
     "@id": `${SITE_URL}/#local-business`,
     name: info.name,
     description: info.description,
@@ -95,6 +122,7 @@ export function buildLocalBusinessSchema(info: CompanyInfo) {
     email: info.email,
     telephone: toTelNumber(info.phone),
     openingHours: info.openingHours,
+    openingHoursSpecification: buildOpeningHoursSpecification(),
     address: {
       "@type": "PostalAddress",
       ...info.postalAddress,
@@ -116,6 +144,8 @@ export function buildLocalBusinessSchema(info: CompanyInfo) {
       areaServed: "ZA",
       availableLanguage: ["en"],
     },
+    hasCredential: buildCertificationCredentials(),
+    award: certifications.map((cert) => cert.name),
     sameAs: info.socialLinks.map((social) => social.url),
   };
 }
@@ -142,6 +172,9 @@ export function buildProductSchema(product: Product) {
       name: spec.label,
       value: spec.value,
     })),
+    ...(product.certifications?.length
+      ? { award: product.certifications }
+      : {}),
   };
 }
 

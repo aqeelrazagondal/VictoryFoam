@@ -29,7 +29,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 const rootMetadata = buildMetadata({
   title: "Precision Foam Manufacturing",
   description:
-    "Victory Foam manufactures specified mattresses, comfort layers, industrial foam, and custom-cut components for trade customers across South Africa.",
+    "Victory Foam manufactures specified mattresses, comfort products, industrial foam, and custom-cut components for trade customers across Gauteng, South Africa.",
   path: "/",
 });
 

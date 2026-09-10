@@ -8,6 +8,7 @@ import { MobileMattressHeroDynamic } from "@/components/3d/mobile-mattress-hero-
 import { TrackedLink } from "@/components/analytics/tracked-link";
 import { StickyCtaBar } from "@/components/conversion/sticky-cta-bar";
 import { TrustStrip } from "@/components/conversion/trust-strip";
+import { ProcessSteps } from "@/components/home/process-steps";
 import { SmoothScroll } from "@/components/smooth-scroll";
 import { SectionHeader } from "@/components/sections/section-header";
 import { SectionWrapper } from "@/components/sections/section-wrapper";
@@ -22,7 +23,7 @@ import type { Category } from "@/types";
 export const metadata: Metadata = buildMetadata({
   title: "Precision Foam Manufacturing",
   description:
-    "Victory Foam manufactures specified mattresses, comfort products, industrial foam, and custom-cut components for trade customers across South Africa.",
+    "Victory Foam manufactures specified mattresses, comfort products, industrial foam, and custom-cut components for trade customers across Gauteng, South Africa.",
   path: "/",
 });
 
@@ -72,7 +73,7 @@ const strengths = [
 ];
 
 const workflow = [
-  { title: "Enquire", description: "Share the application, dimensions, volume, and performance target." },
+  { title: "Quote", description: "Share the application, dimensions, volume, and performance target." },
   { title: "Design", description: "We select materials and develop a practical construction or sample." },
   { title: "Manufacture", description: "Controlled conversion turns the approved design into repeatable parts." },
   { title: "Deliver", description: "Finished products are packed in the format your operation requires." },
@@ -157,38 +158,11 @@ export default function HomePage() {
       <div className="section-divider" />
 
       <SectionWrapper>
-        <AnimateOnScroll delay={0.1}>
-          <SectionHeader
-            title="How We Work"
-            subtitle="A clear four-stage route from requirement to finished foam product."
-          />
-          <div className="relative mt-12">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute bottom-6 left-6 top-6 w-px bg-gradient-to-b from-primary via-primary/40 to-muted-foreground/30 lg:hidden"
-            />
-            <div
-              aria-hidden
-              className="pointer-events-none absolute left-0 right-0 top-6 hidden h-px bg-gradient-to-r from-primary via-primary/40 to-muted-foreground/30 lg:block"
-            />
-            <ol className="relative grid gap-8 lg:grid-cols-4 lg:gap-5">
-              {workflow.map((step, index) => (
-                <li
-                  key={step.title}
-                  className="relative grid grid-cols-[3rem_1fr] gap-4 lg:block lg:pt-20"
-                >
-                  <span className="gradient-border relative z-10 grid size-12 place-items-center rounded-full bg-background font-heading font-semibold text-foreground lg:absolute lg:top-0">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div className="glass-card rounded-xl p-5">
-                    <h3 className="font-heading text-xl font-semibold text-foreground">{step.title}</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">{step.description}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </AnimateOnScroll>
+        <SectionHeader
+          title="How We Work"
+          subtitle="A clear four-stage route from requirement to finished foam product."
+        />
+        <ProcessSteps steps={workflow} />
       </SectionWrapper>
 
       <div className="section-divider" />
@@ -230,7 +204,7 @@ export default function HomePage() {
                 Ready to discuss your project?
               </h2>
               <p className="mb-8 text-lg text-slate-600 dark:text-slate-300">
-                Send your dimensions, drawing, sample, or performance brief and we will help define the next step.
+                Send your dimensions, drawing, sample, or performance brief and request a quote.
               </p>
               <Button
                 asChild
@@ -239,7 +213,7 @@ export default function HomePage() {
                 className="px-8 py-4 text-lg shadow-lg shadow-primary/25 hover:shadow-primary/40"
               >
                 <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "start-your-project" }}>
-                  Get in Touch <ArrowRight className="size-5" />
+                  Request a Quote <ArrowRight className="size-5" />
                 </TrackedLink>
               </Button>
             </div>

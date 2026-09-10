@@ -3,6 +3,8 @@ export interface Product {
   name: string;
   category: string;
   shortDescription: string;
+  /** Unique SERP description, target 150–160 characters. */
+  metaDescription: string;
   fullDescription: string;
   image: string;
   gallery?: string[];

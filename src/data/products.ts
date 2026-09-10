@@ -7,6 +7,8 @@ export const products: Product[] = [
     category: "mattresses",
     shortDescription:
       "A multi-layer mattress combining pressure relief with a stable support core.",
+    metaDescription:
+      "Contour Memory Foam Mattress from Victory Foam in Gauteng: multi-layer pressure relief and support cores for private-label bedding trade programs across SA.",
     fullDescription:
       "Designed for private-label bedding programs, this construction pairs a responsive memory foam comfort layer with transition and high-resilience support foams. Layer heights, densities, firmness, covers, and finished dimensions can be specified for each range.",
     image: "/images/products/memory-foam-mattress.svg",
@@ -25,6 +27,8 @@ export const products: Product[] = [
     category: "mattresses",
     shortDescription:
       "A firmer support-led construction for hospitality, care, and retail ranges.",
+    metaDescription:
+      "Orthopaedic Support Mattress from Victory Foam in Gauteng: firmer foam constructions for hospitality, care, and retail trade manufacturing across South Africa.",
     fullDescription:
       "A durable foam mattress platform designed around firmer load response and edge stability. The specification can be tuned for contract, healthcare, hospitality, and consumer applications.",
     image: "/images/products/orthopaedic-mattress.svg",
@@ -42,6 +46,8 @@ export const products: Product[] = [
     category: "toppers-pillows",
     shortDescription:
       "A ventilated gel-infused comfort layer for mattress enhancement programs.",
+    metaDescription:
+      "Cooling Gel Foam Topper from Victory Foam in Gauteng: ventilated gel comfort layers for mattress enhancement and private-label trade programs across SA.",
     fullDescription:
       "This topper uses open-cell gel foam and a ventilated profile to improve surface comfort. Available in custom thicknesses, roll-pack formats, and private-label cover specifications.",
     image: "/images/products/cooling-gel-topper.svg",
@@ -59,6 +65,8 @@ export const products: Product[] = [
     category: "toppers-pillows",
     shortDescription:
       "A shaped foam pillow platform with configurable profiles and materials.",
+    metaDescription:
+      "Contour Foam Pillow from Victory Foam in Gauteng: CNC-shaped foam pillows with configurable profiles for retail and private-label trade ranges across SA.",
     fullDescription:
       "CNC-profiled for consistent ergonomic support, this pillow can be manufactured in memory, latex-like, or high-resilience foam with optional ventilation channels.",
     image: "/images/products/contour-pillow.svg",
@@ -76,6 +84,8 @@ export const products: Product[] = [
     category: "industrial-foam",
     shortDescription:
       "A resilient material platform for seating, protection, and engineered parts.",
+    metaDescription:
+      "High-Density Industrial Foam from Victory Foam in Gauteng: resilient grades for seating, protection, and engineered component trade manufacturing across SA.",
     fullDescription:
       "Specified by density, firmness, compression set, and finished tolerance, this foam supports demanding industrial applications where repeatability matters.",
     image: "/images/products/industrial-foam.svg",
@@ -93,6 +103,8 @@ export const products: Product[] = [
     category: "industrial-foam",
     shortDescription:
       "Profiled open-cell foam for sound absorption and equipment enclosures.",
+    metaDescription:
+      "Acoustic Foam Panels from Victory Foam in Gauteng: profiled open-cell foam for sound absorption in studios, plant rooms, and OEM enclosures across SA.",
     fullDescription:
       "Available in wedge, pyramid, convoluted, and flat profiles for studios, plant rooms, transport interiors, and OEM acoustic assemblies.",
     image: "/images/products/acoustic-panels.svg",
@@ -110,6 +122,8 @@ export const products: Product[] = [
     category: "custom-cut-foam",
     shortDescription:
       "CNC, contour, and profile-cut components made to drawing.",
+    metaDescription:
+      "Custom Cut Foam Components from Victory Foam in Gauteng: CNC, contour, and profile-cut parts made to drawing for South African trade production programs.",
     fullDescription:
       "From prototypes to repeat production, we convert foam blocks and sheets into finished parts using CNC contour cutting, profiling, lamination, and adhesive application.",
     image: "/images/products/custom-cut-foam.svg",
@@ -127,6 +141,8 @@ export const products: Product[] = [
     category: "custom-cut-foam",
     shortDescription:
       "Presentation and transit inserts engineered around the product.",
+    metaDescription:
+      "Protective Packaging Inserts from Victory Foam in Gauteng: product-specific transit and presentation foam engineered for safe handling and retail display.",
     fullDescription:
       "Custom cavities, layered builds, and case inserts protect sensitive products through handling and transport while presenting them clearly at the point of use.",
     image: "/images/products/packaging-inserts.svg",

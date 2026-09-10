@@ -14,7 +14,7 @@ import { toTelHref } from "@/lib/utils";
 export const metadata: Metadata = buildMetadata({
   title: "Contact",
   description:
-    "Contact Victory Foam to discuss mattress, comfort, industrial, or custom-cut foam specifications, samples, production volumes, and delivery.",
+    "Request a quote from Victory Foam for mattress, comfort, industrial, or custom-cut foam specifications, samples, volumes, and delivery across Gauteng.",
   path: "/contact/",
 });
 
@@ -26,8 +26,8 @@ export default function ContactPage() {
         <AnimateOnScroll>
           <SectionHeader
             as="h1"
-            title="Contact Victory Foam"
-            subtitle="Share dimensions, quantities, intended use, or a drawing. We will help turn the requirement into a practical specification."
+            title="Request a Quote"
+            subtitle="Share dimensions, quantities, intended use, or a drawing. Optional quote fields help us qualify the requirement and respond with a practical next step."
           />
         </AnimateOnScroll>
       </SectionWrapper>

@@ -37,10 +37,14 @@ export function ContactForm({ formId }: { formId?: string }) {
     if (!formspreeId) {
       window.location.href = buildEnquiryMailto({
         to: company.email,
-        subject: readFormField(data, "subject") || "Victory Foam enquiry",
+        subject: readFormField(data, "subject") || "Victory Foam quote request",
         name: readFormField(data, "name"),
         email: readFormField(data, "email"),
         phone: readFormField(data, "phone") || undefined,
+        application: readFormField(data, "application") || undefined,
+        material: readFormField(data, "material") || undefined,
+        dimensions: readFormField(data, "dimensions") || undefined,
+        volume: readFormField(data, "volume") || undefined,
         message: readFormField(data, "message"),
       });
       return;
@@ -54,7 +58,7 @@ export function ContactForm({ formId }: { formId?: string }) {
       return;
     }
 
-    trackEvent("generate_lead", { form_id: "contact" });
+    trackEvent("generate_lead", { form_id: "quote", intent: "quote" });
     setSubmitted(true);
     form.reset();
     window.setTimeout(() => successRef.current?.focus(), 0);
@@ -69,9 +73,9 @@ export function ContactForm({ formId }: { formId?: string }) {
           className="outline-none"
           role="status"
         >
-          <h2 className="font-heading text-2xl font-semibold">Message sent</h2>
+          <h2 className="font-heading text-2xl font-semibold">Quote request sent</h2>
           <p className="mt-4 text-muted-foreground">
-            Thank you. We will review your enquiry and respond during working hours.
+            Thank you. We will review your requirements and respond during working hours.
           </p>
         </div>
       </div>
@@ -80,7 +84,11 @@ export function ContactForm({ formId }: { formId?: string }) {
 
   return (
     <div className="glass-card gradient-border rounded-xl p-6 md:p-8">
-      <h2 className="font-heading text-2xl font-semibold">Send an enquiry</h2>
+      <h2 className="font-heading text-2xl font-semibold">Request a quote</h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Share the application details you have. Quote fields below are optional but help us
+        qualify the requirement faster.
+      </p>
       <form className="mt-8 grid gap-5" onSubmit={handleSubmit} noValidate>
         <div className="hidden" aria-hidden="true">
           <label htmlFor="_gotcha">
@@ -141,13 +149,60 @@ export function ContactForm({ formId }: { formId?: string }) {
           Subject
           <ContactSubjectField className={fieldClass} />
         </label>
+        <fieldset className="grid gap-5 rounded-lg border border-border/60 p-4 dark:border-slate-600/40">
+          <legend className="px-1 text-sm font-medium text-foreground">
+            Quote details (optional)
+          </legend>
+          <label htmlFor="contact-application" className="block text-sm font-medium text-foreground">
+            Application / use case
+            <input
+              id="contact-application"
+              className={fieldClass}
+              name="application"
+              placeholder="e.g. hospitality mattresses, seating, packaging"
+              autoComplete="off"
+            />
+          </label>
+          <label htmlFor="contact-material" className="block text-sm font-medium text-foreground">
+            Product or material type
+            <input
+              id="contact-material"
+              className={fieldClass}
+              name="material"
+              placeholder="e.g. memory foam, HR foam, acoustic panel"
+              autoComplete="off"
+            />
+          </label>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <label htmlFor="contact-dimensions" className="block text-sm font-medium text-foreground">
+              Dimensions
+              <input
+                id="contact-dimensions"
+                className={fieldClass}
+                name="dimensions"
+                placeholder="e.g. 1880 × 915 × 200 mm"
+                autoComplete="off"
+              />
+            </label>
+            <label htmlFor="contact-volume" className="block text-sm font-medium text-foreground">
+              Approximate volume / quantity
+              <input
+                id="contact-volume"
+                className={fieldClass}
+                name="volume"
+                placeholder="e.g. 200 units / month"
+                autoComplete="off"
+              />
+            </label>
+          </div>
+        </fieldset>
         <label htmlFor="contact-message" className="block text-sm font-medium text-foreground">
           Message
           <textarea
             id="contact-message"
             className={`${fieldClass} min-h-[120px] resize-y`}
             name="message"
-            placeholder="Application, dimensions, quantity, timing, or relevant standards"
+            placeholder="Performance targets, drawings, timing, or relevant standards"
             required
             minLength={20}
             aria-required="true"
@@ -171,7 +226,7 @@ export function ContactForm({ formId }: { formId?: string }) {
           disabled={pending}
           className="w-full px-6 py-3 text-white shadow-lg shadow-primary/25 hover:bg-primary/90 hover:shadow-primary/40"
         >
-          {pending ? "Sending…" : "Send Message"}
+          {pending ? "Sending…" : "Request a Quote"}
         </Button>
         <p className="text-xs text-muted-foreground">
           {formspreeId

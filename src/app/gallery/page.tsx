@@ -10,7 +10,7 @@ import { buildMetadata } from "@/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "Gallery",
   description:
-    "View Victory Foam factory facilities, precision conversion processes, mattress constructions, and finished industrial foam components.",
+    "Explore Victory Foam factory facilities, precision conversion processes, mattress constructions, and finished industrial foam components across Gauteng.",
   path: "/gallery/",
 });
 

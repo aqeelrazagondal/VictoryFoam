@@ -36,6 +36,10 @@ export function buildEnquiryMailto({
   name,
   email,
   phone,
+  application,
+  material,
+  dimensions,
+  volume,
   message,
 }: {
   to: string;
@@ -43,12 +47,20 @@ export function buildEnquiryMailto({
   name: string;
   email: string;
   phone?: string;
+  application?: string;
+  material?: string;
+  dimensions?: string;
+  volume?: string;
   message: string;
 }) {
   const body = [
     `Name: ${name}`,
     `Email: ${email}`,
     ...(phone ? [`Phone: ${phone}`] : []),
+    ...(application ? [`Application / use case: ${application}`] : []),
+    ...(material ? [`Product / material: ${material}`] : []),
+    ...(dimensions ? [`Dimensions: ${dimensions}`] : []),
+    ...(volume ? [`Volume / quantity: ${volume}`] : []),
     "",
     message,
   ].join("\n");

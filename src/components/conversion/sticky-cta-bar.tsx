@@ -82,8 +82,8 @@ export function StickyCtaBar({ triggerId = "mattress-cinema" }: { triggerId?: st
             {company.phone}
           </TrackedAnchor>
           <Button asChild size="sm" variant="gradient" className="min-h-11 shadow-md shadow-primary/25">
-            <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "sticky-get-in-touch" }}>
-              Get in Touch
+            <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "sticky-request-a-quote" }}>
+              Request a Quote
             </TrackedLink>
           </Button>
         </div>

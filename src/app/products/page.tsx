@@ -13,7 +13,7 @@ export function generateMetadata(): Metadata {
   return buildMetadata({
     title: "Our Products",
     description:
-      "Explore Victory Foam mattresses, toppers, pillows, industrial grades, and custom-cut components developed for repeat trade manufacturing.",
+      "Browse Victory Foam mattresses, toppers, pillows, industrial foam grades, and custom-cut components made for repeat trade manufacturing across Gauteng.",
     path: "/products/",
   });
 }

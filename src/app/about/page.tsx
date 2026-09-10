@@ -21,7 +21,7 @@ import { buildMetadata } from "@/lib/seo";
 export const metadata: Metadata = buildMetadata({
   title: "About",
   description:
-    "Learn how Victory Foam develops, prototypes, tests, converts, and manufactures reliable foam specifications for South African trade customers.",
+    "Learn how Victory Foam develops, prototypes, tests, and manufactures reliable foam specifications for trade customers across Gauteng and South Africa.",
   path: "/about/",
 });
 

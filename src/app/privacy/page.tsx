@@ -9,7 +9,7 @@ import { toTelHref } from "@/lib/utils";
 export const metadata: Metadata = buildMetadata({
   title: "Privacy Policy",
   description:
-    "How Victory Foam collects, uses, and stores enquiry information under POPIA, including Formspree, hosting, analytics, and your data-subject rights.",
+    "How Victory Foam collects, uses, and stores enquiry information under POPIA, including Formspree, hosting, analytics, and your South African data rights.",
   path: "/privacy/",
 });
 

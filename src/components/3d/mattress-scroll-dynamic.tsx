@@ -46,7 +46,7 @@ function CinemaFallback({
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <Button asChild size="lg" variant="gradient">
             <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "start-your-project" }}>
-              Start Your Project
+              Request a Quote
             </TrackedLink>
           </Button>
           {action}

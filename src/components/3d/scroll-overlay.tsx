@@ -110,7 +110,7 @@ export function ScrollOverlay({
                     event="cta_click"
                     eventParams={{ cta_id: "start-your-project" }}
                   >
-                    Start Your Project <ArrowRight className="size-5" />
+                    Request a Quote <ArrowRight className="size-5" />
                   </TrackedLink>
                 </Button>
                 <div className="flex flex-col items-center gap-3 text-sm text-slate-400 md:flex-row md:gap-6">

@@ -254,7 +254,7 @@ export default function MobileMattressHero() {
           </Button>
           <Button asChild size="lg" variant="gradient" className="shadow-lg shadow-primary/25">
             <TrackedLink href="/contact/" event="cta_click" eventParams={{ cta_id: "start-your-project" }}>
-              Start Your Project <ArrowRight />
+              Request a Quote <ArrowRight />
             </TrackedLink>
           </Button>
         </div>

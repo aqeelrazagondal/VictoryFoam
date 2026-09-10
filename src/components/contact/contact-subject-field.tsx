@@ -6,7 +6,7 @@ import { Suspense, useState } from "react";
 function ContactSubjectFieldInner({ className }: { className: string }) {
   const searchParams = useSearchParams();
   const product = searchParams.get("product");
-  const [subject, setSubject] = useState(product ? `Enquiry about ${product}` : "");
+  const [subject, setSubject] = useState(product ? `Quote request for ${product}` : "");
 
   return (
     <input

@@ -108,6 +108,12 @@ export function QuickEnquiryFab({ formId }: { formId?: string }) {
           </p>
         ) : (
           <form className="mt-6 grid gap-3" onSubmit={handleSubmit} noValidate>
+            <div className="hidden" aria-hidden="true">
+              <label htmlFor="quick-gotcha">
+                Leave this field empty
+                <input id="quick-gotcha" name="_gotcha" tabIndex={-1} autoComplete="off" />
+              </label>
+            </div>
             <label htmlFor="quick-name" className="block text-xs font-medium text-foreground">
               Name
               <input
