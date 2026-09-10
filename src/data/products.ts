@@ -143,3 +143,17 @@ export const products: Product[] = [
 export function getProduct(slug: string) {
   return products.find((product) => product.slug === slug);
 }
+
+export function getRelatedProducts(slug: string, limit = 3) {
+  const current = getProduct(slug);
+  if (!current || limit <= 0) return [];
+
+  const sameCategory = products.filter(
+    (product) => product.slug !== slug && product.category === current.category,
+  );
+  const otherCategories = products.filter(
+    (product) => product.slug !== slug && product.category !== current.category,
+  );
+
+  return [...sameCategory, ...otherCategories].slice(0, limit);
+}

@@ -13,6 +13,7 @@ import {
   getConsent,
   getGaMeasurementId,
   setConsent as persistConsent,
+  clearConsent,
   type ConsentStatus,
 } from "@/lib/analytics";
 
@@ -24,6 +25,7 @@ type ConsentContextValue = {
   bannerVisible: boolean;
   accept: () => void;
   decline: () => void;
+  reset: () => void;
 };
 
 const ConsentContext = createContext<ConsentContextValue | null>(null);
@@ -61,6 +63,11 @@ export function ConsentProvider({
     notifyConsent();
   }, []);
 
+  const reset = useCallback(() => {
+    clearConsent();
+    notifyConsent();
+  }, []);
+
   const isClient = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -75,8 +82,9 @@ export function ConsentProvider({
       bannerVisible,
       accept,
       decline,
+      reset,
     }),
-    [resolvedId, consent, bannerVisible, accept, decline],
+    [resolvedId, consent, bannerVisible, accept, decline, reset],
   );
 
   return <ConsentContext.Provider value={value}>{children}</ConsentContext.Provider>;

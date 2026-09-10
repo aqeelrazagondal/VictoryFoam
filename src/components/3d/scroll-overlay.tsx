@@ -49,9 +49,9 @@ export function ScrollOverlay({
             )}
           >
             {slide.id === "hook" ? (
-              <h1 className="font-heading text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
+              <p className="font-heading text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
                 {slide.title}
-              </h1>
+              </p>
             ) : (
               <h2
                 className={cn(

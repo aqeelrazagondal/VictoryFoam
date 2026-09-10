@@ -144,7 +144,7 @@ export function Header() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="md:hidden"
+                  className="min-h-11 min-w-11 md:hidden"
                   aria-label="Open navigation"
                 >
                   <Menu />

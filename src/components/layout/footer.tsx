@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 
 import { TrackedAnchor } from "@/components/analytics/tracked-link";
+import { CookiePreferences } from "@/components/analytics/cookie-preferences";
 import { categories } from "@/data/categories";
 import { company, navigation } from "@/data/company";
 import { toTelHref } from "@/lib/utils";
@@ -37,7 +38,7 @@ export function Footer() {
                   target="_blank"
                   rel="noreferrer"
                   aria-label={social.platform}
-                  className="grid size-10 place-items-center rounded-lg border border-slate-700 transition-[color,border-color,box-shadow] hover:border-sky-400 hover:text-sky-400 hover:glow-sm"
+                  className="grid size-11 place-items-center rounded-lg border border-slate-700 transition-[color,border-color,box-shadow] hover:border-sky-400 hover:text-sky-400 hover:glow-sm"
                 >
                   {Icon && <Icon className="size-4" />}
                 </a>
@@ -118,13 +119,14 @@ export function Footer() {
       <div className="border-t border-slate-800">
         <div className="container-site flex flex-col gap-3 py-5 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
           <p>© 2026 {company.name}. All rights reserved.</p>
-          <nav aria-label="Legal" className="flex gap-4">
+          <nav aria-label="Legal" className="flex flex-wrap gap-4">
             <Link className="hover:text-sky-400" href="/privacy/">
               Privacy Policy
             </Link>
             <Link className="hover:text-sky-400" href="/terms/">
               Terms of Use
             </Link>
+            <CookiePreferences />
           </nav>
         </div>
       </div>

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { JsonLd } from "@/components/seo/json-ld";
 import { certifications } from "@/data/certifications";
 import { company } from "@/data/company";
-import { getProduct, products } from "@/data/products";
+import { getProduct, getRelatedProducts, products } from "@/data/products";
 import { buildMetadata, buildProductSchema } from "@/lib/seo";
 
 type ProductPageProps = {
@@ -33,7 +33,6 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
     title: product.name,
     description: `${product.shortDescription} Review its configurable construction, specifications, and manufacturing features.`,
     path: `/products/${product.slug}/`,
-    image: product.image,
   });
 }
 
@@ -45,9 +44,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const productCertifications = certifications.filter((certification) =>
     product.certifications?.includes(certification.name),
   );
-  const relatedProducts = products
-    .filter((candidate) => candidate.category === product.category && candidate.slug !== product.slug)
-    .slice(0, 3);
+  const relatedProducts = getRelatedProducts(product.slug, 3);
   const enquiryQuery = new URLSearchParams({ product: product.name }).toString();
 
   return (

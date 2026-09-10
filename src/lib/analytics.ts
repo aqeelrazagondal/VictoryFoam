@@ -20,6 +20,11 @@ export function setConsent(status: Exclude<ConsentStatus, null>) {
   window.localStorage.setItem(CONSENT_KEY, status);
 }
 
+export function clearConsent() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(CONSENT_KEY);
+}
+
 declare global {
   interface Window {
     dataLayer?: unknown[];

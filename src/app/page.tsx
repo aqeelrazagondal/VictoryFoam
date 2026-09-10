@@ -81,6 +81,7 @@ const workflow = [
 export default function HomePage() {
   return (
     <SmoothScroll enabled={false}>
+      <h1 className="sr-only">Victory Foam — Precision Foam Manufacturing</h1>
       <MattressScrollDynamic />
       <MobileMattressHeroDynamic />
 

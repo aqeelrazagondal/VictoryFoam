@@ -3,7 +3,6 @@
 import { motion, useInView, useReducedMotion } from "framer-motion";
 import { useRef, type ReactNode } from "react";
 
-import { cn } from "@/lib/utils";
 import { fadeInUp } from "@/lib/motion-variants";
 
 interface AnimateOnScrollProps {

@@ -21,7 +21,16 @@ It does not publish prices, accept orders, or provide a shopping cart.
 - Hours: Monday–Friday, 07:30–16:30
 
 ## Pages
+- / - Home
 - /products/ - Full product catalogue
+- /products/memory-foam-mattress/ - Contour Memory Foam Mattress
+- /products/orthopaedic-support-mattress/ - Orthopaedic Support Mattress
+- /products/cooling-gel-topper/ - Cooling Gel Foam Topper
+- /products/contour-foam-pillow/ - Contour Foam Pillow
+- /products/high-density-industrial-foam/ - High-Density Industrial Foam
+- /products/acoustic-foam-panels/ - Acoustic Foam Panels
+- /products/custom-cut-foam/ - Custom Cut Foam Components
+- /products/protective-packaging-foam/ - Protective Packaging Inserts
 - /about/ - Company information
 - /gallery/ - Factory and product photos
 - /contact/ - Enquiry form

@@ -4,7 +4,7 @@ import { OrbitControls, RoundedBox } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { ArrowRight, Layers3 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { MathUtils, type Mesh } from "three";
 
 import { Button } from "@/components/ui/button";
@@ -128,12 +128,8 @@ export default function MobileMattressHero() {
   const [reduceMotion] = useState(
     () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
-  const [canRender, setCanRender] = useState(false);
+  const [canRender] = useState(() => shouldUseHeavyWebGl());
   const active = mattressLayers[hovered ?? selected];
-
-  useEffect(() => {
-    setCanRender(shouldUseHeavyWebGl());
-  }, []);
 
   const showFallback = !canRender;
 
@@ -144,9 +140,9 @@ export default function MobileMattressHero() {
       aria-label="Five-layer mattress foam construction"
     >
       <div className="container-site flex min-h-[88vh] flex-col justify-center py-10">
-        <h1 className="font-heading text-4xl font-bold tracking-tight text-white">
+        <p className="font-heading text-4xl font-bold tracking-tight text-white">
           Engineered from the inside out.
-        </h1>
+        </p>
         <p className="mt-4 max-w-md text-base text-slate-300">
           Five precision foam layers, built around your specification.
         </p>

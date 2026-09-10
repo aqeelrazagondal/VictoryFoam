@@ -26,6 +26,11 @@ export const company: CompanyInfo = {
   },
   workingHours: "Monday–Friday, 07:30–16:30",
   openingHours: "Mo-Fr 07:30-16:30",
+  // OSM node 262708489 — Lawley suburb, Ennerdale. Street-level pin pending a client Maps share.
+  geo: {
+    latitude: -26.3916667,
+    longitude: 27.8127778,
+  },
   mapEmbedUrl:
     "https://www.google.com/maps?q=7684+Matlotlo+Street,+Lawley+Ext+2,+Ennerdale,+1830,+Gauteng,+South+Africa&output=embed",
   socialLinks: [

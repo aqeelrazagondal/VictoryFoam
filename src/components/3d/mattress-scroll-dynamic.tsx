@@ -36,9 +36,9 @@ function CinemaFallback({
         priority
       />
       <div className="container-site relative z-10 py-28 text-center">
-        <h1 className="font-heading text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
+        <p className="font-heading text-4xl font-bold tracking-tight text-white md:text-5xl lg:text-6xl">
           Engineered from the inside out.
-        </h1>
+        </p>
         <p className="mx-auto mt-4 max-w-xl text-base text-slate-300 md:text-lg">
           Five-layer foam constructions developed for repeatable comfort, support, and
           South African manufacturing timelines.

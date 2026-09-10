@@ -28,7 +28,9 @@ Open [http://localhost:3000](http://localhost:3000).
 ```bash
 pnpm lint
 pnpm typecheck
+pnpm test
 pnpm build
+pnpm e2e
 ```
 
 `pnpm build` creates `out/`. That folder is the complete deployable website;
@@ -48,6 +50,26 @@ always offers that address as a direct-email option.
 
 Set `NEXT_PUBLIC_SITE_URL` to the public origin before building so canonical
 URLs, sitemap entries, and structured data use the production domain.
+
+## Analytics, Search Console, and uptime
+
+These values belong in Vercel Environment Variables (Production). Do not commit
+measurement IDs or Formspree secrets.
+
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SITE_URL` | Canonical origin, default `https://victoryfoam.co.za` |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | GA4 ID (`G-…`). Cookie banner and gtag load only when this is set and the visitor accepts cookies. |
+| `NEXT_PUBLIC_FORMSPREE_FORM_ID` | Contact and quick-enquiry posts. Without it, submit opens a `mailto:` draft. |
+
+After a production deploy:
+
+1. Confirm GA4 is receiving page views after accepting cookies on the live site.
+2. In [Google Search Console](https://search.google.com/search-console), add `victoryfoam.co.za`, verify via DNS TXT, submit `https://victoryfoam.co.za/sitemap.xml`, and request indexing for the home page.
+3. Enable Vercel Analytics and/or an UptimeRobot monitor for `https://victoryfoam.co.za`.
+4. Validate `/`, `/contact/`, and one product URL in [Rich Results Test](https://search.google.com/test/rich-results).
+
+Tracked events (only after consent and GA have loaded): `cta_click`, phone/email `click`, and `generate_lead` on successful Formspree submits.
 
 ## Launch checklist
 
@@ -110,7 +132,7 @@ mode.
 ### Vercel
 
 1. Import `https://github.com/aqeelrazagondal/VictoryFoam.git`.
-2. Set `NEXT_PUBLIC_SITE_URL` and `NEXT_PUBLIC_FORMSPREE_FORM_ID`.
+2. Set `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_FORMSPREE_FORM_ID`, and `NEXT_PUBLIC_GA_MEASUREMENT_ID`.
 3. Use the Next.js framework preset; `pnpm build` emits `out/`.
 4. Connect the custom domain and confirm HTTPS.
 5. Push to `main` and confirm auto-deploy.

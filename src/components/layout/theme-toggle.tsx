@@ -15,7 +15,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       aria-label="Toggle theme"
-      className="relative"
+      className="relative min-h-11 min-w-11"
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
       <Sun className={cn("h-4 w-4 transition-transform", isDark ? "scale-0" : "scale-100")} />
