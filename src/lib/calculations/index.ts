@@ -57,6 +57,7 @@ export type { StockCheck } from "./stock.ts";
 export {
   amountsEqual,
   editChemicalAmount,
+  editSolidContent,
   encodeAdjustNote,
   parseAdjustNote,
   scaleTankTotal,

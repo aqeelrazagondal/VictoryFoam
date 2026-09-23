@@ -12,6 +12,7 @@ export type Database = {
           oh_value: number | null;
           qty_available: number | null;
           solid_content_pct: number;
+          reorder_kg: number | null;
           unit: string;
           updated_at: string;
           viscosity: number | null;
@@ -23,6 +24,7 @@ export type Database = {
           name: string;
           oh_value?: number | null;
           qty_available?: number | null;
+          reorder_kg?: number | null;
           solid_content_pct: number;
           unit?: string;
           updated_at?: string;
@@ -35,12 +37,61 @@ export type Database = {
           name?: string;
           oh_value?: number | null;
           qty_available?: number | null;
+          reorder_kg?: number | null;
           solid_content_pct?: number;
           unit?: string;
           updated_at?: string;
           viscosity?: number | null;
         };
         Relationships: [];
+      };
+      chemical_stock_movements: {
+        Row: {
+          balance_after: number;
+          chemical_id: string;
+          created_at: string;
+          id: string;
+          note: string | null;
+          quantity: number;
+          tank_log_entry_id: string | null;
+          type: "receive" | "issue" | "waste" | "count" | "pour";
+        };
+        Insert: {
+          balance_after: number;
+          chemical_id: string;
+          created_at?: string;
+          id?: string;
+          note?: string | null;
+          quantity: number;
+          tank_log_entry_id?: string | null;
+          type: "receive" | "issue" | "waste" | "count" | "pour";
+        };
+        Update: {
+          balance_after?: number;
+          chemical_id?: string;
+          created_at?: string;
+          id?: string;
+          note?: string | null;
+          quantity?: number;
+          tank_log_entry_id?: string | null;
+          type?: "receive" | "issue" | "waste" | "count" | "pour";
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chemical_stock_movements_chemical_id_fkey";
+            columns: ["chemical_id"];
+            isOneToOne: false;
+            referencedRelation: "chemicals";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "chemical_stock_movements_tank_log_entry_id_fkey";
+            columns: ["tank_log_entry_id"];
+            isOneToOne: false;
+            referencedRelation: "tank_log_entries";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       last_calculation: {
         Row: {
@@ -124,7 +175,24 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      apply_stock_movement: {
+        Args: {
+          p_chemical_id: string;
+          p_note?: string | null;
+          p_quantity: number;
+          p_tank_log_entry_id?: string | null;
+          p_type: string;
+        };
+        Returns: Json;
+      };
+      reverse_stock_for_log_entry: {
+        Args: {
+          p_entry_id: string;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

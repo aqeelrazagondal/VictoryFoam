@@ -15,7 +15,7 @@ import {
   summarizeMix,
   type LogEntryInput,
 } from "./tank-log.ts";
-import { encodeAdjustNote } from "./composition-edit.ts";
+import { editSolidContent, encodeAdjustNote } from "./composition-edit.ts";
 
 function entry(
   partial: Partial<LogEntryInput> & Pick<LogEntryInput, "id" | "type" | "quantity">,
@@ -367,5 +367,42 @@ describe("composition and reconciliation", () => {
     assert.equal(snapshot.remainingByChemical.a, 1500);
     assert.equal(snapshot.remainingByChemical.b, 500);
     assert.equal(snapshot.entries.length, 3);
+  });
+
+  test("positive: adjust_composition from a solid-content Home edit reproduces remainings", () => {
+    const before = {
+      remainingByChemical: { a: 1982.2, b: 165.6, c: 52.2 },
+      unattributed: 0,
+      volume: 2200,
+      solidPct: (1982.2 * 45 + 165.6 * 25) / 2200,
+    };
+    const edited = editSolidContent(
+      before,
+      { a: 45, b: 25, c: 0 },
+      { a: "polymer polyol 3125", b: "polymer polyol 2045", c: "Conventional Polyol" },
+      28,
+    );
+    assert.equal(edited.ok, true);
+    if (!edited.ok) return;
+    const snapshot = replayLog([
+      entry({ id: "1", type: "opening_balance", chemicalId: "a", quantity: 1982.2, solidContentPct: 45 }),
+      entry({ id: "2", type: "opening_balance", chemicalId: "b", quantity: 165.6, solidContentPct: 25 }),
+      entry({ id: "3", type: "opening_balance", chemicalId: "c", quantity: 52.2, solidContentPct: 0 }),
+      entry({
+        id: "4",
+        type: "adjust_composition",
+        quantity: edited.next.volume,
+        solidContentPct: edited.next.solidPct,
+        note: encodeAdjustNote({
+          remainingByChemical: edited.next.remainingByChemical,
+          unattributed: edited.next.unattributed,
+        }),
+      }),
+    ]);
+    assert.ok(Math.abs(snapshot.volume - 2200) < 1e-6);
+    assert.ok(Math.abs(snapshot.solidPct - 28) < 0.05);
+    assert.ok(Math.abs((snapshot.remainingByChemical.a ?? 0) - (edited.next.remainingByChemical.a ?? 0)) < 0.05);
+    assert.ok(Math.abs((snapshot.remainingByChemical.b ?? 0) - (edited.next.remainingByChemical.b ?? 0)) < 0.05);
+    assert.ok(Math.abs((snapshot.remainingByChemical.c ?? 0) - (edited.next.remainingByChemical.c ?? 0)) < 0.05);
   });
 });

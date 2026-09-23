@@ -8,9 +8,37 @@ export type Chemical = {
   unit: string;
   ohValue: number | null;
   viscosity: number | null;
+  reorderKg: number | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export const STOCK_MOVEMENT_TYPES = ["receive", "issue", "waste", "count", "pour"] as const;
+
+export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[number];
+
+export type StockMovement = {
+  id: string;
+  chemicalId: string;
+  type: StockMovementType;
+  /** Signed change in on-hand. A count stores the difference from the previous balance. */
+  quantity: number;
+  balanceAfter: number;
+  note: string | null;
+  tankLogEntryId: string | null;
+  createdAt: string;
+};
+
+export type StockMovementInput = {
+  type: StockMovementType;
+  /**
+   * Kilograms moved for receive, issue, waste, and pour.
+   * For count, the kilograms just counted.
+   */
+  quantity: number;
+  note?: string | null;
+  tankLogEntryId?: string | null;
 };
 
 export type ChemicalDraft = {

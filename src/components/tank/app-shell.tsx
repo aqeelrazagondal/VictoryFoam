@@ -15,6 +15,7 @@ const HOME_LINK = { href: "/tank/", label: "Home" } as const;
 
 const MORE_LINKS = [
   { href: "/tank/chemicals/", label: "Chemicals" },
+  { href: "/tank/inventory/", label: "Inventory" },
   { href: "/tank/blend/", label: "Blend" },
   { href: "/tank/fill/", label: "Fill" },
   { href: "/tank/log/", label: "Log" },

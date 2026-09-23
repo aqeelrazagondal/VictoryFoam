@@ -5,12 +5,16 @@ import type {
   ChemicalDraft,
   FillLastCalculation,
   LastCalculator,
+  StockMovement,
+  StockMovementInput,
+  StockMovementType,
   TankLogDraft,
   TankLogEntry,
   TankSettings,
 } from "@/lib/tank/models";
-import { isDuplicateName } from "@/lib/tank/models";
+import { isDuplicateName, STOCK_MOVEMENT_TYPES } from "@/lib/tank/models";
 import { pageOf, pageRange, TANK_LIST_PAGE_SIZE, type PageResult } from "@/lib/tank/pagination";
+import { nextStockBalance, reversedBalance, shouldDeductStock } from "@/lib/tank/stock";
 import type { Database, Json } from "@/lib/tank/database.types";
 
 const LOCAL_KEY = "victory-foam-tank-v1";
@@ -29,6 +33,7 @@ type LocalState = {
   chemicals: Chemical[];
   settings: TankSettings | null;
   entries: TankLogEntry[];
+  movements: StockMovement[];
   lastCalculation: {
     blend?: BlendLastCalculation;
     fill?: FillLastCalculation;
@@ -39,6 +44,7 @@ const emptyLocal = (): LocalState => ({
   chemicals: [],
   settings: null,
   entries: [],
+  movements: [],
   lastCalculation: {},
 });
 
@@ -55,11 +61,12 @@ function readLocal(): LocalState {
   try {
     const raw = window.localStorage.getItem(LOCAL_KEY);
     if (!raw) return emptyLocal();
-    const parsed = JSON.parse(raw) as LocalState;
+    const parsed = JSON.parse(raw) as Partial<LocalState>;
     return {
-      chemicals: parsed.chemicals ?? [],
+      chemicals: (parsed.chemicals ?? []).map(normalizeStoredChemical),
       settings: parsed.settings ?? null,
       entries: parsed.entries ?? [],
+      movements: parsed.movements ?? [],
       lastCalculation: parsed.lastCalculation ?? {},
     };
   } catch {
@@ -71,6 +78,14 @@ function writeLocal(state: LocalState) {
   window.localStorage.setItem(LOCAL_KEY, JSON.stringify(state));
 }
 
+function normalizeStoredChemical(chemical: Chemical): Chemical {
+  return {
+    ...chemical,
+    qtyAvailable: chemical.qtyAvailable ?? null,
+    reorderKg: chemical.reorderKg ?? null,
+  };
+}
+
 function mapChemical(row: Database["public"]["Tables"]["chemicals"]["Row"]): Chemical {
   return {
     id: row.id,
@@ -80,9 +95,58 @@ function mapChemical(row: Database["public"]["Tables"]["chemicals"]["Row"]): Che
     unit: row.unit,
     ohValue: row.oh_value === null ? null : Number(row.oh_value),
     viscosity: row.viscosity === null ? null : Number(row.viscosity),
+    reorderKg: row.reorder_kg === null ? null : Number(row.reorder_kg),
     archivedAt: row.archived_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function isStockMovementType(value: string): value is StockMovementType {
+  return (STOCK_MOVEMENT_TYPES as readonly string[]).includes(value);
+}
+
+function mapMovement(
+  row: Database["public"]["Tables"]["chemical_stock_movements"]["Row"],
+): StockMovement {
+  return {
+    id: row.id,
+    chemicalId: row.chemical_id,
+    type: row.type,
+    quantity: Number(row.quantity),
+    balanceAfter: Number(row.balance_after),
+    note: row.note,
+    tankLogEntryId: row.tank_log_entry_id,
+    createdAt: row.created_at,
+  };
+}
+
+function mapMovementJson(value: Json): StockMovement {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TankError("Could not read the stock movement.");
+  }
+  const type = value.type;
+  const id = value.id;
+  const chemicalId = value.chemical_id;
+  const createdAt = value.created_at;
+  if (
+    typeof type !== "string" ||
+    !isStockMovementType(type) ||
+    typeof id !== "string" ||
+    typeof chemicalId !== "string" ||
+    typeof createdAt !== "string"
+  ) {
+    throw new TankError("Could not read the stock movement.");
+  }
+  return {
+    id,
+    chemicalId,
+    type,
+    quantity: Number(value.quantity),
+    balanceAfter: Number(value.balance_after),
+    note: typeof value.note === "string" ? value.note : null,
+    tankLogEntryId: typeof value.tank_log_entry_id === "string" ? value.tank_log_entry_id : null,
+    createdAt,
   };
 }
 
@@ -103,6 +167,80 @@ function mapEntry(row: Database["public"]["Tables"]["tank_log_entries"]["Row"]):
 function assertUniqueName(name: string, chemicals: Chemical[], exceptId?: string) {
   if (isDuplicateName(name, chemicals, exceptId)) {
     throw new TankError("A chemical with this name already exists.");
+  }
+}
+
+function assertOpeningQty(qty: number | null) {
+  if (qty === null) return;
+  if (!Number.isFinite(qty) || qty < 0) {
+    throw new TankError("Opening stock cannot be negative.");
+  }
+}
+
+function applyLocalMovement(
+  local: LocalState,
+  chemicalId: string,
+  input: StockMovementInput,
+): StockMovement | null {
+  const chemical = local.chemicals.find((item) => item.id === chemicalId);
+  if (!chemical) throw new TankError("Chemical not found.");
+  let change;
+  try {
+    change = nextStockBalance(chemical.qtyAvailable, input.type, input.quantity);
+  } catch (caught) {
+    throw new TankError(caught instanceof Error ? caught.message : "Could not update stock.");
+  }
+  if (!change.applied) return null;
+  chemical.qtyAvailable = change.balanceAfter;
+  chemical.updatedAt = nowIso();
+  const movement: StockMovement = {
+    id: crypto.randomUUID(),
+    chemicalId,
+    type: input.type,
+    quantity: change.signedQuantity,
+    balanceAfter: change.balanceAfter,
+    note: input.note?.trim() || null,
+    tankLogEntryId: input.tankLogEntryId ?? null,
+    createdAt: nowIso(),
+  };
+  local.movements = [...local.movements, movement];
+  return movement;
+}
+
+function reverseLocalLogEntry(local: LocalState, entryId: string) {
+  const linked = local.movements.filter((movement) => movement.tankLogEntryId === entryId);
+  for (const movement of linked) {
+    movement.tankLogEntryId = null;
+    const chemical = local.chemicals.find((item) => item.id === movement.chemicalId);
+    if (!chemical || chemical.qtyAvailable === null) continue;
+    const balance = reversedBalance(chemical.qtyAvailable, movement.quantity);
+    chemical.qtyAvailable = balance;
+    chemical.updatedAt = nowIso();
+    local.movements = [
+      ...local.movements,
+      {
+        id: crypto.randomUUID(),
+        chemicalId: movement.chemicalId,
+        type: "pour",
+        quantity: -movement.quantity,
+        balanceAfter: balance,
+        note: "Tank log row removed",
+        tankLogEntryId: null,
+        createdAt: nowIso(),
+      },
+    ];
+  }
+}
+
+function deductLocalPours(local: LocalState, entries: TankLogEntry[]) {
+  for (const entry of entries) {
+    if (!shouldDeductStock(entry.type) || !entry.chemicalId || !(entry.quantity > 0)) continue;
+    applyLocalMovement(local, entry.chemicalId, {
+      type: "pour",
+      quantity: entry.quantity,
+      tankLogEntryId: entry.id,
+      note: "Poured into the tank",
+    });
   }
 }
 
@@ -220,6 +358,7 @@ export async function createChemical(draft: ChemicalDraft, existing: Chemical[])
     throw new TankError("Solid Content % must be between 0 and 100.");
   }
   assertUniqueName(name, existing);
+  assertOpeningQty(draft.qtyAvailable);
 
   const supabase = getSupabaseBrowser();
   if (!supabase) {
@@ -228,15 +367,23 @@ export async function createChemical(draft: ChemicalDraft, existing: Chemical[])
       id: crypto.randomUUID(),
       name,
       solidContentPct: draft.solidContentPct,
-      qtyAvailable: draft.qtyAvailable,
+      qtyAvailable: null,
       unit: draft.unit.trim() || "kg",
       ohValue: draft.ohValue,
       viscosity: draft.viscosity,
+      reorderKg: null,
       archivedAt: null,
       createdAt: nowIso(),
       updatedAt: nowIso(),
     };
     local.chemicals = [...local.chemicals, created];
+    if (draft.qtyAvailable !== null) {
+      applyLocalMovement(local, created.id, {
+        type: "count",
+        quantity: draft.qtyAvailable,
+        note: "Opening balance",
+      });
+    }
     writeLocal(local);
     return created;
   }
@@ -246,7 +393,7 @@ export async function createChemical(draft: ChemicalDraft, existing: Chemical[])
     .insert({
       name,
       solid_content_pct: draft.solidContentPct,
-      qty_available: draft.qtyAvailable,
+      qty_available: null,
       unit: draft.unit.trim() || "kg",
       oh_value: draft.ohValue,
       viscosity: draft.viscosity,
@@ -258,7 +405,14 @@ export async function createChemical(draft: ChemicalDraft, existing: Chemical[])
     if (error.code === "23505") throw new TankError("A chemical with this name already exists.");
     throw new TankError(error.message);
   }
-  return mapChemical(data);
+  const chemical = mapChemical(data);
+  if (draft.qtyAvailable === null) return chemical;
+  await applyStockMovement(chemical.id, {
+    type: "count",
+    quantity: draft.qtyAvailable,
+    note: "Opening balance",
+  });
+  return { ...chemical, qtyAvailable: draft.qtyAvailable };
 }
 
 export async function updateChemical(
@@ -279,7 +433,6 @@ export async function updateChemical(
             ...chemical,
             name,
             solidContentPct: draft.solidContentPct,
-            qtyAvailable: draft.qtyAvailable,
             unit: draft.unit.trim() || "kg",
             ohValue: draft.ohValue,
             viscosity: draft.viscosity,
@@ -296,7 +449,6 @@ export async function updateChemical(
     .update({
       name,
       solid_content_pct: draft.solidContentPct,
-      qty_available: draft.qtyAvailable,
       unit: draft.unit.trim() || "kg",
       oh_value: draft.ohValue,
       viscosity: draft.viscosity,
@@ -336,13 +488,30 @@ export async function deleteChemical(id: string, entries: TankLogEntry[]) {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
     const local = readLocal();
+    if (local.movements.some((movement) => movement.chemicalId === id)) {
+      throw new TankError("This chemical has stock history. Archive it instead.");
+    }
     local.chemicals = local.chemicals.filter((chemical) => chemical.id !== id);
     writeLocal(local);
     return;
   }
 
+  const { count, error: countError } = await supabase
+    .from("chemical_stock_movements")
+    .select("id", { count: "exact", head: true })
+    .eq("chemical_id", id);
+  if (countError) throw new TankError(countError.message);
+  if ((count ?? 0) > 0) {
+    throw new TankError("This chemical has stock history. Archive it instead.");
+  }
+
   const { error } = await supabase.from("chemicals").delete().eq("id", id);
-  if (error) throw new TankError(error.message);
+  if (error) {
+    if (error.code === "23503") {
+      throw new TankError("This chemical has stock history. Archive it instead.");
+    }
+    throw new TankError(error.message);
+  }
 }
 
 export async function saveTankSettings(settings: TankSettings) {
@@ -379,6 +548,7 @@ export async function insertLogEntries(drafts: TankLogDraft[]) {
       createdAt: draft.loggedAt ?? new Date(base + index).toISOString(),
     }));
     local.entries = [...local.entries, ...created];
+    deductLocalPours(local, created);
     writeLocal(local);
     return created;
   }
@@ -398,7 +568,9 @@ export async function insertLogEntries(drafts: TankLogDraft[]) {
     )
     .select("*");
   if (error) throw new TankError(error.message);
-  return (data ?? []).map(mapEntry).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const created = (data ?? []).map(mapEntry).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  await deductRemotePours(created);
+  return created;
 }
 
 export async function insertLogEntry(draft: TankLogDraft) {
@@ -416,6 +588,7 @@ export async function insertLogEntry(draft: TankLogDraft) {
       createdAt: draft.loggedAt ?? nowIso(),
     };
     local.entries = [...local.entries, created];
+    deductLocalPours(local, [created]);
     writeLocal(local);
     return created;
   }
@@ -434,13 +607,16 @@ export async function insertLogEntry(draft: TankLogDraft) {
     .select("*")
     .single();
   if (error) throw new TankError(error.message);
-  return mapEntry(data);
+  const created = mapEntry(data);
+  await deductRemotePours([created]);
+  return created;
 }
 
 export async function updateLogEntry(id: string, draft: TankLogDraft) {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
     const local = readLocal();
+    reverseLocalLogEntry(local, id);
     local.entries = local.entries.map((entry) =>
       entry.id === id
         ? {
@@ -455,9 +631,22 @@ export async function updateLogEntry(id: string, draft: TankLogDraft) {
           }
         : entry,
     );
+    if (shouldDeductStock(draft.type) && draft.chemicalId && draft.quantity > 0) {
+      applyLocalMovement(local, draft.chemicalId, {
+        type: "pour",
+        quantity: draft.quantity,
+        tankLogEntryId: id,
+        note: "Poured into the tank",
+      });
+    }
     writeLocal(local);
     return;
   }
+
+  const { error: reverseError } = await supabase.rpc("reverse_stock_for_log_entry", {
+    p_entry_id: id,
+  });
+  if (reverseError) throw new TankError(reverseError.message);
 
   const { error } = await supabase
     .from("tank_log_entries")
@@ -472,18 +661,109 @@ export async function updateLogEntry(id: string, draft: TankLogDraft) {
     })
     .eq("id", id);
   if (error) throw new TankError(error.message);
+  if (shouldDeductStock(draft.type) && draft.chemicalId && draft.quantity > 0) {
+    await applyStockMovement(draft.chemicalId, {
+      type: "pour",
+      quantity: draft.quantity,
+      tankLogEntryId: id,
+      note: "Poured into the tank",
+    });
+  }
 }
 
 export async function deleteLogEntry(id: string) {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
     const local = readLocal();
+    reverseLocalLogEntry(local, id);
     local.entries = local.entries.filter((entry) => entry.id !== id);
     writeLocal(local);
     return;
   }
 
+  const { error: reverseError } = await supabase.rpc("reverse_stock_for_log_entry", {
+    p_entry_id: id,
+  });
+  if (reverseError) throw new TankError(reverseError.message);
+
   const { error } = await supabase.from("tank_log_entries").delete().eq("id", id);
+  if (error) throw new TankError(error.message);
+}
+
+const STOCK_HISTORY_LIMIT = 50;
+
+export async function applyStockMovement(
+  chemicalId: string,
+  input: StockMovementInput,
+): Promise<StockMovement | null> {
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const local = readLocal();
+    const movement = applyLocalMovement(local, chemicalId, input);
+    writeLocal(local);
+    return movement;
+  }
+
+  const { data, error } = await supabase.rpc("apply_stock_movement", {
+    p_chemical_id: chemicalId,
+    p_type: input.type,
+    p_quantity: input.quantity,
+    p_note: input.note ?? null,
+    p_tank_log_entry_id: input.tankLogEntryId ?? null,
+  });
+  if (error) throw new TankError(error.message);
+  if (data == null) return null;
+  return mapMovementJson(data);
+}
+
+async function deductRemotePours(entries: TankLogEntry[]) {
+  for (const entry of entries) {
+    if (!shouldDeductStock(entry.type) || !entry.chemicalId || !(entry.quantity > 0)) continue;
+    await applyStockMovement(entry.chemicalId, {
+      type: "pour",
+      quantity: entry.quantity,
+      tankLogEntryId: entry.id,
+      note: "Poured into the tank",
+    });
+  }
+}
+
+export async function listStockMovements(chemicalId: string): Promise<StockMovement[]> {
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    return readLocal()
+      .movements.filter((movement) => movement.chemicalId === chemicalId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
+      .slice(0, STOCK_HISTORY_LIMIT);
+  }
+
+  const { data, error } = await supabase
+    .from("chemical_stock_movements")
+    .select("*")
+    .eq("chemical_id", chemicalId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(STOCK_HISTORY_LIMIT);
+  if (error) throw new TankError(error.message);
+  return (data ?? []).map(mapMovement);
+}
+
+export async function setReorderKg(id: string, reorderKg: number | null) {
+  if (reorderKg !== null && (!Number.isFinite(reorderKg) || reorderKg < 0)) {
+    throw new TankError("Low-stock line cannot be negative.");
+  }
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const local = readLocal();
+    const chemical = local.chemicals.find((item) => item.id === id);
+    if (!chemical) throw new TankError("Chemical not found.");
+    chemical.reorderKg = reorderKg;
+    chemical.updatedAt = nowIso();
+    writeLocal(local);
+    return;
+  }
+
+  const { error } = await supabase.from("chemicals").update({ reorder_kg: reorderKg }).eq("id", id);
   if (error) throw new TankError(error.message);
 }
 

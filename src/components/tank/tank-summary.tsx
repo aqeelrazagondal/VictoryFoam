@@ -12,6 +12,9 @@ export function TankSummary({
   volumeText,
   onVolumeChange,
   onVolumeBlur,
+  solidText,
+  onSolidChange,
+  onSolidBlur,
   rowTexts,
   onRowChange,
   onRowBlur,
@@ -25,6 +28,9 @@ export function TankSummary({
   volumeText?: string;
   onVolumeChange?: (value: string) => void;
   onVolumeBlur?: () => void;
+  solidText?: string;
+  onSolidChange?: (value: string) => void;
+  onSolidBlur?: () => void;
   rowTexts?: Record<string, string>;
   onRowChange?: (id: string, value: string) => void;
   onRowBlur?: (id: string) => void;
@@ -55,7 +61,27 @@ export function TankSummary({
         <p className="hero-number">{formatQty(volume)} kg</p>
       )}
       <p className="mt-4 text-sm uppercase tracking-wide text-muted-foreground">Overall solid content</p>
-      <p className="hero-number">{formatPct(solidPct)}</p>
+      {editable ? (
+        <div className="mt-1 space-y-2">
+          <label htmlFor="tank-solid-pct" className="sr-only">
+            Overall solid content
+          </label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="tank-solid-pct"
+              inputMode="decimal"
+              className="h-auto min-h-14 max-w-[14rem] border-border bg-background px-3 py-2 font-heading text-3xl font-bold tracking-tight tabular-nums"
+              value={solidText ?? ""}
+              onChange={(event) => onSolidChange?.(event.target.value)}
+              onBlur={() => onSolidBlur?.()}
+              aria-describedby={editError ? "tank-edit-error" : undefined}
+            />
+            <span className="text-lg font-medium text-muted-foreground">%</span>
+          </div>
+        </div>
+      ) : (
+        <p className="hero-number">{formatPct(solidPct)}</p>
+      )}
       {room != null ? (
         <p className="mt-4 text-sm">You can add at most {formatQty(room)} kg.</p>
       ) : null}

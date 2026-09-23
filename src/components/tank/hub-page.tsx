@@ -13,6 +13,7 @@ import {
   amountsEqual,
   compositionRows,
   editChemicalAmount,
+  editSolidContent,
   encodeAdjustNote,
   formatPct,
   formatQty,
@@ -27,6 +28,10 @@ import { useTank } from "@/lib/tank/context";
 import { parseNumber } from "@/lib/tank/parse";
 import { insertLogEntry, TankError } from "@/lib/tank/repository";
 
+function formatSolidInput(value: number) {
+  return formatPct(value).replace(/%$/, "");
+}
+
 function textsFromAmounts(
   amounts: CompositionAmounts,
   rows: { id: string; amount: number }[],
@@ -37,6 +42,7 @@ function textsFromAmounts(
   }
   return {
     volumeText: formatQty(amounts.volume),
+    solidText: formatSolidInput(amounts.solidPct),
     rowTexts,
   };
 }
@@ -50,9 +56,15 @@ function confirmLines(
 ) {
   const lines: string[] = [];
   const totalChanged = Math.abs(before.volume - after.volume) > 0.05;
+  const solidChanged = Math.abs(before.solidPct - after.solidPct) > 0.05;
+
   if (totalChanged) {
     lines.push(
       `This changes the total from ${formatQty(before.volume)} kg to ${formatQty(after.volume)} kg. Every chemical is scaled by the same factor so the overall solid content stays ${formatPct(after.solidPct)}.`,
+    );
+  } else if (solidChanged) {
+    lines.push(
+      `Overall solid content becomes ${formatPct(after.solidPct)} (was ${formatPct(before.solidPct)}). The tank stays at ${formatQty(after.volume)} kg.`,
     );
   } else {
     lines.push(
@@ -73,11 +85,11 @@ function confirmLines(
     lines.push(`${name}: ${formatQty(beforeAmount)} kg → ${formatQty(afterAmount)} kg`);
   }
 
-  if (Math.abs(before.solidPct - after.solidPct) > 0.05) {
+  if (solidChanged && totalChanged) {
     lines.push(
       `Overall solid content becomes ${formatPct(after.solidPct)} (was ${formatPct(before.solidPct)}).`,
     );
-  } else if (!totalChanged) {
+  } else if (!solidChanged && !totalChanged) {
     lines.push(`Overall solid content stays ${formatPct(after.solidPct)}.`);
   }
 
@@ -100,6 +112,7 @@ export function HubPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [draft, setDraft] = useState<CompositionAmounts | null>(null);
   const [volumeText, setVolumeText] = useState("");
+  const [solidText, setSolidText] = useState("");
   const [rowTexts, setRowTexts] = useState<Record<string, string>>({});
   const [editError, setEditError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -147,6 +160,7 @@ export function HubPage() {
     if (dirty) return;
     const next = textsFromAmounts(baseline, rows);
     setVolumeText(next.volumeText);
+    setSolidText(next.solidText);
     setRowTexts(next.rowTexts);
     setDraft(null);
     setConfirmOpen(false);
@@ -174,6 +188,7 @@ export function HubPage() {
       nextRows.map((row) => ({ id: row.id, amount: row.amount })),
     );
     setVolumeText(texts.volumeText);
+    setSolidText(texts.solidText);
     setRowTexts(texts.rowTexts);
   }
 
@@ -202,6 +217,31 @@ export function HubPage() {
       return;
     }
     applyDraft(result.next);
+  }
+
+  function commitSolid() {
+    const parsed = parseNumber(solidText);
+    if (parsed === null) {
+      setEditError("Enter the overall solid content.");
+      setSolidText(formatSolidInput(display.solidPct));
+      return;
+    }
+    if (Math.abs(parsed - display.solidPct) <= 0.05) {
+      setSolidText(formatSolidInput(display.solidPct));
+      setEditError(null);
+      return;
+    }
+    const result = editSolidContent(display, chemicalPcts, nameMapForEdit(), parsed);
+    if (!result.ok) {
+      setEditError(result.reason);
+      setSolidText(formatSolidInput(display.solidPct));
+      return;
+    }
+    applyDraft(result.next);
+  }
+
+  function nameMapForEdit() {
+    return Object.fromEntries(chemicals.map((chemical) => [chemical.id, chemical.name]));
   }
 
   function commitRow(id: string) {
@@ -311,7 +351,7 @@ export function HubPage() {
         <h1>Tank</h1>
         <p className="mt-2 text-muted-foreground">
           Add chemical up to the tank size, or record what you used. You can also edit the kilograms
-          below.
+          or overall solid content below.
         </p>
       </div>
 
@@ -338,6 +378,12 @@ export function HubPage() {
           setEditError(null);
         }}
         onVolumeBlur={commitVolume}
+        solidText={solidText}
+        onSolidChange={(value) => {
+          setSolidText(value);
+          setEditError(null);
+        }}
+        onSolidBlur={commitSolid}
         rowTexts={rowTexts}
         onRowChange={(id, value) => {
           setRowTexts((current) => ({ ...current, [id]: value }));

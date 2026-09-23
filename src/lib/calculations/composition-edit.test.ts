@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 
 import {
   editChemicalAmount,
+  editSolidContent,
   encodeAdjustNote,
   parseAdjustNote,
   scaleTankTotal,
@@ -112,6 +113,88 @@ describe("scaleTankTotal", () => {
   test("negative: below zero is refused", () => {
     const result = scaleTankTotal(base, -1, 8000);
     assert.equal(result.ok, false);
+  });
+});
+
+describe("editSolidContent", () => {
+  const live: CompositionAmounts = {
+    remainingByChemical: { a: 1982.2, b: 165.6, c: 52.2 },
+    unattributed: 0,
+    volume: 2200,
+    solidPct: (1982.2 * 45 + 165.6 * 25 + 52.2 * 0) / 2200,
+  };
+  const livePcts = { a: 45, b: 25, c: 0 };
+  const liveNames = {
+    a: "polymer polyol 3125",
+    b: "polymer polyol 2045",
+    c: "Conventional Polyol",
+  };
+
+  test("positive: reachable target keeps total and hits solid %", () => {
+    const result = editSolidContent(live, livePcts, liveNames, 28);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.ok(Math.abs(result.next.volume - 2200) < 1e-6);
+    assert.ok(Math.abs(result.next.solidPct - 28) < 0.05);
+    for (const amount of Object.values(result.next.remainingByChemical)) {
+      assert.ok(amount >= -1e-9);
+    }
+    assert.ok(Math.abs(result.next.remainingByChemical.a! - live.remainingByChemical.a!) > 0.05);
+  });
+
+  test("negative: above the strongest chemical is refused", () => {
+    const result = editSolidContent(live, livePcts, liveNames, 50);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.match(result.reason, /polymer polyol 3125/);
+    assert.match(result.reason, /45%/);
+  });
+
+  test("negative: below the weakest chemical is refused", () => {
+    const midFloor: CompositionAmounts = {
+      remainingByChemical: { a: 1100, b: 1100 },
+      unattributed: 0,
+      volume: 2200,
+      solidPct: 35,
+    };
+    const result = editSolidContent(
+      midFloor,
+      { a: 45, b: 25 },
+      { a: "polymer polyol 3125", b: "polymer polyol 2045" },
+      10,
+    );
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.match(result.reason, /polymer polyol 2045/);
+    assert.match(result.reason, /25%/);
+  });
+
+  test("negative: below 0 is refused", () => {
+    const result = editSolidContent(live, livePcts, liveNames, -5);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.match(result.reason, /0%|100%/);
+  });
+
+  test("negative: above 100 is refused", () => {
+    const result = editSolidContent(live, livePcts, liveNames, 101);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.match(result.reason, /0%|100%/);
+  });
+
+  test("negative: one-chemical tank cannot change solid content", () => {
+    const single: CompositionAmounts = {
+      remainingByChemical: { c: 2200 },
+      unattributed: 0,
+      volume: 2200,
+      solidPct: 0,
+    };
+    const result = editSolidContent(single, livePcts, liveNames, 28);
+    assert.equal(result.ok, false);
+    if (result.ok) return;
+    assert.match(result.reason, /only Conventional Polyol/);
+    assert.match(result.reason, /0%/);
   });
 });
 

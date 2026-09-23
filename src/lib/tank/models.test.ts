@@ -12,6 +12,7 @@ function chemical(name: string, extra: Partial<Chemical> = {}): Chemical {
     unit: extra.unit ?? "kg",
     ohValue: extra.ohValue ?? null,
     viscosity: extra.viscosity ?? null,
+    reorderKg: extra.reorderKg ?? null,
     archivedAt: extra.archivedAt ?? null,
     createdAt: extra.createdAt ?? "2026-01-01T00:00:00.000Z",
     updatedAt: extra.updatedAt ?? "2026-01-01T00:00:00.000Z",

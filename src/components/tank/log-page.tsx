@@ -49,12 +49,57 @@ import {
   updateLogEntry,
 } from "@/lib/tank/repository";
 
-const TYPE_LABEL: Record<LogEntryType, string> = {
+/** Labels in the add/edit sheet (action names). */
+const TYPE_LABEL: Record<Exclude<LogEntryType, "adjust_composition">, string> = {
   opening_balance: "Opening Balance",
   add_batch: "Add Batch",
   consume_usage: "Consume / Usage",
-  adjust_composition: "Home edit",
 };
+
+/** Short human labels in the history list. */
+const LOG_ROW_LABEL: Record<LogEntryType, string> = {
+  opening_balance: "Already in the tank",
+  add_batch: "Pour",
+  consume_usage: "Used",
+  adjust_composition: "Correction",
+};
+
+function compareLogNewestFirst(a: TankLogEntry, b: TankLogEntry) {
+  const byTime = b.createdAt.localeCompare(a.createdAt);
+  return byTime !== 0 ? byTime : b.id.localeCompare(a.id);
+}
+
+/** Latest real production: newest consume if any, else newest pour. Home edits and openings are not jobs. */
+function findLastProduction(entries: TankLogEntry[]): TankLogEntry | null {
+  const newestFirst = [...entries].sort(compareLogNewestFirst);
+  return (
+    newestFirst.find((entry) => entry.type === "consume_usage") ??
+    newestFirst.find((entry) => entry.type === "add_batch") ??
+    null
+  );
+}
+
+function chemicalLabelForEntry(
+  entry: TankLogEntry,
+  names: Record<string, Chemical | undefined>,
+) {
+  if (entry.type === "adjust_composition") return "Tank mix";
+  if (entry.chemicalId) return names[entry.chemicalId]?.name ?? "Archived chemical";
+  return "Unattributed";
+}
+
+function lastProductionHeadline(
+  entry: TankLogEntry,
+  chemicalName: string,
+): string {
+  if (entry.type === "consume_usage") {
+    return `Last job: used ${formatQty(entry.quantity)} kg`;
+  }
+  if (entry.chemicalId || chemicalName !== "Unattributed") {
+    return `Last pour: ${formatQty(entry.quantity)} kg of ${chemicalName}`;
+  }
+  return `Last pour: ${formatQty(entry.quantity)} kg`;
+}
 
 export function LogPage() {
   const { tankReady, snapshot, settings, entries, activeChemicals, chemicals, refresh } = useTank();
@@ -87,6 +132,7 @@ export function LogPage() {
     () => new Map(snapshot.entries.map((entry) => [entry.id, entry])),
     [snapshot.entries],
   );
+  const lastProduction = useMemo(() => findLastProduction(entries), [entries]);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,7 +148,7 @@ export function LogPage() {
       })
       .catch((caught: unknown) => {
         if (!cancelled) {
-          setListError(caught instanceof Error ? caught.message : "Could not load recent production.");
+          setListError(caught instanceof Error ? caught.message : "Could not load the log.");
         }
       })
       .finally(() => {
@@ -314,6 +360,16 @@ export function LogPage() {
     );
   }
 
+  const lastProductionName = lastProduction
+    ? chemicalLabelForEntry(lastProduction, names)
+    : null;
+  const lastProductionWhen = lastProduction
+    ? formatLogWhen(lastProduction.entryDate, lastProduction.createdAt)
+    : null;
+  const lastProductionRunning = lastProduction
+    ? runningById.get(lastProduction.id)
+    : null;
+
   return (
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3">
@@ -335,13 +391,60 @@ export function LogPage() {
         </p>
       ) : null}
 
-      <section className="space-y-3" aria-labelledby="recent-production-heading">
+      <section
+        className="rounded-2xl border border-foreground/15 bg-muted/40 px-4 py-5 sm:px-5"
+        aria-labelledby="last-production-heading"
+      >
+        <h2 id="last-production-heading" className="text-xl font-heading font-semibold">
+          Last production
+        </h2>
+        {lastProduction && lastProductionName ? (
+          <div className="mt-3 space-y-2">
+            <p className="font-heading text-2xl font-semibold leading-snug text-foreground">
+              {lastProductionHeadline(lastProduction, lastProductionName)}
+            </p>
+            {lastProductionWhen ? (
+              <time
+                dateTime={lastProduction.createdAt ?? lastProduction.entryDate}
+                className="block text-base tabular-nums text-foreground"
+              >
+                {lastProductionWhen}
+              </time>
+            ) : null}
+            {lastProduction.solidContentPct !== null ? (
+              <p className="text-sm text-muted-foreground">
+                Solid content {formatPct(lastProduction.solidContentPct)}
+              </p>
+            ) : null}
+            {lastProductionRunning ? (
+              <p className="text-base text-foreground">
+                Tank afterwards: {formatQty(lastProductionRunning.runningVolume)} kg at{" "}
+                {formatPct(lastProductionRunning.runningPct)}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <div className="mt-3 space-y-2">
+            <p className="text-base text-foreground">
+              This tank was only set up — no pour or use has been logged yet.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Opening amounts: {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}.
+              See the log below for what was put in at the start.
+            </p>
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3" aria-labelledby="tank-log-heading">
         <div>
-          <h2 id="recent-production-heading" className="text-xl">
-            Recent production
+          <h2 id="tank-log-heading" className="text-lg text-muted-foreground">
+            {lastProduction ? "Earlier log" : "Log"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Newest first. Every saved pour and use, with the tank afterwards.
+            {lastProduction
+              ? "Newest first. Every saved change, quieter than the job above."
+              : "Newest first. Every saved change, with the tank afterwards."}
           </p>
         </div>
 
@@ -353,41 +456,48 @@ export function LogPage() {
         ) : null}
 
         {!listLoading && pageRows.length === 0 ? (
-          <p className="text-muted-foreground">No production logged yet.</p>
+          <p className="text-muted-foreground">Nothing in the log yet.</p>
         ) : (
-          <ol className="space-y-3">
+          <ol className="divide-y divide-border border-y border-border">
             {pageRows.map((entry) => {
               const isHomeEdit = entry.type === "adjust_composition";
-              const chemicalName = isHomeEdit
-                ? "Tank mix"
-                : entry.chemicalId
-                  ? (names[entry.chemicalId]?.name ?? "Archived chemical")
-                  : "Unattributed";
+              const chemicalName = chemicalLabelForEntry(entry, names);
               const whenLabel = formatLogWhen(entry.entryDate, entry.createdAt);
               const running = runningById.get(entry.id);
-              const visibleNote =
-                entry.note && !isHomeEdit ? entry.note : isHomeEdit ? "Kilograms changed on Home." : null;
+              const visibleNote = isHomeEdit
+                ? "Changed the kilograms on Home — not a production job."
+                : entry.note;
               return (
-                <li key={entry.id} className="rounded-2xl border border-border bg-card p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                      {TYPE_LABEL[entry.type]}
-                    </p>
-                    {whenLabel ? (
-                      <time
-                        dateTime={entry.createdAt ?? entry.entryDate}
-                        className="shrink-0 text-sm tabular-nums text-muted-foreground"
-                      >
-                        {whenLabel}
-                      </time>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 font-heading text-lg font-semibold">
-                    {chemicalName}
+                <li
+                  key={entry.id}
+                  className={
+                    isHomeEdit
+                      ? "bg-muted/20 px-1 py-4 sm:px-2"
+                      : "px-1 py-4 sm:px-2"
+                  }
+                >
+                  {whenLabel ? (
+                    <time
+                      dateTime={entry.createdAt ?? entry.entryDate}
+                      className="block text-base font-medium tabular-nums text-foreground"
+                    >
+                      {whenLabel}
+                    </time>
+                  ) : null}
+                  <p className="mt-1 text-sm font-medium text-foreground">
+                    {LOG_ROW_LABEL[entry.type]}
+                    {isHomeEdit ? null : (
+                      <span className="font-normal text-muted-foreground">
+                        {" "}
+                        · {chemicalName}
+                      </span>
+                    )}
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     {formatQty(entry.quantity)} kg
-                    {entry.solidContentPct !== null ? ` · ${formatPct(entry.solidContentPct)}` : ""}
+                    {entry.solidContentPct !== null
+                      ? ` · solid ${formatPct(entry.solidContentPct)}`
+                      : ""}
                   </p>
                   {running ? (
                     <p className="mt-1 text-sm text-muted-foreground">
@@ -452,7 +562,7 @@ export function LogPage() {
             pageSize={TANK_LIST_PAGE_SIZE}
             total={pageTotal}
             onPageChange={setPage}
-            label="Recent production pages"
+            label="Log pages"
           />
         ) : null}
       </section>
@@ -688,8 +798,14 @@ function logDeleteCopy(
     entry.type === "consume_usage" || entry.type === "adjust_composition"
       ? amount
       : `${chemicalName}, ${amount}`;
+  const deleteNoun: Record<LogEntryType, string> = {
+    opening_balance: "opening amounts",
+    add_batch: "pour",
+    consume_usage: "use",
+    adjust_composition: "correction",
+  };
   const lines = [
-    `This removes the ${TYPE_LABEL[entry.type].toLowerCase()} of ${what} from the log.`,
+    `This removes the ${deleteNoun[entry.type]} of ${what} from the log.`,
   ];
 
   if (entry.type === "opening_balance" && !next.hasOpeningBalance) {
@@ -701,7 +817,7 @@ function logDeleteCopy(
   } else if (entry.type === "add_batch") {
     lines.push("This pour is taken out. Every later row is counted again without it.");
   } else if (entry.type === "adjust_composition") {
-    lines.push("The kilograms go back to how they were before this Home edit.");
+    lines.push("The kilograms go back to how they were before this Home correction.");
   } else {
     lines.push("The tank is counted again from the rows that remain.");
   }

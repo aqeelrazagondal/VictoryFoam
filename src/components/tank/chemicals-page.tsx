@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
@@ -118,7 +119,7 @@ export function ChemicalsPage() {
       ohValue: chemical.ohValue,
       viscosity: chemical.viscosity,
     });
-    setShowDetails(Boolean(chemical.qtyAvailable !== null || chemical.ohValue || chemical.viscosity));
+    setShowDetails(Boolean(chemical.ohValue || chemical.viscosity));
     setNameError(null);
     setPctError(null);
     setOpen(true);
@@ -196,9 +197,14 @@ export function ChemicalsPage() {
                     <p className="font-heading text-lg font-semibold">{chemical.name}</p>
                     <p className="text-sm text-muted-foreground">
                       {formatPct(chemical.solidContentPct)}
+                      {" · "}
                       {chemical.qtyAvailable === null
-                        ? " · Stock not tracked"
-                        : ` · ${formatQty(chemical.qtyAvailable)} ${chemical.unit}`}
+                        ? "Not tracked"
+                        : `${formatQty(chemical.qtyAvailable)} ${chemical.unit} on the shelf`}
+                      {" · "}
+                      <Link href="/tank/inventory/" className="font-medium text-primary underline-offset-4 hover:underline">
+                        Inventory
+                      </Link>
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -293,16 +299,30 @@ export function ChemicalsPage() {
             </Field>
             {showDetails ? (
               <>
-                <Field id="chem-qty" label="Quantity available" hint="Leave blank if stock is not tracked.">
-                  <Input
+                {editing ? (
+                  <p className="text-sm text-muted-foreground">
+                    On hand is{" "}
+                    {editing.qtyAvailable === null
+                      ? "not tracked"
+                      : `${formatQty(editing.qtyAvailable)} ${editing.unit}`}
+                    . Change it on <Link href="/tank/inventory/" className="font-medium text-primary underline-offset-4 hover:underline">Inventory</Link>.
+                  </p>
+                ) : (
+                  <Field
                     id="chem-qty"
-                    inputMode="decimal"
-                    value={draft.qtyAvailable ?? ""}
-                    onChange={(event) =>
-                      setDraft({ ...draft, qtyAvailable: parseNumber(event.target.value) })
-                    }
-                  />
-                </Field>
+                    label="Opening stock (kg)"
+                    hint="Kilograms on the shelf now. Leave blank if stock is not tracked. Later changes are on Inventory."
+                  >
+                    <Input
+                      id="chem-qty"
+                      inputMode="decimal"
+                      value={draft.qtyAvailable ?? ""}
+                      onChange={(event) =>
+                        setDraft({ ...draft, qtyAvailable: parseNumber(event.target.value) })
+                      }
+                    />
+                  </Field>
+                )}
                 <Field id="chem-unit" label="Unit">
                   <Input
                     id="chem-unit"

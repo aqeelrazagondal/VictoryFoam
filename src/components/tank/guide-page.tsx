@@ -45,7 +45,16 @@ export function GuidePage() {
             <strong className="text-foreground">Day to day.</strong> Stay on{" "}
             <GuideLink href="/tank/">Home</GuideLink>. Enter what is already in the tank, then either
             add to the tank or record what you used.
-            <Result>Home shows the kg, the overall solid content, and how much room is left. You can edit each chemical’s kg on Home; the others move so the total stays the same until you confirm.</Result>
+            <Result>Home shows the kg, the overall solid content, and how much room is left. You can edit each chemical’s kg on Home; the others move so the total stays the same until you confirm. You can also edit the overall solid content; the chemical kilograms move so the total stays the same.</Result>
+          </li>
+          <li>
+            <strong className="text-foreground">Drums on the shelf.</strong> More, then{" "}
+            <GuideLink href="/tank/inventory/">Inventory</GuideLink>. Receive, issue, waste, or set a
+            count.
+            <Result>
+              Inventory is kilograms still on the shelf. Home is what is already in the tank. A
+              confirmed pour takes those kilograms off Inventory.
+            </Result>
           </li>
           <li>
             <strong className="text-foreground">Fresh batch in a mixer or drum, tank empty or ignored.</strong>{" "}
@@ -147,7 +156,8 @@ export function GuidePage() {
           </li>
         </ol>
         <p className="mt-3 text-sm text-muted-foreground">
-          Blend does not change the tank. To put this mix into the tank, go to Log → Add batch.
+          Blend does not change the tank. Record as used takes the kilograms off Inventory and does
+          not write a tank log. To put this mix into the tank, go to Log → Add batch.
         </p>
       </section>
 
@@ -250,10 +260,10 @@ export function GuidePage() {
         <h2 className="text-xl">Log and Composition</h2>
         <ul className="mt-4 space-y-3 text-muted-foreground">
           <li>
-            <strong className="text-foreground">Recent production</strong> is the{" "}
-            <GuideLink href="/tank/log/">Tank log</GuideLink>
-            : newest first, 10 per page. Each row shows the date, time, chemical, kg, solid content,
-            and the tank afterwards.
+            The <GuideLink href="/tank/log/">Tank log</GuideLink> opens with{" "}
+            <strong className="text-foreground">Last production</strong> (the latest pour or use),
+            then a quieter <strong className="text-foreground">Log</strong> underneath — newest
+            first, 10 per page, with date, chemical, kg, solid content, and the tank afterwards.
           </li>
           <li>
             <strong className="text-foreground">Add batch</strong> after you pour into the tank.

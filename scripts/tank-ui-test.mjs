@@ -82,7 +82,11 @@ async function openPage(browser, state) {
   if (state) {
     await context.addInitScript(
       ({ key, value }) => {
-        window.localStorage.setItem(key, value);
+        // Seed once per browser context. Do not overwrite on later full navigations
+        // after the factory has saved more rows in this session.
+        if (!window.localStorage.getItem(key)) {
+          window.localStorage.setItem(key, value);
+        }
       },
       { key: LOCAL_KEY, value: JSON.stringify(state) },
     );
@@ -147,6 +151,7 @@ async function run() {
       check("ui.empty.3", "Log stays under More until it is opened", (await emptyNav.getByRole("link", { name: "Log" }).count()) === 0);
       await page.getByRole("button", { name: "More" }).click();
       check("ui.empty.4", "Set up tank is available under More", (await page.getByRole("link", { name: /Set up tank/i }).count()) > 0);
+      check("ui.empty.inventory", "Inventory is under More", (await page.getByRole("link", { name: "Inventory" }).count()) === 1);
       check("ui.empty.5", "localStorage banner is shown without Supabase", await visibleText(page, "Data is stored on this device"));
       await context.close();
     }
@@ -246,7 +251,7 @@ async function run() {
 
       await addChemicalViaUi(page, { name: "POP 10", pct: 10 });
       await addChemicalViaUi(page, { name: "POP 40", pct: 40, qty: 10 });
-      check("ui.chem.pos.untracked", "chemical without qty shows Stock not tracked", await visibleText(page, "Stock not tracked"));
+      check("ui.chem.pos.untracked", "chemical without qty shows Stock not tracked", await visibleText(page, /not tracked/i));
       check("ui.chem.pos.tracked", "chemical with qty shows the stock amount", await page.getByText(/10 kg/).first().isVisible());
 
       await primaryButton(page, "Add").click();
@@ -361,7 +366,11 @@ async function run() {
       check("ui.hub.pos.volume", "hub shows opening volume", volumeShown);
       check("ui.hub.pos.add", "hub offers Add to the tank", (await page.getByRole("button", { name: "Add to the tank" }).count()) === 1);
       check("ui.hub.pos.use", "hub offers I used some", (await page.getByRole("button", { name: "I used some" }).count()) === 1);
-      check("ui.hub.pos.pct", "hub shows opening solid %", await visibleText(page, "25%"));
+      const solidField = page.locator("#tank-solid-pct");
+      const pctShown =
+        ((await solidField.count()) > 0 && /^25([,.]\d+)?$/.test((await solidField.inputValue()).trim())) ||
+        (await visibleText(page, "25%"));
+      check("ui.hub.pos.pct", "hub shows opening solid %", pctShown);
 
       await gotoTank(page, "/tank/setup/");
       check("ui.setup.neg.repeat", "setup refuses a second Opening Balance", await visibleText(page, "Tank already set up"));
@@ -409,11 +418,11 @@ async function run() {
       check("ui.fill.pos.log-cta", "Log this is offered and not auto-written", await visibleText(page, "Log this (two Add Batch entries)"));
       await page.getByRole("button", { name: "Log this (two Add Batch entries)" }).click();
       await page.waitForURL("**/tank/log/**");
-      await page.getByText("Add Batch").first().waitFor({ state: "visible" });
+      await page.getByText("Pour").first().waitFor({ state: "visible" });
       check(
         "ui.fill.pos.logged",
-        "confirming Log this writes two add-batch rows",
-        (await page.getByText("Add Batch").count()) >= 2,
+        "confirming Log this writes two pour rows",
+        (await page.getByText("Pour").count()) >= 2,
       );
       await context.close();
     }
@@ -549,7 +558,7 @@ async function run() {
       await secondLine.locator("[id$='-kg']").fill("1050");
       await dialog.getByRole("button", { name: "Save entry" }).click();
       await dialog.waitFor({ state: "hidden" });
-      check("ui.log.pos.multi-saved", "multi-chemical add writes two Add Batch rows", (await page.getByText("Add Batch").count()) >= 2);
+      check("ui.log.pos.multi-saved", "multi-chemical add writes two Pour rows", (await page.getByText("Pour").count()) >= 2);
       check("ui.log.pos.multi-vol", "tank volume becomes 7 320 kg", await visibleText(page, /7.?320/));
       await context.close();
     }
@@ -881,7 +890,7 @@ async function run() {
         }),
       );
       await gotoTank(page, "/tank/log/");
-      check("ui.log.page.heading", "log shows Recent production", await visibleText(page, "Recent production"));
+      check("ui.log.page.heading", "log shows Last production and Log", await visibleText(page, "Last production") && await visibleText(page, "Earlier log"));
       check(
         "ui.log.page.1-hides-11",
         "first page does not show row 11 marker",
@@ -919,7 +928,7 @@ async function run() {
         await visibleText(page, /instead of 1.?200 kg/),
       );
       await page.getByRole("button", { name: "Cancel" }).click();
-      check("ui.delete.cancel", "cancel keeps the log row", await visibleText(page, "Opening Balance"));
+      check("ui.delete.cancel", "cancel keeps the log row", await visibleText(page, "Already in the tank"));
       await page.getByRole("button", { name: "Delete" }).click();
       await page.getByRole("button", { name: "Yes, delete it" }).click();
       check(
@@ -976,11 +985,8 @@ async function run() {
       await page.getByRole("button", { name: "Yes, save it" }).click();
       await page.getByText("Saved the new kilograms on Home.").waitFor();
 
-      const solidBeforeScale = await page
-        .locator("section")
-        .filter({ hasText: "Overall solid content" })
-        .locator(".hero-number")
-        .textContent();
+      const solidField = page.locator("#tank-solid-pct");
+      const solidBeforeScale = await solidField.inputValue();
       await total.fill("2000");
       await total.blur();
       check("ui.home.edit.scale-ask", "editing the total asks before saving", await visibleText(page, "Are you sure?"));
@@ -999,11 +1005,7 @@ async function run() {
       );
       await page.getByRole("button", { name: "Yes, save it" }).click();
       await page.getByText("Saved the new kilograms on Home.").waitFor();
-      const solidAfterScale = await page
-        .locator("section")
-        .filter({ hasText: "Overall solid content" })
-        .locator(".hero-number")
-        .textContent();
+      const solidAfterScale = await solidField.inputValue();
       check(
         "ui.home.edit.scale-pct",
         "scaling the total keeps the solid content",
@@ -1021,8 +1023,173 @@ async function run() {
         "composition sees the saved kilograms",
         await visibleText(page, /polymer polyol 3125/i),
       );
-      await gotoTank(page, "/tank/log/");
-      check("ui.home.edit.log", "log shows the Home edit row", await visibleText(page, "Home edit"));
+      await page.getByRole("button", { name: "More" }).click();
+      await page.getByRole("link", { name: "Log" }).click();
+      await page.waitForURL("**/tank/log/**");
+      await page.getByRole("heading", { name: "Last production" }).waitFor();
+      check("ui.home.edit.log", "log shows the Correction row", await visibleText(page, /correction/i, 8000));
+      await context.close();
+    }
+
+    {
+      const chemicals = [
+        chemical("c45", "polymer polyol 3125", 45),
+        chemical("c25", "polymer polyol 2045", 25),
+        chemical("c0", "Conventional Polyol", 0),
+      ];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: 8000, heel: 0 },
+          entries: [
+            logEntry("1", "opening_balance", 1982.2, { chemicalId: "c45", solidContentPct: 45 }),
+            logEntry("2", "opening_balance", 165.6, { chemicalId: "c25", solidContentPct: 25 }),
+            logEntry("3", "opening_balance", 52.2, { chemicalId: "c0", solidContentPct: 0 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/");
+      const total = page.locator("#tank-total-kg");
+      const solid = page.locator("#tank-solid-pct");
+      const chemA = page.locator("#tank-chem-c45");
+      const chemB = page.locator("#tank-chem-c25");
+      const chemC = page.locator("#tank-chem-c0");
+      const beforeTotal = await total.inputValue();
+      const beforeA = await chemA.inputValue();
+      const beforeB = await chemB.inputValue();
+      const beforeC = await chemC.inputValue();
+
+      await solid.fill("28");
+      await solid.blur();
+      check("ui.home.solid.ask", "editing solid content asks before saving", await visibleText(page, "Are you sure?"));
+      check(
+        "ui.home.solid.copy-pct",
+        "confirm names the new solid content",
+        await visibleText(page, /Overall solid content becomes 28%/),
+      );
+      check(
+        "ui.home.solid.copy-total",
+        "confirm keeps the total kilograms",
+        await visibleText(page, /stays at 2.?200 kg/),
+      );
+      check(
+        "ui.home.solid.copy-chem",
+        "confirm shows chemical kg changing",
+        await visibleText(page, /polymer polyol 3125:.*→/i),
+      );
+      const afterTotal = await total.inputValue();
+      const afterA = await chemA.inputValue();
+      const afterB = await chemB.inputValue();
+      const afterC = await chemC.inputValue();
+      check("ui.home.solid.total-same", "solid edit keeps the total kg", afterTotal === beforeTotal);
+      check(
+        "ui.home.solid.chems-move",
+        "solid edit changes chemical kilograms",
+        afterA !== beforeA || afterB !== beforeB || afterC !== beforeC,
+      );
+      await page.getByRole("button", { name: "Yes, save it" }).click();
+      await page.getByText("Saved the new kilograms on Home.").waitFor();
+      check("ui.home.solid.saved-pct", "home shows 28% after save", /28/.test(await solid.inputValue()));
+
+      await gotoTank(page, "/tank/composition/");
+      check(
+        "ui.home.solid.composition",
+        "composition lists the redistributed kilograms",
+        await visibleText(page, /polymer polyol 3125/i) && await visibleText(page, /kg/),
+      );
+
+      await gotoTank(page, "/tank/");
+      await page.getByRole("button", { name: "I used some" }).click();
+      check(
+        "ui.home.solid.consume-pct",
+        "consume preview keeps the new solid content",
+        await visibleText(page, /28%/),
+      );
+      await page.getByRole("button", { name: "Back" }).click();
+
+      await solid.fill("50");
+      await solid.blur();
+      check(
+        "ui.home.solid.refuse",
+        "impossible solid content is refused in plain language",
+        await visibleText(page, /must stay between/i),
+      );
+      await page.getByRole("button", { name: "More" }).click();
+      await page.getByRole("link", { name: "Log" }).click();
+      await page.waitForURL("**/tank/log/**");
+      await page.getByRole("heading", { name: "Last production" }).waitFor();
+      const correctionCount = await page.getByText(/correction/i).count();
+      check(
+        "ui.home.solid.refuse-no-log",
+        "refused solid edit does not write another log row",
+        correctionCount === 1,
+      );
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals: [chemical("c10", "POP 10", 10)],
+        }),
+      );
+      await gotoTank(page, "/tank/inventory/");
+      check("ui.inventory.pos.untracked", "untracked stock says Not tracked", await visibleText(page, "Not tracked"));
+      await page.getByRole("button", { name: "Receive POP 10" }).click();
+      await page.locator("#stock-qty").fill("250");
+      await page.getByRole("button", { name: "Save" }).click();
+      check("ui.inventory.pos.receive", "a receive sets on-hand kilograms", await visibleText(page, "250 kg"));
+      await page.getByRole("button", { name: "Issue POP 10" }).click();
+      await page.locator("#stock-qty").fill("50");
+      await page.getByRole("button", { name: "Save" }).click();
+      check("ui.inventory.pos.issue", "an issue reduces on-hand kilograms", await visibleText(page, "200 kg"));
+      await page.getByRole("button", { name: "Set count POP 10" }).click();
+      await page.locator("#stock-qty").fill("180");
+      await page.getByRole("button", { name: "Save" }).click();
+      check("ui.inventory.pos.count", "a physical count replaces on-hand kilograms", await visibleText(page, "180 kg"));
+      await page.getByRole("button", { name: "History for POP 10" }).click();
+      await page.getByRole("heading", { name: "POP 10 history" }).waitFor();
+      check("ui.inventory.pos.history", "history lists the count and the balance", await visibleText(page, /balance/i));
+      await context.close();
+    }
+
+    {
+      const chemicals = [
+        chemical("c0", "Conventional polyol", 0),
+        chemical("c20", "POP 20", 20, 1500),
+      ];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: 8000, heel: 0 },
+          entries: [logEntry("1", "opening_balance", 1000, { chemicalId: "c0", solidContentPct: 0 })],
+        }),
+      );
+      await gotoTank(page, "/tank/");
+      await page.getByRole("button", { name: "Add to the tank" }).click();
+      await page.getByRole("button", { name: "One polyol" }).click();
+      await page.locator("#target-pct").fill("10");
+      await page.getByRole("button", { name: /POP 20/ }).click();
+      await page.getByRole("button", { name: "Add this to the tank" }).click();
+      check(
+        "ui.inventory.pos.pour-saved",
+        "the pour is saved on Home",
+        await visibleText(page, /The tank is now/),
+      );
+      await page.getByRole("button", { name: "More" }).click();
+      await page.getByRole("link", { name: "Inventory" }).click();
+      await page.waitForURL("**/tank/inventory/**");
+      const poured = await page.locator("li").filter({ hasText: "POP 20" }).innerText();
+      const untouched = await page.locator("li").filter({ hasText: "Conventional polyol" }).innerText();
+      check(
+        "ui.inventory.pos.pour",
+        "a confirmed pour reduces shelf stock and leaves the opening balance alone",
+        /^500 kg$/m.test(poured) && /Not tracked/.test(untouched),
+        poured.replace(/\s+/g, " "),
+      );
       await context.close();
     }
 

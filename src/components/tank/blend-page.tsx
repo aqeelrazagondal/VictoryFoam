@@ -27,10 +27,10 @@ import { useTank } from "@/lib/tank/context";
 import type { BlendLastCalculation, Chemical } from "@/lib/tank/models";
 import { toChemicalRef } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
-import { getLastCalculation, saveLastCalculation } from "@/lib/tank/repository";
+import { getLastCalculation, applyStockMovement, saveLastCalculation, TankError } from "@/lib/tank/repository";
 
 export function BlendPage() {
-  const { activeChemicals } = useTank();
+  const { activeChemicals, refresh } = useTank();
   const [step, setStep] = useState(0);
   const [chem1, setChem1] = useState<Chemical | null>(null);
   const [chem2, setChem2] = useState<Chemical | null>(null);
@@ -41,6 +41,10 @@ export function BlendPage() {
   const [chem3, setChem3] = useState<Chemical | null>(null);
   const [thirdQty, setThirdQty] = useState("");
   const [last, setLast] = useState<BlendLastCalculation | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [recordedKey, setRecordedKey] = useState<string | null>(null);
+  const [usedMessage, setUsedMessage] = useState<string | null>(null);
+  const [usedError, setUsedError] = useState<string | null>(null);
 
   useEffect(() => {
     getLastCalculation("blend")
@@ -132,6 +136,48 @@ export function BlendPage() {
     setThirdQty(last.thirdQty != null ? String(last.thirdQty) : "");
     setStep(first && second ? 4 : 0);
     setLast(null);
+  }
+
+  const useKey =
+    result?.ok && result.amounts && chem1 && chem2
+      ? [
+          chem1.id,
+          result.amounts.x1,
+          chem2.id,
+          result.amounts.x2,
+          chem3?.id ?? "",
+          lockedThird ?? "",
+        ].join(":")
+      : null;
+
+  async function recordUsed() {
+    if (!result?.ok || !result.amounts || !chem1 || !chem2 || !useKey) return;
+    const lines = [
+      { chemical: chem1, quantity: result.amounts.x1 },
+      { chemical: chem2, quantity: result.amounts.x2 },
+      ...(usingThird && chem3 && lockedThird !== null && lockedThird > 0
+        ? [{ chemical: chem3, quantity: lockedThird }]
+        : []),
+    ].filter((line) => line.quantity > 1e-9);
+    setRecording(true);
+    setUsedError(null);
+    setUsedMessage(null);
+    try {
+      for (const line of lines) {
+        await applyStockMovement(line.chemical.id, {
+          type: "issue",
+          quantity: line.quantity,
+          note: "Blend",
+        });
+      }
+      await refresh();
+      setRecordedKey(useKey);
+      setUsedMessage("Taken off the shelf. The tank log was not changed.");
+    } catch (caught) {
+      setUsedError(caught instanceof TankError ? caught.message : "Could not record this blend.");
+    } finally {
+      setRecording(false);
+    }
   }
 
   const steps = [
@@ -294,12 +340,29 @@ export function BlendPage() {
                   : []
               }
               footer={
-                !result.ok ? (
+                result.ok ? (
+                  <div className="space-y-3">
+                    {usedMessage ? <p className="text-sm">{usedMessage}</p> : null}
+                    {usedError ? (
+                      <p className="text-sm text-destructive" role="alert">
+                        {usedError}
+                      </p>
+                    ) : null}
+                    <Button
+                      size="touch"
+                      className="w-full"
+                      disabled={recording || recordedKey === useKey}
+                      onClick={() => void recordUsed()}
+                    >
+                      {recording ? "Saving…" : "Record as used"}
+                    </Button>
+                  </div>
+                ) : (
                   <div className="space-y-4">
                     <SuggestionList alternatives={alternatives} onSelect={applyBlendAlternative} />
                     {missingChemical ? <NeedChemicalHint advice={missingChemical} /> : null}
                   </div>
-                ) : null
+                )
               }
             />
           ) : null}

@@ -1,4 +1,4 @@
-import { CALC_EPS, formatQty } from "./format.ts";
+import { CALC_EPS, formatPct, formatQty } from "./format.ts";
 import { UNATTRIBUTED_KEY } from "./types.ts";
 
 export type CompositionAmounts = {
@@ -186,6 +186,280 @@ export function editChemicalAmount(
       ),
     },
   };
+}
+
+type SolidLine = { id: string; amount: number; pct: number; name: string };
+
+function chemicalLabel(id: string, chemicalNames: Record<string, string>) {
+  if (id === UNATTRIBUTED_KEY) return "Unattributed";
+  return chemicalNames[id] ?? "Chemical";
+}
+
+function buildSolidLines(
+  current: CompositionAmounts,
+  chemicalPcts: Record<string, number>,
+  chemicalNames: Record<string, string>,
+  unaPct: number,
+  includeUnattributed: boolean,
+): SolidLine[] {
+  const lines: SolidLine[] = [];
+  for (const [id, amount] of Object.entries(current.remainingByChemical)) {
+    if (!(amount > CALC_EPS)) continue;
+    const pct = chemicalPcts[id];
+    if (pct == null || !Number.isFinite(pct)) continue;
+    lines.push({
+      id,
+      amount,
+      pct,
+      name: chemicalLabel(id, chemicalNames),
+    });
+  }
+  if (includeUnattributed && current.unattributed > CALC_EPS) {
+    lines.push({
+      id: UNATTRIBUTED_KEY,
+      amount: current.unattributed,
+      pct: unaPct,
+      name: chemicalLabel(UNATTRIBUTED_KEY, chemicalNames),
+    });
+  }
+  return lines;
+}
+
+function applySolidLines(
+  lines: SolidLine[],
+  fixedNamed: Record<string, number>,
+  fixedUna: number,
+  volume: number,
+  chemicalPcts: Record<string, number>,
+  unaPct: number,
+): CompositionAmounts {
+  const remainingByChemical: Record<string, number> = { ...fixedNamed };
+  let unattributed = fixedUna;
+  for (const line of lines) {
+    const cleaned = line.amount < CALC_EPS ? 0 : line.amount;
+    if (line.id === UNATTRIBUTED_KEY) unattributed = cleaned;
+    else remainingByChemical[line.id] = cleaned;
+  }
+  const nextRemainings = scrubRemainings(remainingByChemical);
+  const nextUna = unattributed < CALC_EPS ? 0 : unattributed;
+  return {
+    remainingByChemical: nextRemainings,
+    unattributed: nextUna,
+    volume,
+    solidPct: weightedSolid(
+      { remainingByChemical: nextRemainings, unattributed: nextUna },
+      chemicalPcts,
+      unaPct,
+    ),
+  };
+}
+
+function rangeRefusal(lines: SolidLine[]): string {
+  let lowest = lines[0]!;
+  let highest = lines[0]!;
+  for (const line of lines) {
+    if (line.pct < lowest.pct - CALC_EPS) lowest = line;
+    if (line.pct > highest.pct + CALC_EPS) highest = line;
+  }
+  return `Overall solid content must stay between ${lowest.name} at ${formatPct(lowest.pct)} and ${highest.name} at ${formatPct(highest.pct)}.`;
+}
+
+function oneChemicalRefusal(line: SolidLine): CompositionEditResult {
+  return {
+    ok: false,
+    reason: `This tank is only ${line.name} at ${formatPct(line.pct)}.`,
+  };
+}
+
+/**
+ * Change overall solid content; keep total kilograms the same and move chemicals
+ * with the smallest squared change that hits the target (Lagrange on positive kg).
+ *
+ * Unattributed is included when its residual solid % can be inferred from the snapshot.
+ * If it cannot, its kilograms stay fixed and only named chemicals move.
+ */
+export function editSolidContent(
+  current: CompositionAmounts,
+  chemicalPcts: Record<string, number>,
+  chemicalNames: Record<string, string>,
+  targetPct: number,
+): CompositionEditResult {
+  if (!Number.isFinite(targetPct) || targetPct < -CALC_EPS || targetPct > 100 + CALC_EPS) {
+    return { ok: false, reason: "Overall solid content must be between 0% and 100%." };
+  }
+  const target = Math.min(100, Math.max(0, targetPct));
+  const total = current.volume;
+  if (!(total > CALC_EPS)) {
+    return { ok: false, reason: "Add chemicals to the tank before you change the solid content." };
+  }
+
+  const unaPct = inferUnattributedPct(current, chemicalPcts);
+  const unaDefined =
+    current.unattributed > CALC_EPS &&
+    Number.isFinite(unaPct) &&
+    Math.abs(current.volume * current.solidPct - (
+      Object.entries(current.remainingByChemical).reduce(
+        (sum, [id, amount]) => sum + amount * (chemicalPcts[id] ?? 0),
+        0,
+      ) + current.unattributed * unaPct
+    )) <= 0.05 * Math.max(1, current.volume);
+
+  // Prefer moving unattributed with its inferred %; otherwise keep that kg fixed.
+  const includeUna = current.unattributed > CALC_EPS && unaDefined;
+  const fixedUna = !includeUna && current.unattributed > CALC_EPS ? current.unattributed : 0;
+  const fixedUnaSolid = fixedUna * unaPct;
+  const movable = buildSolidLines(current, chemicalPcts, chemicalNames, unaPct, includeUna);
+
+  if (movable.length === 0) {
+    return { ok: false, reason: "Add a chemical before you change the solid content." };
+  }
+
+  if (movable.length === 1 && fixedUna <= CALC_EPS) {
+    const only = movable[0]!;
+    if (Math.abs(only.pct - target) > 0.05) return oneChemicalRefusal(only);
+    return {
+      ok: true,
+      next: applySolidLines([{ ...only, amount: total }], {}, 0, total, chemicalPcts, unaPct),
+    };
+  }
+
+  return solveSolidOnLines(movable, total, target, fixedUna, fixedUnaSolid, chemicalPcts, unaPct);
+}
+
+function solveSolidOnLines(
+  active: SolidLine[],
+  tankTotal: number,
+  targetPct: number,
+  fixedUna: number,
+  fixedUnaSolid: number,
+  chemicalPcts: Record<string, number>,
+  unaPct: number,
+): CompositionEditResult {
+  if (active.length === 0) {
+    return {
+      ok: false,
+      reason: "With the unattributed kilograms left as they are, this solid content cannot be reached.",
+    };
+  }
+
+  const movableMass = tankTotal - fixedUna;
+  if (!(movableMass > CALC_EPS)) {
+    return {
+      ok: false,
+      reason: "With the unattributed kilograms left as they are, this solid content cannot be reached.",
+    };
+  }
+
+  let lowest = active[0]!;
+  let highest = active[0]!;
+  for (const line of active) {
+    if (line.pct < lowest.pct - CALC_EPS) lowest = line;
+    if (line.pct > highest.pct + CALC_EPS) highest = line;
+  }
+
+  if (active.length === 1) {
+    const only = active[0]!;
+    const neededPctKg = tankTotal * targetPct - fixedUnaSolid;
+    const implied = neededPctKg / movableMass;
+    if (Math.abs(implied - only.pct) > 0.05) {
+      if (fixedUna > CALC_EPS) {
+        return {
+          ok: false,
+          reason:
+            "With the unattributed kilograms left as they are, this solid content cannot be reached.",
+        };
+      }
+      return oneChemicalRefusal(only);
+    }
+    return {
+      ok: true,
+      next: applySolidLines([{ ...only, amount: movableMass }], {}, fixedUna, tankTotal, chemicalPcts, unaPct),
+    };
+  }
+
+  if (targetPct < lowest.pct - 0.05 || targetPct > highest.pct + 0.05) {
+    return { ok: false, reason: rangeRefusal(active) };
+  }
+
+  const neededPctKg = tankTotal * targetPct - fixedUnaSolid;
+  const neededAvg = neededPctKg / movableMass;
+  if (neededAvg < lowest.pct - 0.05 || neededAvg > highest.pct + 0.05) {
+    if (fixedUna > CALC_EPS) {
+      return {
+        ok: false,
+        reason:
+          "With the unattributed kilograms left as they are, this solid content cannot be reached.",
+      };
+    }
+    return { ok: false, reason: rangeRefusal(active) };
+  }
+
+  const n = active.length;
+  const sumP = active.reduce((sum, line) => sum + line.pct, 0);
+  const sumP2 = active.reduce((sum, line) => sum + line.pct * line.pct, 0);
+  const sumQ = active.reduce((sum, line) => sum + line.amount, 0);
+  const sumPQ = active.reduce((sum, line) => sum + line.amount * line.pct, 0);
+
+  if (Math.abs(sumP2 - (sumP * sumP) / n) <= CALC_EPS) {
+    if (Math.abs(neededAvg - lowest.pct) > 0.05) return oneChemicalRefusal(lowest);
+    const factor = movableMass / sumQ;
+    const scaled = active.map((line) => ({ ...line, amount: line.amount * factor }));
+    return {
+      ok: true,
+      next: applySolidLines(scaled, {}, fixedUna, tankTotal, chemicalPcts, unaPct),
+    };
+  }
+
+  // q'_i = q_i - λ - μ p_i
+  // n λ + (Σp) μ = Σq - movableMass
+  // (Σp) λ + (Σp²) μ = Σpq - neededPctKg
+  const rhs1 = sumQ - movableMass;
+  const rhs2 = sumPQ - neededPctKg;
+  const det = n * sumP2 - sumP * sumP;
+  if (Math.abs(det) <= CALC_EPS) {
+    return { ok: false, reason: rangeRefusal(active) };
+  }
+  const lambda = (rhs1 * sumP2 - rhs2 * sumP) / det;
+  const mu = (n * rhs2 - sumP * rhs1) / det;
+
+  const nextLines = active.map((line) => ({
+    ...line,
+    amount: line.amount - lambda - mu * line.pct,
+  }));
+
+  const negatives = nextLines.filter((line) => line.amount < -CALC_EPS);
+  if (negatives.length > 0) {
+    const zeroIds = new Set(negatives.map((line) => line.id));
+    const survivors = active.filter((line) => !zeroIds.has(line.id));
+    return solveSolidOnLines(
+      survivors,
+      tankTotal,
+      targetPct,
+      fixedUna,
+      fixedUnaSolid,
+      chemicalPcts,
+      unaPct,
+    );
+  }
+
+  const cleaned = nextLines.map((line) => ({
+    ...line,
+    amount: line.amount < CALC_EPS ? 0 : line.amount,
+  }));
+  const next = applySolidLines(cleaned, {}, fixedUna, tankTotal, chemicalPcts, unaPct);
+  if (Math.abs(next.volume - tankTotal) > 0.05) {
+    return {
+      ok: false,
+      reason: "That solid content could not be applied without changing the total kilograms.",
+    };
+  }
+  if (Math.abs(next.solidPct - targetPct) > 0.05) {
+    return {
+      ok: false,
+      reason: "With the unattributed kilograms left as they are, this solid content cannot be reached.",
+    };
+  }
+  return { ok: true, next };
 }
 
 /** Scale every chemical by the same factor so overall solid content stays the same. */
