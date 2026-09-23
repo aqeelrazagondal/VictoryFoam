@@ -194,8 +194,8 @@ export function OpeningPanel() {
       <div>
         <h1>What&apos;s in the tank</h1>
         <p className="mt-2 text-muted-foreground">
-          Pick each polyol already in the tank, or type one that is not in the list yet. Enter the
-          kg. The overall solid content is calculated for you.
+          Choose the chemical already in the tank, or type one such as Conventional polyol. Then
+          enter the solid content and the kg. The overall solid content is calculated for you.
         </p>
       </div>
 
@@ -206,22 +206,21 @@ export function OpeningPanel() {
       ) : null}
 
       <ul className="space-y-4">
-        {lines.map((line, index) => (
+        {lines.map((line) => (
           <li key={line.key} className="rounded-2xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-base">Polyol {index + 1}</h2>
-              {lines.length > 1 ? (
+            {lines.length > 1 ? (
+              <div className="mb-3 flex justify-end">
                 <Button
                   type="button"
                   variant="ghost"
                   className="min-h-11 min-w-11"
-                  aria-label={`Remove polyol ${index + 1}`}
+                  aria-label={`Remove ${line.name.trim() || "this chemical"}`}
                   onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
                 >
                   <Trash2 className="size-4" />
                 </Button>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
             <OpeningLineFields
               line={line}
               chemicals={activeChemicals}
@@ -245,7 +244,7 @@ export function OpeningPanel() {
         }}
       >
         <Plus className="size-4" />
-        Add another polyol
+        Add another chemical
       </Button>
 
       <Field id="tank-capacity" label="Tank size (kg)" hint="You can fill up to this, or less.">
@@ -294,24 +293,27 @@ function OpeningLineFields({
     ? chemicals.find((chemical) => chemical.id === line.chemicalId) ?? null
     : null;
   const showName = chemicals.length === 0 || line.typingNew;
-  const showPct = showName || selected != null;
+  const chemicalChosen = selected != null || line.name.trim().length > 0;
 
   return (
     <div className="space-y-3">
       {!line.typingNew && chemicals.length > 0 ? (
-        <ChemicalPicker
-          chemicals={chemicals}
-          selectedId={line.chemicalId}
-          excludedIds={excludedIds}
-          onSelect={(chemical) =>
-            onChange({
-              chemicalId: chemical.id,
-              name: chemical.name,
-              pct: String(chemical.solidContentPct),
-              typingNew: false,
-            })
-          }
-        />
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Chemical</p>
+          <ChemicalPicker
+            chemicals={chemicals}
+            selectedId={line.chemicalId}
+            excludedIds={excludedIds}
+            onSelect={(chemical) =>
+              onChange({
+                chemicalId: chemical.id,
+                name: chemical.name,
+                pct: String(chemical.solidContentPct),
+                typingNew: false,
+              })
+            }
+          />
+        </div>
       ) : null}
 
       {chemicals.length > 0 ? (
@@ -327,30 +329,29 @@ function OpeningLineFields({
             )
           }
         >
-          {line.typingNew ? "Pick an existing polyol" : "This polyol is not in the list"}
+          {line.typingNew ? "Pick a chemical from the list" : "Type a chemical, such as Conventional"}
         </Button>
       ) : null}
 
-      <div
-        className={
-          showName
-            ? "grid gap-3 md:grid-cols-[minmax(0,1fr)_7rem_7rem]"
-            : "grid gap-3 sm:grid-cols-2"
-        }
-      >
-        {showName ? (
-          <Field id={`${line.key}-name`} label="Name">
-            <Input
-              id={`${line.key}-name`}
-              value={line.name}
-              onChange={(event) =>
-                onChange({ name: event.target.value, chemicalId: null, typingNew: true })
-              }
-              placeholder="Conventional polyol"
-            />
-          </Field>
-        ) : null}
-        {showPct ? (
+      {showName ? (
+        <Field
+          id={`${line.key}-name`}
+          label="Chemical"
+          hint={chemicalChosen ? undefined : "Then enter the solid content and the kg."}
+        >
+          <Input
+            id={`${line.key}-name`}
+            value={line.name}
+            onChange={(event) =>
+              onChange({ name: event.target.value, chemicalId: null, typingNew: true })
+            }
+            placeholder="Conventional polyol"
+          />
+        </Field>
+      ) : null}
+
+      {chemicalChosen ? (
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field
             id={`${line.key}-pct`}
             label="Solid content %"
@@ -365,17 +366,17 @@ function OpeningLineFields({
               placeholder="0"
             />
           </Field>
-        ) : null}
-        <Field id={`${line.key}-kg`} label="kg in the tank">
-          <Input
-            id={`${line.key}-kg`}
-            inputMode="decimal"
-            value={line.kg}
-            onChange={(event) => onChange({ kg: event.target.value })}
-            placeholder="700"
-          />
-        </Field>
-      </div>
+          <Field id={`${line.key}-kg`} label="kg in the tank">
+            <Input
+              id={`${line.key}-kg`}
+              inputMode="decimal"
+              value={line.kg}
+              onChange={(event) => onChange({ kg: event.target.value })}
+              placeholder="700"
+            />
+          </Field>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -43,11 +43,30 @@ export type {
   RequiredBlendResult,
   SuggestedPair,
 } from "./fill.ts";
-export { formatPct, formatQty } from "./format.ts";
+export {
+  formatLogWhen,
+  formatPct,
+  formatQty,
+  parseDatetimeLocal,
+  toDatetimeLocalValue,
+} from "./format.ts";
 export { previewAddBatch, reverseAdd } from "./planner.ts";
 export type { PreviewAddResult, ReverseAddResult } from "./planner.ts";
 export { checkStock, combineStockStatus } from "./stock.ts";
 export type { StockCheck } from "./stock.ts";
+export {
+  amountsEqual,
+  editChemicalAmount,
+  encodeAdjustNote,
+  parseAdjustNote,
+  scaleTankTotal,
+  snapshotToAmounts,
+} from "./composition-edit.ts";
+export type {
+  AdjustCompositionPayload,
+  CompositionAmounts,
+  CompositionEditResult,
+} from "./composition-edit.ts";
 export {
   canConsume,
   compositionRows,
@@ -69,3 +88,4 @@ export type {
   TankSnapshot,
 } from "./tank-log.ts";
 export type { ChemicalRef, FeasibilityStatus, LogEntryType } from "./types.ts";
+export { UNATTRIBUTED_KEY } from "./types.ts";

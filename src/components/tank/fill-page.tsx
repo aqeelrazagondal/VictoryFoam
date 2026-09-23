@@ -183,6 +183,20 @@ export function FillPage() {
     );
   }
 
+  if (activeChemicals.length === 0) {
+    return (
+      <div className="space-y-4">
+        <h1>Fill calculator</h1>
+        <EmptyState
+          title="Add a polyol first"
+          description="Add a polyol, with a name and a solid content. Then Fill can suggest what to pour."
+          actionLabel="Add a polyol"
+          actionHref="/tank/chemicals/"
+        />
+      </div>
+    );
+  }
+
   async function logFill(lines: EditedPour[]) {
     const addQty = lines.reduce((sum, line) => sum + Math.max(0, line.quantity), 0);
     const overflow = capacityOverflowMessage({

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { EmptyState, Field } from "@/components/tank/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,21 +176,36 @@ export function ChemicalsPage() {
                 </div>
               </div>
               {confirmId === chemical.id ? (
-                <div className="mt-4 rounded-xl bg-muted p-3 text-sm">
-                  <p>
-                    {usedIds.has(chemical.id)
-                      ? "This chemical is in the tank log, so it will be archived instead of deleted."
-                      : "Delete this chemical? This cannot be undone."}
-                  </p>
-                  <div className="mt-3 flex gap-2">
-                    <Button size="touch" variant="destructive" onClick={() => void remove(chemical)}>
-                      Confirm
-                    </Button>
-                    <Button size="touch" variant="ghost" onClick={() => setConfirmId(null)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
+                <DeleteConfirm
+                  confirmLabel={usedIds.has(chemical.id) ? "Yes, archive it" : "Yes, delete it"}
+                  onConfirm={() => void remove(chemical)}
+                  onCancel={() => setConfirmId(null)}
+                >
+                  {usedIds.has(chemical.id) ? (
+                    <>
+                      <p>
+                        {chemical.name} at {formatPct(chemical.solidContentPct)} will leave the list
+                        you pick from when you add, fill, blend, or plan.
+                      </p>
+                      <p>
+                        Old log rows stay, so the kilograms and solid content in the tank do not
+                        change. You can add a new polyol with this name later.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        {chemical.name} at {formatPct(chemical.solidContentPct)} will be removed
+                        from the polyol list.
+                      </p>
+                      <p>
+                        It has never been used in the tank log, so the kilograms and solid content
+                        in the tank stay the same.
+                      </p>
+                      <p>This cannot be undone. You would have to add the polyol again.</p>
+                    </>
+                  )}
+                </DeleteConfirm>
               ) : null}
             </li>
           ))}

@@ -163,6 +163,52 @@ async function run() {
       check("ui.gate.planner", "planner without a tank asks to set up", await visibleText(page, "Set up your tank first"));
       await gotoTank(page, "/tank/blend/");
       check("ui.gate.blend", "blend with no chemicals asks to add one", await visibleText(page, "Add your first chemical"));
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals: [],
+          settings: { capacity: 8000, heel: 0 },
+          entries: [logEntry("1", "opening_balance", 2462, { chemicalId: null, solidContentPct: 28 })],
+        }),
+      );
+      await gotoTank(page, "/tank/");
+      check("ui.chem.gate.home", "home asks for a polyol before filling", await visibleText(page, "Add a polyol first"));
+      check(
+        "ui.chem.gate.home-cta",
+        "home links to the polyol list",
+        (await page.getByRole("link", { name: "Add a polyol" }).count()) === 1,
+      );
+      check(
+        "ui.chem.gate.no-form",
+        "the pour form stays closed until a polyol exists",
+        (await page.getByRole("button", { name: "One polyol" }).count()) === 0,
+      );
+      await gotoTank(page, "/tank/fill/");
+      check("ui.chem.gate.fill", "fill asks for a polyol first", await visibleText(page, "Add a polyol first"));
+      await gotoTank(page, "/tank/planner/");
+      check("ui.chem.gate.planner", "planner asks for a polyol first", await visibleText(page, "Add a polyol first"));
+      await gotoTank(page, "/tank/log/");
+      await page.getByRole("button", { name: "Add entry" }).click();
+      const logDialog = page.getByRole("dialog");
+      await logDialog.waitFor();
+      check("ui.chem.gate.log", "log add batch asks for a polyol first", await logDialog.getByText("Add a polyol first").isVisible());
+      check(
+        "ui.chem.gate.log-save",
+        "log cannot save a pour until a polyol exists",
+        (await logDialog.getByRole("button", { name: "Save entry" }).count()) === 0,
+      );
+      await logDialog.getByRole("link", { name: "Add a polyol" }).click();
+      await page.waitForURL("**/tank/chemicals/**");
+      check("ui.chem.gate.list", "the prompt opens the polyol list", await visibleText(page, "Add your first chemical"));
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(browser);
       await gotoTank(page, "/tank/guide/");
       check("ui.guide.1", "guide has first-time setup copy", await visibleText(page, "First-time setup (do this once)"));
       check("ui.guide.2", "guide covers blend / fill / log / composition / planner", await visibleText(page, "Making a fresh batch from scratch?"));
@@ -218,7 +264,13 @@ async function run() {
       const unusedRow = page.locator("li").filter({ hasText: "Water" });
       check("ui.chem.pos.delete-label", "unused chemical offers Delete, not Archive", await unusedRow.getByRole("button", { name: "Delete" }).isVisible());
       await unusedRow.getByRole("button", { name: "Delete" }).click();
-      await unusedRow.getByRole("button", { name: "Confirm" }).click();
+      check("ui.chem.pos.delete-ask", "delete asks before removing a polyol", await unusedRow.getByText("Are you sure?").isVisible());
+      check(
+        "ui.chem.pos.delete-consequence",
+        "delete explains the tank stays the same",
+        await unusedRow.getByText(/kilograms and solid content in the tank stay the same/).isVisible(),
+      );
+      await unusedRow.getByRole("button", { name: "Yes, delete it" }).click();
       check("ui.chem.pos.delete", "unused chemical can be hard-deleted", !(await visibleText(page, "Water")));
       await context.close();
     }
@@ -457,7 +509,12 @@ async function run() {
           chemicals,
           settings: { capacity: 8000, heel: 0 },
           entries: [
-            logEntry("1", "opening_balance", 700, { chemicalId: "c0", solidContentPct: 0 }),
+            logEntry("1", "opening_balance", 700, {
+              chemicalId: "c0",
+              solidContentPct: 0,
+              entryDate: "2026-09-23",
+              createdAt: "2026-09-23T14:05:00.000Z",
+            }),
             logEntry("2", "opening_balance", 220, { chemicalId: "c25", solidContentPct: 25 }),
             logEntry("3", "opening_balance", 1150, { chemicalId: "c45", solidContentPct: 45 }),
           ],
@@ -465,6 +522,11 @@ async function run() {
       );
       await gotoTank(page, "/tank/log/");
       check("ui.log.pos.room", "log shows room left under capacity", await visibleText(page, /room for .+ kg more/i));
+      check(
+        "ui.log.pos.when",
+        "log shows the date and time on each entry",
+        await visibleText(page, /23 September 2026 · \d{2}:\d{2}/),
+      );
       await page.getByRole("button", { name: "Add entry" }).click();
       const dialog = page.getByRole("dialog");
       await dialog.waitFor();
@@ -544,7 +606,12 @@ async function run() {
       const listed = page.locator("li").filter({ hasText: "POP 25" });
       check("ui.chem.pos.archive-label", "chemical in the log offers Archive", await listed.getByRole("button", { name: "Archive" }).isVisible());
       await listed.getByRole("button", { name: "Archive" }).click();
-      await listed.getByRole("button", { name: "Confirm" }).click();
+      check(
+        "ui.chem.pos.archive-ask",
+        "archive explains the log stays",
+        await listed.getByText(/Old log rows stay/).isVisible(),
+      );
+      await listed.getByRole("button", { name: "Yes, archive it" }).click();
       check("ui.chem.pos.archive", "logged chemical is archived instead of deleted", !(await listed.isVisible().catch(() => false)));
       await context.close();
     }
@@ -622,6 +689,16 @@ async function run() {
         "an existing chemical does not force a typed name",
         (await page.locator("#line-1-name").count()) === 0,
       );
+      check(
+        "ui.opening.neg.details-wait",
+        "kg stays hidden until a chemical is chosen",
+        (await page.locator("#line-1-kg").count()) === 0,
+      );
+      check(
+        "ui.opening.neg.no-number",
+        "the form does not number the rows as Polyol 1",
+        (await page.getByText("Polyol 1").count()) === 0,
+      );
       await page.locator("ul.grid").getByRole("button", { name: /Conventional polyol/ }).click();
       const pct = page.locator("#line-1-pct");
       check(
@@ -635,7 +712,7 @@ async function run() {
         "a picked polyol counts the kg already in the tank",
         await visibleText(page, /700 kg/),
       );
-      await page.getByRole("button", { name: "This polyol is not in the list" }).click();
+      await page.getByRole("button", { name: "Type a chemical, such as Conventional" }).click();
       check(
         "ui.opening.pos.type-new",
         "a polyol that is not in the list can still be typed",
@@ -647,6 +724,11 @@ async function run() {
     {
       const { context, page } = await openPage(browser);
       await gotoTank(page, "/tank/");
+      check(
+        "ui.opening.neg.details-before-name",
+        "a new chemical asks for the name before the kg",
+        (await page.locator("#line-1-kg").count()) === 0,
+      );
       await page.locator("#line-1-name").fill("Conventional polyol");
       await page.locator("#line-1-pct").fill("0");
       await page.locator("#line-1-kg").fill("9,000");
@@ -768,6 +850,37 @@ async function run() {
         "ui.report.neg.unsaved",
         "downloading the PDF does not write the log",
         (await page.getByRole("heading", { name: "Add to the tank" }).count()) === 1,
+      );
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals: [chemical("c45", "Polymer polyol 45", 45)],
+          settings: { capacity: 8000, heel: 0 },
+          entries: [
+            logEntry("1", "opening_balance", 1200, { chemicalId: "c45", solidContentPct: 45 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/log/");
+      await page.getByRole("button", { name: "Delete" }).click();
+      check("ui.delete.ask", "delete asks before removing a log row", await visibleText(page, "Are you sure?"));
+      check(
+        "ui.delete.consequence",
+        "delete shows the tank after the row is gone",
+        await visibleText(page, /instead of 1.?200 kg/),
+      );
+      await page.getByRole("button", { name: "Cancel" }).click();
+      check("ui.delete.cancel", "cancel keeps the log row", await visibleText(page, "Opening Balance"));
+      await page.getByRole("button", { name: "Delete" }).click();
+      await page.getByRole("button", { name: "Yes, delete it" }).click();
+      check(
+        "ui.delete.gone",
+        "confirming delete removes the row and the tank needs an opening again",
+        await visibleText(page, "Set up your tank first"),
       );
       await context.close();
     }

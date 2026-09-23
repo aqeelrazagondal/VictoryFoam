@@ -121,6 +121,20 @@ export function PlannerPage() {
     );
   }
 
+  if (activeChemicals.length === 0) {
+    return (
+      <div className="space-y-4">
+        <h1>Tank planner</h1>
+        <EmptyState
+          title="Add a polyol first"
+          description="Add a polyol, with a name and a solid content. Then Planner can tell you how much of that one drum to pour."
+          actionLabel="Add a polyol"
+          actionHref="/tank/chemicals/"
+        />
+      </div>
+    );
+  }
+
   const heel = settings?.heel ?? 0;
 
   return (

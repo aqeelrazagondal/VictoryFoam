@@ -3,10 +3,13 @@ import { describe, test } from "node:test";
 
 import {
   clampNonNegative,
+  formatLogWhen,
   formatPct,
   formatQty,
   isInClosedRange,
   nearlyEqual,
+  parseDatetimeLocal,
+  toDatetimeLocalValue,
 } from "./format.ts";
 
 describe("numeric helpers", () => {
@@ -37,5 +40,23 @@ describe("display formatting", () => {
   test("formatPct always includes a percent sign", () => {
     assert.equal(formatPct(25), "25%");
     assert.match(formatPct(7), /7%/);
+  });
+
+  test("formatLogWhen shows the factory date and the clock from when it was logged", () => {
+    const label = formatLogWhen("2026-09-23", "2026-09-23T15:30:00.000Z");
+    assert.match(label ?? "", /23 September 2026/);
+    assert.match(label ?? "", /\d{2}:\d{2}/);
+  });
+
+  test("parseDatetimeLocal keeps the calendar day and a full timestamp", () => {
+    const parsed = parseDatetimeLocal("2026-09-23T16:45");
+    assert.ok(parsed);
+    assert.equal(parsed.entryDate, "2026-09-23");
+    assert.match(parsed.loggedAt, /^2026-09-23T/);
+  });
+
+  test("toDatetimeLocalValue fills the edit field from the saved row", () => {
+    const value = toDatetimeLocalValue("2026-09-23", "2026-09-23T14:05:00.000Z");
+    assert.match(value, /^2026-09-23T\d{2}:\d{2}$/);
   });
 });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { AddPanel } from "@/components/tank/add-panel";
+import { EmptyState } from "@/components/tank/empty-state";
 import { OpeningPanel } from "@/components/tank/opening-panel";
 import { TankSummary } from "@/components/tank/tank-summary";
 import { UsePanel } from "@/components/tank/use-panel";
@@ -11,7 +12,7 @@ import { compositionRows, isHeelBreach, roomToCapacity } from "@/lib/calculation
 import { useTank } from "@/lib/tank/context";
 
 export function HubPage() {
-  const { loading, error, chemicals, tankReady, snapshot, settings } = useTank();
+  const { loading, error, chemicals, activeChemicals, tankReady, snapshot, settings } = useTank();
   const [panel, setPanel] = useState<"home" | "add" | "use">("home");
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -89,9 +90,18 @@ export function HubPage() {
       <TankSummary volume={snapshot.volume} solidPct={snapshot.solidPct} room={room} rows={rows} />
 
       <div className="grid gap-3">
-        <Button size="touch" className="w-full" onClick={() => { setNotice(null); setPanel("add"); }}>
-          Add to the tank
-        </Button>
+        {activeChemicals.length === 0 ? (
+          <EmptyState
+            title="Add a polyol first"
+            description="Add a polyol, with a name and a solid content. Then you can add to the tank, fill, or plan a pour."
+            actionLabel="Add a polyol"
+            actionHref="/tank/chemicals/"
+          />
+        ) : (
+          <Button size="touch" className="w-full" onClick={() => { setNotice(null); setPanel("add"); }}>
+            Add to the tank
+          </Button>
+        )}
         <Button
           size="touch"
           variant="secondary"

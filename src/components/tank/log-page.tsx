@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   BatchLinesEditor,
@@ -9,8 +9,10 @@ import {
   type BatchLine,
 } from "@/components/tank/batch-lines-editor";
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
+import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { ConsumptionTable } from "@/components/tank/consumption-table";
 import { EmptyState, Field } from "@/components/tank/empty-state";
+import { ListPagination } from "@/components/tank/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,10 +26,14 @@ import {
   canConsume,
   capacityOverflowMessage,
   consumeBreakdown,
+  formatLogWhen,
   formatPct,
   formatQty,
   isHeelBreach,
+  parseDatetimeLocal,
+  replayLog,
   roomToCapacity,
+  toDatetimeLocalValue,
   type LogEntryType,
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
@@ -37,6 +43,8 @@ import {
   deleteLogEntry,
   insertLogEntries,
   insertLogEntry,
+  listLogEntriesPage,
+  TANK_LIST_PAGE_SIZE,
   TankError,
   updateLogEntry,
 } from "@/lib/tank/repository";
@@ -55,19 +63,54 @@ export function LogPage() {
   const [quantity, setQuantity] = useState("");
   const [pct, setPct] = useState("");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState("");
+  const [when, setWhen] = useState("");
   const [chemical, setChemical] = useState<Chemical | null>(null);
   const [batchLines, setBatchLines] = useState<BatchLine[]>([createBatchLine("line-1")]);
   const [rate, setRate] = useState("");
   const [minutes, setMinutes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [heelNote, setHeelNote] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageRows, setPageRows] = useState<TankLogEntry[]>([]);
+  const [pageTotal, setPageTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
 
-  const reversed = useMemo(() => [...snapshot.entries].reverse(), [snapshot.entries]);
   const heel = settings?.heel ?? 0;
   const capacity = settings?.capacity ?? null;
   const room = capacity != null ? roomToCapacity(capacity, snapshot.volume) : null;
   const names = Object.fromEntries(chemicals.map((item) => [item.id, item]));
+  const runningById = useMemo(
+    () => new Map(snapshot.entries.map((entry) => [entry.id, entry])),
+    [snapshot.entries],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setListLoading(true);
+    setListError(null);
+    void listLogEntriesPage({ page, pageSize: TANK_LIST_PAGE_SIZE })
+      .then((result) => {
+        if (cancelled) return;
+        setPageRows(result.rows);
+        setPageTotal(result.total);
+        const lastPage = Math.max(1, Math.ceil(result.total / TANK_LIST_PAGE_SIZE));
+        if (page > lastPage) setPage(lastPage);
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setListError(caught instanceof Error ? caught.message : "Could not load recent production.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, entries]);
   const consumeQty = parseNumber(quantity);
   const consumePreview =
     type === "consume_usage" && consumeQty !== null
@@ -80,6 +123,7 @@ export function LogPage() {
         })
       : null;
   const multiChemical = !editing && (type === "add_batch" || type === "opening_balance");
+  const needsPolyol = multiChemical && activeChemicals.length === 0;
 
   function startAdd() {
     setEditing(null);
@@ -87,7 +131,7 @@ export function LogPage() {
     setQuantity("");
     setPct("");
     setNote("");
-    setDate("");
+    setWhen("");
     setChemical(null);
     setBatchLines([createBatchLine("line-1")]);
     setRate("");
@@ -103,7 +147,7 @@ export function LogPage() {
     setQuantity(String(entry.quantity));
     setPct(entry.solidContentPct === null ? "" : String(entry.solidContentPct));
     setNote(entry.note ?? "");
-    setDate(entry.entryDate);
+    setWhen(toDatetimeLocalValue(entry.entryDate, entry.createdAt));
     setChemical(chemicals.find((item) => item.id === entry.chemicalId) ?? null);
     setBatchLines([createBatchLine("line-1")]);
     setRate("");
@@ -115,6 +159,15 @@ export function LogPage() {
   async function save() {
     setError(null);
     setHeelNote(null);
+
+    const stamped = parseDatetimeLocal(when);
+    if (when.trim() && !stamped) {
+      setError("Enter a valid date and time, or leave that field blank.");
+      return;
+    }
+    const whenFields = stamped
+      ? { entryDate: stamped.entryDate, loggedAt: stamped.loggedAt }
+      : {};
 
     if (multiChemical) {
       const parsed = parseBatchLines(batchLines);
@@ -142,13 +195,16 @@ export function LogPage() {
       }
       try {
         await insertLogEntries(
-          parsed.rows.map((row) => ({
+          parsed.rows.map((row, index) => ({
             type,
             chemicalId: row.chemicalId,
             quantity: row.quantity,
             solidContentPct: row.solidContentPct,
             note: note.trim() || null,
-            entryDate: date || undefined,
+            ...whenFields,
+            ...(stamped
+              ? { loggedAt: new Date(new Date(stamped.loggedAt).getTime() + index).toISOString() }
+              : {}),
           })),
         );
         await refresh();
@@ -211,7 +267,7 @@ export function LogPage() {
       solidContentPct: solidPct,
       chemicalId: type === "consume_usage" ? null : chemical?.id ?? null,
       note: note.trim() || null,
-      entryDate: date || undefined,
+      ...whenFields,
     };
 
     if (type === "consume_usage" && isHeelBreach(snapshot.volume - qty, heel)) {
@@ -229,8 +285,14 @@ export function LogPage() {
   }
 
   async function remove(id: string) {
-    await deleteLogEntry(id);
-    await refresh();
+    setDeleteError(null);
+    try {
+      await deleteLogEntry(id);
+      await refresh();
+      setPendingDeleteId(null);
+    } catch (caught) {
+      setDeleteError(caught instanceof TankError ? caught.message : "Could not delete this entry.");
+    }
   }
 
   if (!tankReady && entries.length === 0) {
@@ -268,40 +330,120 @@ export function LogPage() {
         </p>
       ) : null}
 
-      <ol className="space-y-3">
-        {reversed.map((entry) => {
-          const chemicalName = entry.chemicalId
-            ? (names[entry.chemicalId]?.name ?? "Archived chemical")
-            : "Unattributed";
-          return (
-            <li key={entry.id} className="rounded-2xl border border-border bg-card p-4">
-              <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-                {TYPE_LABEL[entry.type]}
-              </p>
-              <p className="mt-1 font-heading text-lg font-semibold">
-                {formatQty(entry.quantity)} kg
-                {entry.solidContentPct !== null ? ` · ${formatPct(entry.solidContentPct)}` : ""}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                {chemicalName} · then {formatQty(entry.runningVolume)} kg at{" "}
-                {formatPct(entry.runningPct)}
-              </p>
-              <div className="mt-3 flex gap-2">
-                <Button
-                  variant="outline"
-                  size="touch"
-                  onClick={() => startEdit(entries.find((item) => item.id === entry.id)!)}
-                >
-                  Edit
-                </Button>
-                <Button variant="ghost" size="touch" onClick={() => void remove(entry.id)}>
-                  Delete
-                </Button>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
+      <section className="space-y-3" aria-labelledby="recent-production-heading">
+        <div>
+          <h2 id="recent-production-heading" className="text-xl">
+            Recent production
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Newest first. Every saved pour and use, with the tank afterwards.
+          </p>
+        </div>
+
+        {listLoading ? <p className="text-muted-foreground">Loading…</p> : null}
+        {listError ? (
+          <p className="text-sm text-destructive" role="alert">
+            {listError}
+          </p>
+        ) : null}
+
+        {!listLoading && pageRows.length === 0 ? (
+          <p className="text-muted-foreground">No production logged yet.</p>
+        ) : (
+          <ol className="space-y-3">
+            {pageRows.map((entry) => {
+              const chemicalName = entry.chemicalId
+                ? (names[entry.chemicalId]?.name ?? "Archived chemical")
+                : "Unattributed";
+              const whenLabel = formatLogWhen(entry.entryDate, entry.createdAt);
+              const running = runningById.get(entry.id);
+              return (
+                <li key={entry.id} className="rounded-2xl border border-border bg-card p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                      {TYPE_LABEL[entry.type]}
+                    </p>
+                    {whenLabel ? (
+                      <time
+                        dateTime={entry.createdAt ?? entry.entryDate}
+                        className="shrink-0 text-sm tabular-nums text-muted-foreground"
+                      >
+                        {whenLabel}
+                      </time>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 font-heading text-lg font-semibold">
+                    {chemicalName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatQty(entry.quantity)} kg
+                    {entry.solidContentPct !== null ? ` · ${formatPct(entry.solidContentPct)}` : ""}
+                  </p>
+                  {running ? (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Tank afterwards: {formatQty(running.runningVolume)} kg at{" "}
+                      {formatPct(running.runningPct)}
+                    </p>
+                  ) : null}
+                  {entry.note ? (
+                    <p className="mt-2 text-sm text-foreground">{entry.note}</p>
+                  ) : null}
+                  <div className="mt-3 flex gap-2">
+                    <Button variant="outline" size="touch" onClick={() => startEdit(entry)}>
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="touch"
+                      onClick={() => {
+                        setDeleteError(null);
+                        setPendingDeleteId(entry.id);
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                  {pendingDeleteId === entry.id ? (
+                    <DeleteConfirm
+                      confirmLabel="Yes, delete it"
+                      onConfirm={() => void remove(entry.id)}
+                      onCancel={() => {
+                        setDeleteError(null);
+                        setPendingDeleteId(null);
+                      }}
+                    >
+                      {logDeleteCopy(
+                        entry,
+                        chemicalName,
+                        snapshot.volume,
+                        snapshot.solidPct,
+                        entries,
+                      ).map((line) => (
+                        <p key={line}>{line}</p>
+                      ))}
+                      {deleteError ? (
+                        <p className="text-destructive" role="alert">
+                          {deleteError}
+                        </p>
+                      ) : null}
+                    </DeleteConfirm>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+
+        {pageTotal > 0 ? (
+          <ListPagination
+            page={page}
+            pageSize={TANK_LIST_PAGE_SIZE}
+            total={pageTotal}
+            onPageChange={setPage}
+            label="Recent production pages"
+          />
+        ) : null}
+      </section>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl">
@@ -398,7 +540,16 @@ export function LogPage() {
               </>
             ) : null}
 
-            {multiChemical ? (
+            {needsPolyol ? (
+              <EmptyState
+                title="Add a polyol first"
+                description="Add a polyol, with a name and a solid content. Then you can log what you pour into the tank."
+                actionLabel="Add a polyol"
+                actionHref="/tank/chemicals/"
+              />
+            ) : null}
+
+            {multiChemical && !needsPolyol ? (
               <BatchLinesEditor
                 lines={batchLines}
                 chemicals={activeChemicals}
@@ -445,35 +596,83 @@ export function LogPage() {
               </>
             ) : null}
 
-            <Field id="log-date" label="Date (optional)">
-              <Input
-                id="log-date"
-                type="date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
-            </Field>
-            <Field id="log-note" label="Note (optional)">
-              <Textarea
-                id="log-note"
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-              />
-            </Field>
-            {error ? (
-              <p className="text-sm text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-            {heelNote ? (
-              <p className="text-sm text-amber-700 dark:text-amber-300">{heelNote}</p>
-            ) : null}
-            <Button size="touch" className="w-full" onClick={() => void save()}>
-              Save entry
-            </Button>
+            {needsPolyol ? null : (
+              <>
+                <Field
+                  id="log-when"
+                  label="Date and time (optional)"
+                  hint="Leave blank to use now. Shown on the log with every entry."
+                >
+                  <Input
+                    id="log-when"
+                    type="datetime-local"
+                    value={when}
+                    onChange={(event) => setWhen(event.target.value)}
+                  />
+                </Field>
+                <Field id="log-note" label="Note (optional)">
+                  <Textarea
+                    id="log-note"
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                  />
+                </Field>
+                {error ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+                {heelNote ? (
+                  <p className="text-sm text-amber-700 dark:text-amber-300">{heelNote}</p>
+                ) : null}
+                <Button size="touch" className="w-full" onClick={() => void save()}>
+                  Save entry
+                </Button>
+              </>
+            )}
           </div>
         </SheetContent>
       </Sheet>
     </div>
   );
+}
+
+function logDeleteCopy(
+  entry: { id: string; type: LogEntryType; quantity: number; solidContentPct: number | null },
+  chemicalName: string,
+  currentVolume: number,
+  currentPct: number,
+  entries: { id: string; type: LogEntryType; chemicalId: string | null; quantity: number; solidContentPct: number | null }[],
+) {
+  const next = replayLog(entries.filter((item) => item.id !== entry.id));
+  const amount = `${formatQty(entry.quantity)} kg${
+    entry.solidContentPct !== null ? ` at ${formatPct(entry.solidContentPct)}` : ""
+  }`;
+  const what =
+    entry.type === "consume_usage" ? amount : `${chemicalName}, ${amount}`;
+  const lines = [
+    `This removes the ${TYPE_LABEL[entry.type].toLowerCase()} of ${what} from the log.`,
+  ];
+
+  if (entry.type === "opening_balance" && !next.hasOpeningBalance) {
+    lines.push(
+      "This row is the start of the tank. After it is gone, Home asks what is already in the tank before you can fill again. Later rows stay in the log and are counted from an empty tank.",
+    );
+  } else if (entry.type === "consume_usage") {
+    lines.push("Those kilograms go back into the tank. Every later row is counted again.");
+  } else if (entry.type === "add_batch") {
+    lines.push("This pour is taken out. Every later row is counted again without it.");
+  } else {
+    lines.push("The tank is counted again from the rows that remain.");
+  }
+
+  lines.push(
+    `The tank will show ${formatQty(next.volume)} kg at ${formatPct(next.solidPct)}, instead of ${formatQty(currentVolume)} kg at ${formatPct(currentPct)}.`,
+  );
+
+  const problem = next.errors[0]?.reason;
+  if (problem) lines.push(`The log will also show this problem: ${problem}`);
+
+  lines.push("This cannot be undone. You would have to type the row again.");
+  return lines;
 }

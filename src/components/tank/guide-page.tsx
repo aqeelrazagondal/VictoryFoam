@@ -78,12 +78,20 @@ export function GuidePage() {
             </li>
             <li>
               <strong className="text-foreground">On Home, enter each polyol already in the tank.</strong>{" "}
-              Pick one you already use, or type a new name, solid content, and kg. Tap Add another
-              polyol for the next drum. Tank size starts
+              Choose the chemical, or type a new one such as Conventional polyol. Then enter the
+              solid content and the kg. Tap Add another chemical for the next drum. Tank size starts
               at 8,000 kg. You can change it. Save.
               <Result>
                 Home shows the total kg, the overall solid content, and how many kg you can still add.
                 You do not type the overall %.
+              </Result>
+            </li>
+            <li>
+              <strong className="text-foreground">No polyol in the list yet?</strong> More, then
+              Chemicals. Add a name and a solid content before you fill.
+              <Result>
+                Add to the tank, Fill, Planner, and Log add batch stay closed until that polyol is
+                saved.
               </Result>
             </li>
             <li>
@@ -244,10 +252,11 @@ export function GuidePage() {
           <li>
             <strong className="text-foreground">Add batch</strong> after you pour into the tank.
             Pick one or more chemicals and type the kg for each. The tank size is a maximum — you
-            can add less. The form refuses a total that would go over capacity.
+            can add less. The form refuses a total that would go over capacity. Each row keeps the
+            date and time it was logged.
             <Result>
               One Add Batch row is written per chemical. Volume and % go up. Composition lists each
-              chemical.
+              chemical. The log shows the day and the clock for every entry.
             </Result>
           </li>
           <li>
@@ -261,6 +270,11 @@ export function GuidePage() {
           <li>
             <GuideLink href="/tank/composition/">Composition</GuideLink> shows what is left of each
             drum in the mix right now.
+          </li>
+          <li>
+            <strong className="text-foreground">Delete</strong> on a log row, or Delete or Archive
+            on a polyol, asks first. Read what will change. Nothing is removed until you tap Yes.
+            <Result>Cancel leaves the log and the polyol list as they are.</Result>
           </li>
         </ul>
       </section>

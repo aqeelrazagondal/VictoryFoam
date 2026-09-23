@@ -40,6 +40,8 @@ export type TankLogEntry = {
 
 export type TankLogDraft = {
   entryDate?: string;
+  /** Full ISO timestamp written to created_at when the factory sets a clock time. */
+  loggedAt?: string;
   type: LogEntryType;
   chemicalId: string | null;
   quantity: number;

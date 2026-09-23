@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { EditableReport, type EditedPour, type ReportSuggestion } from "@/components/tank/editable-report";
-import { Field } from "@/components/tank/empty-state";
+import { EmptyState, Field } from "@/components/tank/empty-state";
 import { ResultCard } from "@/components/tank/result-card";
 import { TankSummary } from "@/components/tank/tank-summary";
 import { Button } from "@/components/ui/button";
@@ -135,6 +135,30 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
     }
   }
 
+  if (activeChemicals.length === 0) {
+    return (
+      <div className="space-y-5 pb-10">
+        <div>
+          <h1>Add to the tank</h1>
+          <p className="mt-2 text-muted-foreground">
+            Add a polyol first. Then you can choose how full the tank should be and the solid
+            content you need.
+          </p>
+        </div>
+        <TankSummary volume={snapshot.volume} solidPct={snapshot.solidPct} room={room} />
+        <EmptyState
+          title="Add a polyol first"
+          description="The calculator needs a polyol, with a name and a solid content, before it can tell you what to pour."
+          actionLabel="Add a polyol"
+          actionHref="/tank/chemicals/"
+        />
+        <Button type="button" variant="outline" size="touch" className="w-full" onClick={onCancel}>
+          Back
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 pb-10">
       <div>
@@ -219,10 +243,7 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
         />
       </Field>
 
-      {activeChemicals.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Add polyols under More, then Chemicals.</p>
-      ) : (
-        <div className="space-y-4">
+      <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-medium">{mode === "one" ? "Polyol" : "First polyol"}</p>
             <ChemicalPicker
@@ -271,7 +292,6 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
             </div>
           ) : null}
         </div>
-      )}
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">

@@ -14,11 +14,35 @@ import type { Database, Json } from "@/lib/tank/database.types";
 
 const LOCAL_KEY = "victory-foam-tank-v1";
 
+/** Page size for growing tank lists (log / chemicals). */
+export const TANK_LIST_PAGE_SIZE = 10;
+
+export type PageResult<T> = {
+  rows: T[];
+  total: number;
+};
+
 export class TankError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "TankError";
   }
+}
+
+/** Pure page slice used by the local-storage repository boundary (and unit tests). */
+export function pageOf<T>(items: T[], page: number, pageSize: number): PageResult<T> {
+  const size = Math.max(1, Math.floor(pageSize) || 1);
+  const safePage = Math.max(1, Math.floor(page) || 1);
+  const total = items.length;
+  const start = (safePage - 1) * size;
+  return { rows: items.slice(start, start + size), total };
+}
+
+function pageRange(page: number, pageSize: number) {
+  const size = Math.max(1, Math.floor(pageSize) || 1);
+  const safePage = Math.max(1, Math.floor(page) || 1);
+  const from = (safePage - 1) * size;
+  return { from, to: from + size - 1, pageSize: size, page: safePage };
 }
 
 type LocalState = {
@@ -138,6 +162,74 @@ export async function loadTankData(): Promise<TankSnapshotData> {
         }
       : null,
     entries: (entriesRes.data ?? []).map(mapEntry),
+  };
+}
+
+/**
+ * One page of tank log rows, newest first. Local storage pages the array here;
+ * Supabase uses `.range()` with an exact count — the UI must not slice a full list.
+ */
+export async function listLogEntriesPage(options?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<PageResult<TankLogEntry>> {
+  const { from, to, pageSize, page } = pageRange(
+    options?.page ?? 1,
+    options?.pageSize ?? TANK_LIST_PAGE_SIZE,
+  );
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const newestFirst = [...readLocal().entries].sort((a, b) => {
+      const byTime = b.createdAt.localeCompare(a.createdAt);
+      return byTime !== 0 ? byTime : b.id.localeCompare(a.id);
+    });
+    return pageOf(newestFirst, page, pageSize);
+  }
+
+  const { data, error, count } = await supabase
+    .from("tank_log_entries")
+    .select("*", { count: "exact" })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(from, to);
+
+  if (error) throw new TankError(error.message);
+  return {
+    rows: (data ?? []).map(mapEntry),
+    total: count ?? 0,
+  };
+}
+
+/**
+ * One page of active chemicals, name order. Same page contract as the log list.
+ */
+export async function listChemicalsPage(options?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<PageResult<Chemical>> {
+  const { from, to, pageSize, page } = pageRange(
+    options?.page ?? 1,
+    options?.pageSize ?? TANK_LIST_PAGE_SIZE,
+  );
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const active = readLocal()
+      .chemicals.filter((chemical) => chemical.archivedAt === null)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+    return pageOf(active, page, pageSize);
+  }
+
+  const { data, error, count } = await supabase
+    .from("chemicals")
+    .select("*", { count: "exact" })
+    .is("archived_at", null)
+    .order("name")
+    .range(from, to);
+
+  if (error) throw new TankError(error.message);
+  return {
+    rows: (data ?? []).map(mapChemical),
+    total: count ?? 0,
   };
 }
 
@@ -304,7 +396,7 @@ export async function insertLogEntries(drafts: TankLogDraft[]) {
       quantity: draft.quantity,
       solidContentPct: draft.solidContentPct,
       note: draft.note,
-      createdAt: new Date(base + index).toISOString(),
+      createdAt: draft.loggedAt ?? new Date(base + index).toISOString(),
     }));
     local.entries = [...local.entries, ...created];
     writeLocal(local);
@@ -321,7 +413,7 @@ export async function insertLogEntries(drafts: TankLogDraft[]) {
         quantity: draft.quantity,
         solid_content_pct: draft.solidContentPct,
         note: draft.note,
-        created_at: new Date(base + index).toISOString(),
+        created_at: draft.loggedAt ?? new Date(base + index).toISOString(),
       })),
     )
     .select("*");
@@ -341,7 +433,7 @@ export async function insertLogEntry(draft: TankLogDraft) {
       quantity: draft.quantity,
       solidContentPct: draft.solidContentPct,
       note: draft.note,
-      createdAt: nowIso(),
+      createdAt: draft.loggedAt ?? nowIso(),
     };
     local.entries = [...local.entries, created];
     writeLocal(local);
@@ -357,6 +449,7 @@ export async function insertLogEntry(draft: TankLogDraft) {
       quantity: draft.quantity,
       solid_content_pct: draft.solidContentPct,
       note: draft.note,
+      ...(draft.loggedAt ? { created_at: draft.loggedAt } : {}),
     })
     .select("*")
     .single();
@@ -378,6 +471,7 @@ export async function updateLogEntry(id: string, draft: TankLogDraft) {
             quantity: draft.quantity,
             solidContentPct: draft.solidContentPct,
             note: draft.note,
+            createdAt: draft.loggedAt ?? entry.createdAt,
           }
         : entry,
     );
@@ -394,6 +488,7 @@ export async function updateLogEntry(id: string, draft: TankLogDraft) {
       quantity: draft.quantity,
       solid_content_pct: draft.solidContentPct,
       note: draft.note,
+      ...(draft.loggedAt ? { created_at: draft.loggedAt } : {}),
     })
     .eq("id", id);
   if (error) throw new TankError(error.message);
