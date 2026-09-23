@@ -13,9 +13,14 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## Static architecture
 - This is a static brochure and display-only catalog, not a web application.
 - Keep `output: "export"`; production deploys only the generated `out/` folder.
-- Do not add databases, authentication, API routes, Server Actions, request-time redirects, cookies, headers, or server-only logic.
-- Keep all content in typed files under `src/data/`. The contact form posts directly to Formspree.
+- Do not add API routes, Server Actions, request-time redirects, cookies, headers, or server-only logic.
+- Keep brochure content in typed files under `src/data/`. The contact form posts directly to Formspree.
 - Every dynamic route must export `generateStaticParams`; do not use `force-dynamic` or request-time revalidation.
+
+## Tank calculator exception (`/tank`)
+- The factory chemical calculator lives under `/tank` as a **client-only** static app. It is not part of the public brochure and must stay `noindex`, out of sitemap, and out of public navigation.
+- It may talk to Supabase from the browser with the anon key. Do not add Next.js API routes, Server Actions, or a Node backend for it.
+- Marketing chrome (header, footer, enquiry FAB) belongs in `src/app/(site)/` only — never wrap `/tank` with it.
 
 ## TypeScript and components
 - Keep TypeScript strict and do not introduce `any`.

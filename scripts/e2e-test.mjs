@@ -154,6 +154,33 @@ for (const route of ["/about/", "/products/", "/gallery/", "/contact/"]) {
 }
 check("9.4", "theme toggle", /theme|sun|moon/i.test(home));
 
+const tankHome = readPage("/tank/");
+const tankRoutes = [
+  "/tank/",
+  "/tank/chemicals/",
+  "/tank/blend/",
+  "/tank/blend/setup/",
+  "/tank/blend/planner/",
+  "/tank/setup/",
+  "/tank/fill/",
+  "/tank/log/",
+  "/tank/composition/",
+  "/tank/planner/",
+  "/tank/guide/",
+];
+check("tank.1", "tank export", fs.existsSync("out/tank/index.html"));
+check("tank.2", "robots disallow tank", /Disallow:\s*\/tank/.test(fs.readFileSync("out/robots.txt", "utf8")));
+check("tank.3", "tank noindex", /noindex/.test(tankHome));
+check("tank.4", "tank not in sitemap", !fs.readFileSync("out/sitemap.xml", "utf8").includes("/tank"));
+check("tank.5", "tank not in public nav", !/href="\/tank\//.test(home));
+check("tank.6", "tank h1", (tankHome.match(/<h1/g) || []).length >= 1);
+for (const route of tankRoutes) {
+  const html = readPage(route);
+  check("tank.7", `export ${route}`, fs.existsSync(route === "/tank/" ? "out/tank/index.html" : `out${route}index.html`));
+  check("tank.8", `h1 ${route}`, (html.match(/<h1/g) || []).length >= 1);
+  check("tank.9", `noindex ${route}`, /noindex/.test(html));
+}
+
 console.log(`\n=== ${pass}/${total} passed, ${total - pass} failed ===`);
 if (failures.length === 0) {
   console.log("\n✅ ALL TESTS PASSED — PRODUCTION READY");

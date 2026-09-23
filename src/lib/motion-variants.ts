@@ -25,3 +25,17 @@ export const fadeIn: Variants = {
     transition: { duration: 0.4, ease: "easeOut" },
   },
 };
+
+export const wizardSlide: Variants = {
+  hidden: { opacity: 0, x: 16 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.3, ease: "easeOut" },
+  },
+  exit: {
+    opacity: 0,
+    x: -12,
+    transition: { duration: 0.2, ease: "easeIn" },
+  },
+};

@@ -1,0 +1,536 @@
+/**
+ * Interactive UI cases for /tank (positive + negative).
+ * Uses system Chrome so CI does not need a Playwright browser download.
+ *
+ * Run: pnpm test:ui   (expects the app at TANK_UI_BASE_URL, default http://localhost:3000)
+ */
+import { chromium } from "playwright-core";
+
+const BASE = (process.env.TANK_UI_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
+const LOCAL_KEY = "victory-foam-tank-v1";
+
+const failures = [];
+let pass = 0;
+let total = 0;
+
+function check(id, desc, ok, detail = "") {
+  total += 1;
+  if (ok) {
+    pass += 1;
+    console.log(`PASS ${id}: ${desc}`);
+  } else {
+    const suffix = detail ? ` (${detail})` : "";
+    console.log(`FAIL ${id}: ${desc}${suffix}`);
+    failures.push(`${id}|${desc}${suffix}`);
+  }
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function chemical(id, name, pct, qty = null) {
+  const now = nowIso();
+  return {
+    id,
+    name,
+    solidContentPct: pct,
+    qtyAvailable: qty,
+    unit: "kg",
+    ohValue: null,
+    viscosity: null,
+    archivedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+function logEntry(id, type, quantity, extra = {}) {
+  return {
+    id,
+    entryDate: extra.entryDate ?? nowIso().slice(0, 10),
+    type,
+    chemicalId: extra.chemicalId ?? null,
+    quantity,
+    solidContentPct: extra.solidContentPct ?? null,
+    note: extra.note ?? null,
+    createdAt: extra.createdAt ?? `${nowIso().slice(0, 19)}.${id.padStart(3, "0")}Z`,
+  };
+}
+
+function tankState({ chemicals = [], settings = null, entries = [], lastCalculation = {} } = {}) {
+  return { chemicals, settings, entries, lastCalculation };
+}
+
+async function launchBrowser() {
+  const executablePath =
+    process.env.CHROME_PATH ??
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+  try {
+    return await chromium.launch({ channel: "chrome", headless: true });
+  } catch {
+    return chromium.launch({ executablePath, headless: true });
+  }
+}
+
+async function openPage(browser, state) {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  });
+  if (state) {
+    await context.addInitScript(
+      ({ key, value }) => {
+        window.localStorage.setItem(key, value);
+      },
+      { key: LOCAL_KEY, value: JSON.stringify(state) },
+    );
+  }
+  const page = await context.newPage();
+  page.setDefaultTimeout(12_000);
+  return { context, page };
+}
+
+async function gotoTank(page, path = "/tank/") {
+  const url = `${BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+  await page.getByRole("heading", { level: 1 }).first().waitFor();
+  if (!path.startsWith("/tank")) return;
+  const nav = page.getByRole("navigation", { name: "Calculator" });
+  await Promise.race([
+    nav.getByRole("link", { name: "Fill" }).waitFor({ timeout: 10_000 }),
+    nav.getByRole("link", { name: /Set up tank/i }).waitFor({ timeout: 10_000 }),
+  ]);
+}
+
+async function jumpToStep(page, index) {
+  await page.getByRole("navigation", { name: "Completed steps" }).getByRole("button").nth(index).click();
+}
+
+function primaryButton(page, name) {
+  return page.getByRole("button", { name, exact: true });
+}
+
+async function visibleText(page, pattern, timeout = 5000) {
+  try {
+    await page.getByText(pattern).first().waitFor({ state: "visible", timeout });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function addChemicalViaUi(page, { name, pct, qty }) {
+  await primaryButton(page, "Add").click();
+  const dialog = page.getByRole("dialog");
+  await dialog.waitFor();
+  await dialog.locator("#chem-name").fill(name);
+  await dialog.locator("#chem-pct").fill(String(pct));
+  if (qty !== undefined && qty !== null) {
+    await dialog.getByRole("button", { name: "Add more details" }).click();
+    await dialog.locator("#chem-qty").fill(String(qty));
+  }
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await dialog.waitFor({ state: "hidden" });
+}
+
+async function run() {
+  const browser = await launchBrowser();
+
+  try {
+    {
+      const { context, page } = await openPage(browser);
+      await gotoTank(page, "/tank/");
+      await page.getByRole("heading", { name: "Add your first chemical" }).waitFor();
+      check("ui.empty.1", "hub shows first-chemical empty state", await visibleText(page, "Add your first chemical"));
+      check("ui.empty.2", "Fill is hidden from nav until Opening Balance", (await page.getByRole("navigation", { name: "Calculator" }).getByRole("link", { name: "Fill" }).count()) === 0);
+      check("ui.empty.3", "Log is hidden from nav until Opening Balance", (await page.getByRole("navigation", { name: "Calculator" }).getByRole("link", { name: "Log" }).count()) === 0);
+      check("ui.empty.4", "Set up tank is available", (await page.getByRole("link", { name: /Set up tank/i }).count()) > 0);
+      check("ui.empty.5", "localStorage banner is shown without Supabase", await visibleText(page, "Data is stored on this device"));
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(browser);
+      await gotoTank(page, "/tank/fill/");
+      check("ui.gate.fill", "fill without a tank asks to set up", await visibleText(page, "Set up your tank first"));
+      await gotoTank(page, "/tank/log/");
+      check("ui.gate.log", "log without a tank asks to set up", await visibleText(page, "Set up your tank first"));
+      await gotoTank(page, "/tank/composition/");
+      check("ui.gate.composition", "composition without a tank asks to set up", await visibleText(page, "Set up your tank first"));
+      await gotoTank(page, "/tank/planner/");
+      check("ui.gate.planner", "planner without a tank asks to set up", await visibleText(page, "Set up your tank first"));
+      await gotoTank(page, "/tank/blend/");
+      check("ui.gate.blend", "blend with no chemicals asks to add one", await visibleText(page, "Add your first chemical"));
+      await gotoTank(page, "/tank/guide/");
+      check("ui.guide.1", "guide has first-time setup copy", await visibleText(page, "First-time setup (do this once)"));
+      check("ui.guide.2", "guide covers blend / fill / log / composition / planner", await visibleText(page, "Making a fresh batch from scratch?"));
+      await gotoTank(page, "/tank/blend/setup/");
+      await page.waitForURL("**/tank/setup/");
+      check("ui.redirect.setup", "mistaken /tank/blend/setup/ opens tank setup", /\/tank\/setup\/?$/.test(new URL(page.url()).pathname));
+      check("ui.redirect.setup-heading", "redirected setup still has an h1", await visibleText(page, "Set up your tank"));
+      await gotoTank(page, "/tank/blend/planner/");
+      await page.waitForURL("**/tank/planner/");
+      check("ui.redirect.planner", "mistaken /tank/blend/planner/ opens tank planner", /\/tank\/planner\/?$/.test(new URL(page.url()).pathname));
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(browser);
+      await gotoTank(page, "/tank/chemicals/");
+      await primaryButton(page, "Add").click();
+      const dialog = page.getByRole("dialog");
+      await dialog.waitFor();
+      await dialog.getByRole("button", { name: "Save" }).click();
+      check("ui.chem.neg.name", "empty chemical name is rejected", await dialog.getByText("Name is required.").isVisible());
+      await dialog.locator("#chem-name").fill("Water");
+      await dialog.locator("#chem-pct").fill("150");
+      await dialog.getByRole("button", { name: "Save" }).click();
+      check("ui.chem.neg.pct-high", "solid % above 100 is rejected", await dialog.getByText("Solid Content % must be between 0 and 100.").isVisible());
+      await dialog.locator("#chem-pct").fill("-4");
+      await dialog.getByRole("button", { name: "Save" }).click();
+      check("ui.chem.neg.pct-low", "solid % below 0 is rejected", await dialog.getByText("Solid Content % must be between 0 and 100.").isVisible());
+      await dialog.locator("#chem-pct").fill("0");
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await dialog.waitFor({ state: "hidden" });
+      check("ui.chem.pos.water", "0% water can be saved", await visibleText(page, "Water"));
+
+      await addChemicalViaUi(page, { name: "POP 10", pct: 10 });
+      await addChemicalViaUi(page, { name: "POP 40", pct: 40, qty: 10 });
+      check("ui.chem.pos.untracked", "chemical without qty shows Stock not tracked", await visibleText(page, "Stock not tracked"));
+      check("ui.chem.pos.tracked", "chemical with qty shows the stock amount", await page.getByText(/10 kg/).first().isVisible());
+
+      await primaryButton(page, "Add").click();
+      await page.getByRole("dialog").waitFor();
+      await page.getByRole("dialog").locator("#chem-name").fill("pop 10");
+      await page.getByRole("dialog").locator("#chem-pct").fill("10");
+      await page.getByRole("dialog").getByRole("button", { name: "Save" }).click();
+      check(
+        "ui.chem.neg.duplicate",
+        "case-insensitive duplicate name is rejected",
+        await page.getByRole("dialog").getByText("A chemical with this name already exists.").isVisible(),
+      );
+      await page.keyboard.press("Escape");
+
+      const unusedRow = page.locator("li").filter({ hasText: "Water" });
+      check("ui.chem.pos.delete-label", "unused chemical offers Delete, not Archive", await unusedRow.getByRole("button", { name: "Delete" }).isVisible());
+      await unusedRow.getByRole("button", { name: "Delete" }).click();
+      await unusedRow.getByRole("button", { name: "Confirm" }).click();
+      check("ui.chem.pos.delete", "unused chemical can be hard-deleted", !(await visibleText(page, "Water")));
+      await context.close();
+    }
+
+    {
+      const chemicals = [
+        chemical("c10", "POP 10", 10),
+        chemical("c40", "POP 40", 40, 10),
+        chemical("c25", "POP 25", 25),
+      ];
+      const { context, page } = await openPage(browser, tankState({ chemicals }));
+      await gotoTank(page, "/tank/blend/");
+      await page.locator("ul.grid").getByRole("button", { name: /POP 10/ }).click();
+      await page.getByRole("navigation", { name: "Completed steps" }).getByRole("button", { name: "POP 10" }).waitFor();
+      await page.locator("ul.grid").getByRole("button", { name: /POP 40/ }).waitFor();
+      await page.locator("ul.grid").getByRole("button", { name: /POP 10/ }).waitFor({ state: "hidden" });
+      check(
+        "ui.blend.neg.same",
+        "second picker hides the already-chosen chemical",
+        (await page.locator("ul.grid").getByRole("button", { name: /POP 10/ }).count()) === 0,
+      );
+      await page.locator("ul.grid").getByRole("button", { name: /POP 40/ }).click();
+      await page.locator("#blend-pct").fill("50");
+      await primaryButton(page, "Next").click();
+      await page.locator("#blend-qty").fill("1000");
+      await primaryButton(page, "See result").click();
+      check("ui.blend.neg.range", "target outside the pair is Not reachable", await visibleText(page, "Not reachable"));
+      check("ui.blend.neg.blank", "infeasible blend hides amounts", !(await visibleText(page, /Use POP 10/, 800)));
+      check("ui.blend.pos.alts", "infeasible blend offers reachable combinations", await visibleText(page, "Try one of these instead"));
+      await page.getByRole("button", { name: /Use only POP 40/ }).first().click();
+      check("ui.blend.pos.alt-apply", "tapping a blend alternative leaves Not reachable", !(await visibleText(page, "Not reachable", 800)));
+      check("ui.blend.pos.alt-amount", "applied blend alternative shows amounts", await visibleText(page, /1[\s\u00a0\u202f]?000 kg/));
+
+      await jumpToStep(page, 2);
+      await page.locator("#blend-pct").fill("52");
+      await primaryButton(page, "Next").click();
+      await primaryButton(page, "See result").click();
+      check("ui.blend.pos.need-chem", "52% above strongest drum asks to add a chemical", await visibleText(page, "Add a stronger chemical"));
+      check("ui.blend.neg.zero-mix", "one-drum clamp is not shown as 0 kg plus another chemical", !(await visibleText(page, /0 kg \+| \+ 0 kg/, 800)));
+      await jumpToStep(page, 2);
+      await page.locator("#blend-pct").fill("25");
+      await primaryButton(page, "Next").click();
+      await page.locator("#blend-qty").fill("0");
+      check("ui.blend.neg.zero", "quantity 0 keeps See result disabled", await primaryButton(page, "See result").isDisabled());
+      await page.locator("#blend-qty").fill("1000");
+      await primaryButton(page, "See result").click();
+      await page.getByText("500 kg").nth(1).waitFor({ state: "visible" });
+      check("ui.blend.pos.split", "25% of 1000 kg from 10%+40% solves to 500 + 500", true);
+      check("ui.blend.pos.amounts", "blend amounts are shown", true);
+      check("ui.blend.pos.low-stock", "short stock is a warning, numbers still shown", await visibleText(page, "Low stock"));
+      check("ui.blend.pos.stock-copy", "insufficient stock still names the available qty", await visibleText(page, /Only .+ kg in stock/));
+      await context.close();
+    }
+
+    {
+      const chemicals = [chemical("c10", "POP 10", 10), chemical("c40", "POP 40", 40)];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: 10_000, heel: 200 },
+          entries: [
+            logEntry("1", "opening_balance", 1500, { chemicalId: null, solidContentPct: 25 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/");
+      const nav = page.getByRole("navigation", { name: "Calculator" });
+      check("ui.nav.pos.fill", "Fill appears after Opening Balance", (await nav.getByRole("link", { name: "Fill" }).count()) === 1);
+      check("ui.nav.pos.log", "Log appears after Opening Balance", (await nav.getByRole("link", { name: "Log" }).count()) === 1);
+      check("ui.nav.neg.setup", "Set up tank leaves the nav once the tank exists", (await nav.getByRole("link", { name: /Set up tank/i }).count()) === 0);
+      check("ui.hub.pos.volume", "hub shows opening volume", await visibleText(page, /1.?500 kg/));
+      check("ui.hub.pos.next-pct", "hub asks for the next production %", (await page.locator("#next-pct").count()) === 1);
+      check("ui.hub.pos.next-vol", "hub asks how full to fill the tank", (await page.locator("#next-vol").count()) === 1);
+      check("ui.hub.pos.pct", "hub shows opening solid %", await visibleText(page, "25%"));
+
+      await gotoTank(page, "/tank/setup/");
+      check("ui.setup.neg.repeat", "setup refuses a second Opening Balance", await visibleText(page, "Tank already set up"));
+
+      await gotoTank(page, "/tank/composition/");
+      check("ui.comp.pos.unattributed", "unattributed opening appears in composition", await visibleText(page, "Unattributed"));
+      check("ui.comp.pos.recon", "unattributed tank shows reconciliation", await visibleText(page, "Reconciliation"));
+      await context.close();
+    }
+
+    {
+      const chemicals = [
+        chemical("c0", "Water", 0),
+        chemical("c10", "POP 10", 10),
+        chemical("c45", "POP 45", 45),
+      ];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: null, heel: 0 },
+          entries: [
+            logEntry("1", "opening_balance", 4000, { chemicalId: "c10", solidContentPct: 33 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/fill/");
+      await page.locator("#fill-vol").fill("3000");
+      await primaryButton(page, "Next").click();
+      await page.locator("#fill-pct").fill("20");
+      await primaryButton(page, "Next").click();
+      check("ui.fill.neg.down", "target volume below current is infeasible", await visibleText(page, /fill up, not down/i));
+      check("ui.fill.neg.planner", "fill-down offers Tank Planner, not a fake mix", await visibleText(page, "Open Tank Planner"));
+
+      await page.getByRole("button", { name: "Target volume" }).click();
+      await page.locator("#fill-vol").fill("8000");
+      await primaryButton(page, "Next").click();
+      check("ui.fill.pos.required", "required blend % is for the added portion (7%)", await visibleText(page, /7%/));
+      check("ui.fill.pos.suggest-above", "suggestion picks closest above required blend", await visibleText(page, /POP 10/));
+      check("ui.fill.pos.suggest-below", "suggestion picks closest below required blend", await visibleText(page, /Water/));
+      await page.getByRole("button", { name: "Confirm or change chemicals" }).click();
+      await page.locator("ul.grid").getByRole("button", { name: /POP 10/ }).click();
+      await page.locator("ul.grid").getByRole("button", { name: /Water/ }).click();
+      check("ui.fill.pos.result", "reachable fill pair is feasible", await visibleText(page, "Feasible"));
+      check("ui.fill.pos.log-cta", "Log this is offered and not auto-written", await visibleText(page, "Log this (two Add Batch entries)"));
+      await page.getByRole("button", { name: "Log this (two Add Batch entries)" }).click();
+      await page.waitForURL("**/tank/log/**");
+      check(
+        "ui.fill.pos.logged",
+        "confirming Log this writes two add-batch rows",
+        (await page.getByText("Add Batch").count()) >= 2,
+      );
+      await context.close();
+    }
+
+    {
+      const chemicals = [
+        chemical("c25", "POP 25", 25),
+        chemical("c45", "POP 45", 45),
+        chemical("c0", "Conventional", 0),
+      ];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: 8000, heel: 890 },
+          entries: [
+            logEntry("1", "opening_balance", 1500, { chemicalId: "c25", solidContentPct: 25 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/");
+      await page.locator("#next-vol").fill("8000");
+      await page.locator("#next-pct").fill("33");
+      await page.getByRole("link", { name: "Plan this fill" }).click();
+      await page.waitForURL("**/tank/fill/**");
+      await page.getByRole("button", { name: "Confirm or change chemicals" }).waitFor();
+      check("ui.umer.pos.pair", "33% fill includes POP 45 as the strong drum", await visibleText(page, "POP 45"));
+      check("ui.umer.pos.other-pair", "45% + Conventional is offered as another pair", await visibleText(page, "Conventional"));
+      const umerPair = page.getByRole("button", { name: /Conventional/ }).first();
+      if (await umerPair.count()) {
+        await umerPair.click();
+      } else {
+        await page.getByRole("button", { name: "Confirm or change chemicals" }).click();
+        await page.locator("ul.grid").getByRole("button", { name: /POP 45/ }).click();
+        await page.locator("ul.grid").getByRole("button", { name: /Conventional/ }).click();
+      }
+      check("ui.umer.pos.amounts", "33% fill is about 5 033 kg + 1 467 kg", await visibleText(page, /5[\s\u00a0\u202f]?033/) && await visibleText(page, /1[\s\u00a0\u202f]?466|1[\s\u00a0\u202f]?467/));
+      await page.getByRole("button", { name: "Log this (two Add Batch entries)" }).click();
+      await page.waitForURL("**/tank/log/**");
+      await page.getByRole("button", { name: "Add entry" }).click();
+      const umerLog = page.getByRole("dialog");
+      await umerLog.waitFor();
+      await umerLog.getByText("Consume / Usage").click();
+      await umerLog.locator("#log-rate").fill("80");
+      await umerLog.locator("#log-minutes").fill("50");
+      check("ui.umer.pos.rate", "80 kg/min × 50 min fills 4 000 kg", (await umerLog.locator("#log-qty").inputValue()) === "4000");
+      check("ui.umer.pos.used25", "consume uses 750 kg of POP 25", await umerLog.getByText(/750/).count() >= 1);
+      check("ui.umer.pos.still33", "leftover tank is still 33%", await umerLog.getByText(/still 33%/).isVisible());
+      await page.keyboard.press("Escape");
+      await context.close();
+    }
+
+    {
+      const chemicals = [chemical("c10", "POP 10", 10), chemical("c40", "POP 40", 40)];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: null, heel: 0 },
+          entries: [
+            logEntry("1", "opening_balance", 4000, { chemicalId: "c10", solidContentPct: 33 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/fill/");
+      await page.locator("#fill-vol").fill("8000");
+      await primaryButton(page, "Next").click();
+      await page.locator("#fill-pct").fill("20");
+      await primaryButton(page, "Next").click();
+      check("ui.fill.neg.pair", "required 7% with no below chemical is infeasible", await visibleText(page, "Not reachable"));
+      check("ui.fill.pos.alts", "fill offers a reachable combination", await visibleText(page, "Try one of these instead"));
+      await page.getByRole("heading", { name: "Try one of these instead" }).locator("..").getByRole("button").first().click();
+      check("ui.fill.pos.alt-apply", "tapping a fill alternative is feasible", await visibleText(page, "Feasible"));
+      check("ui.fill.pos.alt-no-autolog", "applying a fill alternative does not write the log", await visibleText(page, "Log this (two Add Batch entries)"));
+      check("ui.fill.pos.alt-stays", "fill alternative stays on Fill", page.url().includes("/tank/fill"));
+      await context.close();
+    }
+
+    {
+      const chemicals = [chemical("c25", "POP 25", 25), chemical("c40", "POP 40", 40)];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: null, heel: 200 },
+          entries: [
+            logEntry("1", "opening_balance", 1500, { chemicalId: "c25", solidContentPct: 25 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/log/");
+      await page.getByRole("button", { name: "Add entry" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.waitFor();
+      await dialog.getByText("Consume / Usage").click();
+      await dialog.locator("#log-qty").fill("2000");
+      await dialog.getByRole("button", { name: "Save entry" }).click();
+      check("ui.log.neg.overdraw", "consume above volume is hard-blocked", await dialog.getByText("Cannot consume more than the current tank volume.").isVisible());
+      await dialog.locator("#log-qty").fill("1400");
+      check("ui.log.pos.consume-table", "consume preview names each polyol", await dialog.getByText("Consumption of each polyol").isVisible());
+      check("ui.log.pos.still-pct", "consume preview keeps the tank %", await dialog.getByText(/still 25%/).isVisible());
+      await dialog.getByRole("button", { name: "Save entry" }).click();
+      await dialog.waitFor({ state: "hidden" });
+      check("ui.log.pos.heel", "consume below heel still saves and warns", await visibleText(page, /below the heel/i));
+
+      await gotoTank(page, "/tank/chemicals/");
+      const listed = page.locator("li").filter({ hasText: "POP 25" });
+      check("ui.chem.pos.archive-label", "chemical in the log offers Archive", await listed.getByRole("button", { name: "Archive" }).isVisible());
+      await listed.getByRole("button", { name: "Archive" }).click();
+      await listed.getByRole("button", { name: "Confirm" }).click();
+      check("ui.chem.pos.archive", "logged chemical is archived instead of deleted", !(await listed.isVisible().catch(() => false)));
+      await context.close();
+    }
+
+    {
+      const chemicals = [chemical("c40", "POP 40", 40), chemical("c0", "Water", 0)];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: null, heel: 0 },
+          entries: [
+            logEntry("1", "opening_balance", 1000, { chemicalId: "c40", solidContentPct: 20 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/planner/");
+      const logCountCopy = await page.getByText(/Log entries:/).textContent();
+      await page.getByRole("button", { name: "Preview add" }).click();
+      await page.locator("#preview-qty").fill("1000");
+      await page.locator("#preview-pct").fill("40");
+      check("ui.planner.pos.preview-vol", "preview shows resulting volume", await visibleText(page, /2.?000 kg/));
+      check("ui.planner.pos.preview-only", "preview is labelled as not writing the log", await visibleText(page, "This does not write to the tank log."));
+      const logCountAfter = await page.getByText(/Log entries:/).textContent();
+      check("ui.planner.pos.no-write", "preview leaves the log count unchanged", logCountCopy === logCountAfter);
+
+      await page.getByRole("button", { name: "Reverse calc" }).click();
+      check("ui.planner.pos.reverse-hint", "reverse mode asks for a target first", await visibleText(page, "Enter a target % to continue."));
+      check("ui.planner.pos.last-tank", "planner shows the last logged tank", await visibleText(page, /Last logged tank/));
+      await page.locator("#rev-pct").fill("10");
+      check("ui.planner.pos.hits", "target 10% lists Water as a reachable add", await visibleText(page, /Add one of these to reach that target/));
+      await page.locator("#rev-pct").fill("53");
+      check("ui.planner.pos.need-chem", "53% with max 40% asks for a stronger drum", await visibleText(page, "Add a stronger chemical"));
+      await page.locator("#rev-pct").fill("10");
+      await page.locator("ul.grid").getByRole("button", { name: /POP 40/ }).click();
+      check("ui.planner.neg.reverse", "unreachable reverse target hides the amount", await visibleText(page, "Not reachable"));
+      check("ui.planner.pos.alts", "planner offers reachable alternatives", await visibleText(page, "Try one of these instead"));
+      await page.getByRole("button", { name: /Set target to 20%/ }).click();
+      check("ui.planner.pos.alt-apply", "tapping a planner alternative is feasible", await visibleText(page, "Feasible"));
+      await page.locator("#rev-pct").fill("30");
+      check("ui.planner.pos.reverse", "reachable reverse raise shows how much to add", await visibleText(page, "Feasible"));
+      check(
+        "ui.planner.pos.reverse-qty",
+        "reverse 20% → 30% with 40% chemical is 1000 kg",
+        await visibleText(page, /1[\s\u00a0\u202f]?000 kg/),
+      );
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(browser, tankState({ chemicals: [chemical("only", "Only one", 25)] }));
+      await gotoTank(page, "/tank/blend/");
+      await page.locator("ul.grid").getByRole("button", { name: /Only one/ }).click();
+      check("ui.blend.neg.one-chemical", "cannot pick the same chemical twice when only one exists", await visibleText(page, "No chemicals match that search."));
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(browser);
+      await gotoTank(page, "/about/");
+      check("ui.brochure.header", "brochure chrome is still on marketing pages", (await page.locator("header").count()) > 0);
+      check("ui.brochure.no-tank-nav", "public nav does not link to /tank", (await page.getByRole("navigation").getByRole("link", { name: /tank/i }).count()) === 0);
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+  }
+}
+
+try {
+  await run();
+} catch (error) {
+  console.error(error);
+  failures.push(`crash|${error instanceof Error ? error.message : String(error)}`);
+}
+
+console.log(`\n=== ${pass}/${total} UI checks passed, ${total - pass} failed ===`);
+if (failures.length) {
+  console.log("Failed tests:");
+  for (const failure of failures) console.log(`  ${failure}`);
+  process.exit(1);
+}
+console.log("\n✅ TANK UI CASES PASSED");

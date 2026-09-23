@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { SiteFrame } from "@/components/layout/site-frame";
 import { Button } from "@/components/ui/button";
 import { buildMetadata } from "@/lib/seo";
 
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 
 export default function NotFound() {
   return (
+    <SiteFrame>
     <section className="container-site grid min-h-[70vh] place-items-center py-20 text-center">
       <div>
         <p className="bg-gradient-to-r from-primary to-sky-300 bg-clip-text font-heading text-[8rem] font-bold leading-none text-transparent opacity-80 sm:text-[11rem]">
@@ -38,5 +40,6 @@ export default function NotFound() {
         </div>
       </div>
     </section>
+    </SiteFrame>
   );
 }

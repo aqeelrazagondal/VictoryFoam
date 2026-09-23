@@ -93,6 +93,8 @@
   --radius-2xl: calc(var(--radius) + 14px);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-plus-jakarta);
+  --color-feasible: hsl(var(--color-success));
+  --color-stock-warning: hsl(var(--color-warning));
 }
 
 * {
@@ -169,6 +171,19 @@ p {
 
 .container-site {
   @apply mx-auto w-full max-w-[1280px] px-4 md:px-6;
+}
+
+.container-tank {
+  @apply mx-auto w-full max-w-xl px-4 pb-28 pt-4 md:max-w-2xl md:px-6;
+}
+
+.hero-number {
+  font-family: var(--font-plus-jakarta), system-ui, sans-serif;
+  font-size: clamp(2.5rem, 10vw, 4.25rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  font-variant-numeric: tabular-nums lining-nums;
 }
 
 /* --------------- Glass card --------------- */
