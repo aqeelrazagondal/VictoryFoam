@@ -45,7 +45,7 @@ export function GuidePage() {
             <strong className="text-foreground">Day to day.</strong> Stay on{" "}
             <GuideLink href="/tank/">Home</GuideLink>. Enter what is already in the tank, then either
             add to the tank or record what you used.
-            <Result>Home shows the kg, the overall solid content, and how much room is left.</Result>
+            <Result>Home shows the kg, the overall solid content, and how much room is left. You can edit each chemical’s kg on Home; the others move so the total stays the same until you confirm.</Result>
           </li>
           <li>
             <strong className="text-foreground">Fresh batch in a mixer or drum, tank empty or ignored.</strong>{" "}
@@ -249,6 +249,12 @@ export function GuidePage() {
       <section>
         <h2 className="text-xl">Log and Composition</h2>
         <ul className="mt-4 space-y-3 text-muted-foreground">
+          <li>
+            <strong className="text-foreground">Recent production</strong> is the{" "}
+            <GuideLink href="/tank/log/">Tank log</GuideLink>
+            : newest first, 10 per page. Each row shows the date, time, chemical, kg, solid content,
+            and the tank afterwards.
+          </li>
           <li>
             <strong className="text-foreground">Add batch</strong> after you pour into the tank.
             Pick one or more chemicals and type the kg for each. The tank size is a maximum — you

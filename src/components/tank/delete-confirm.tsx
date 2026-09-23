@@ -8,12 +8,14 @@ export function DeleteConfirm({
   children,
   confirmLabel,
   busy = false,
+  confirmVariant = "destructive",
   onConfirm,
   onCancel,
 }: {
   children: ReactNode;
   confirmLabel: string;
   busy?: boolean;
+  confirmVariant?: "destructive" | "default";
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -31,7 +33,7 @@ export function DeleteConfirm({
         <Button
           type="button"
           size="touch"
-          variant="destructive"
+          variant={confirmVariant}
           disabled={busy}
           onClick={onConfirm}
         >

@@ -1,3 +1,4 @@
+import { parseAdjustNote } from "./composition-edit.ts";
 import { CALC_EPS, formatQty } from "./format.ts";
 import type { LogEntryType } from "./types.ts";
 
@@ -7,6 +8,7 @@ export type LogEntryInput = {
   chemicalId: string | null;
   quantity: number;
   solidContentPct: number | null;
+  note?: string | null;
 };
 
 export type RunningEntry = LogEntryInput & {
@@ -82,6 +84,19 @@ export function replayLog(entries: LogEntryInput[]): TankSnapshot {
         };
       } else {
         unattributed += entry.quantity;
+      }
+    } else if (entry.type === "adjust_composition") {
+      const payload = parseAdjustNote(entry.note);
+      if (!payload) {
+        errors.push({
+          entryId: entry.id,
+          reason: "This Home edit is missing the new chemical kilograms.",
+        });
+      } else {
+        remaining = { ...payload.remainingByChemical };
+        unattributed = payload.unattributed;
+        volume = entry.quantity;
+        solidPct = entry.solidContentPct ?? 0;
       }
     } else if (entry.quantity > volume + CALC_EPS) {
       errors.push({

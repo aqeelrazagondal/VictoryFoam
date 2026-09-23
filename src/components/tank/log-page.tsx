@@ -53,6 +53,7 @@ const TYPE_LABEL: Record<LogEntryType, string> = {
   opening_balance: "Opening Balance",
   add_batch: "Add Batch",
   consume_usage: "Consume / Usage",
+  adjust_composition: "Home edit",
 };
 
 export function LogPage() {
@@ -75,7 +76,7 @@ export function LogPage() {
   const [page, setPage] = useState(1);
   const [pageRows, setPageRows] = useState<TankLogEntry[]>([]);
   const [pageTotal, setPageTotal] = useState(0);
-  const [listLoading, setListLoading] = useState(false);
+  const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
   const heel = settings?.heel ?? 0;
@@ -207,6 +208,7 @@ export function LogPage() {
               : {}),
           })),
         );
+        setPage(1);
         await refresh();
         setOpen(false);
       } catch (caught) {
@@ -276,7 +278,10 @@ export function LogPage() {
 
     try {
       if (editing) await updateLogEntry(editing.id, draft);
-      else await insertLogEntry(draft);
+      else {
+        await insertLogEntry(draft);
+        setPage(1);
+      }
       await refresh();
       setOpen(false);
     } catch (caught) {
@@ -352,11 +357,16 @@ export function LogPage() {
         ) : (
           <ol className="space-y-3">
             {pageRows.map((entry) => {
-              const chemicalName = entry.chemicalId
-                ? (names[entry.chemicalId]?.name ?? "Archived chemical")
-                : "Unattributed";
+              const isHomeEdit = entry.type === "adjust_composition";
+              const chemicalName = isHomeEdit
+                ? "Tank mix"
+                : entry.chemicalId
+                  ? (names[entry.chemicalId]?.name ?? "Archived chemical")
+                  : "Unattributed";
               const whenLabel = formatLogWhen(entry.entryDate, entry.createdAt);
               const running = runningById.get(entry.id);
+              const visibleNote =
+                entry.note && !isHomeEdit ? entry.note : isHomeEdit ? "Kilograms changed on Home." : null;
               return (
                 <li key={entry.id} className="rounded-2xl border border-border bg-card p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -385,13 +395,15 @@ export function LogPage() {
                       {formatPct(running.runningPct)}
                     </p>
                   ) : null}
-                  {entry.note ? (
-                    <p className="mt-2 text-sm text-foreground">{entry.note}</p>
+                  {visibleNote ? (
+                    <p className="mt-2 text-sm text-foreground">{visibleNote}</p>
                   ) : null}
                   <div className="mt-3 flex gap-2">
-                    <Button variant="outline" size="touch" onClick={() => startEdit(entry)}>
-                      Edit
-                    </Button>
+                    {isHomeEdit ? null : (
+                      <Button variant="outline" size="touch" onClick={() => startEdit(entry)}>
+                        Edit
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="touch"
@@ -638,18 +650,44 @@ export function LogPage() {
 }
 
 function logDeleteCopy(
-  entry: { id: string; type: LogEntryType; quantity: number; solidContentPct: number | null },
+  entry: {
+    id: string;
+    type: LogEntryType;
+    quantity: number;
+    solidContentPct: number | null;
+    note?: string | null;
+  },
   chemicalName: string,
   currentVolume: number,
   currentPct: number,
-  entries: { id: string; type: LogEntryType; chemicalId: string | null; quantity: number; solidContentPct: number | null }[],
+  entries: {
+    id: string;
+    type: LogEntryType;
+    chemicalId: string | null;
+    quantity: number;
+    solidContentPct: number | null;
+    note?: string | null;
+  }[],
 ) {
-  const next = replayLog(entries.filter((item) => item.id !== entry.id));
+  const next = replayLog(
+    entries
+      .filter((item) => item.id !== entry.id)
+      .map((item) => ({
+        id: item.id,
+        type: item.type,
+        chemicalId: item.chemicalId,
+        quantity: item.quantity,
+        solidContentPct: item.solidContentPct,
+        note: item.note,
+      })),
+  );
   const amount = `${formatQty(entry.quantity)} kg${
     entry.solidContentPct !== null ? ` at ${formatPct(entry.solidContentPct)}` : ""
   }`;
   const what =
-    entry.type === "consume_usage" ? amount : `${chemicalName}, ${amount}`;
+    entry.type === "consume_usage" || entry.type === "adjust_composition"
+      ? amount
+      : `${chemicalName}, ${amount}`;
   const lines = [
     `This removes the ${TYPE_LABEL[entry.type].toLowerCase()} of ${what} from the log.`,
   ];
@@ -662,6 +700,8 @@ function logDeleteCopy(
     lines.push("Those kilograms go back into the tank. Every later row is counted again.");
   } else if (entry.type === "add_batch") {
     lines.push("This pour is taken out. Every later row is counted again without it.");
+  } else if (entry.type === "adjust_composition") {
+    lines.push("The kilograms go back to how they were before this Home edit.");
   } else {
     lines.push("The tank is counted again from the rows that remain.");
   }

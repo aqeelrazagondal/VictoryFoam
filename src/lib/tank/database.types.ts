@@ -69,7 +69,7 @@ export type Database = {
           note: string | null;
           quantity: number;
           solid_content_pct: number | null;
-          type: "opening_balance" | "add_batch" | "consume_usage";
+          type: "opening_balance" | "add_batch" | "consume_usage" | "adjust_composition";
         };
         Insert: {
           chemical_id?: string | null;
@@ -79,7 +79,7 @@ export type Database = {
           note?: string | null;
           quantity: number;
           solid_content_pct?: number | null;
-          type: "opening_balance" | "add_batch" | "consume_usage";
+          type: "opening_balance" | "add_batch" | "consume_usage" | "adjust_composition";
         };
         Update: {
           chemical_id?: string | null;
@@ -89,7 +89,7 @@ export type Database = {
           note?: string | null;
           quantity?: number;
           solid_content_pct?: number | null;
-          type?: "opening_balance" | "add_batch" | "consume_usage";
+          type?: "opening_balance" | "add_batch" | "consume_usage" | "adjust_composition";
         };
         Relationships: [
           {

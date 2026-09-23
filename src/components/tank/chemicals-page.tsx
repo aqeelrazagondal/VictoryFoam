@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { EmptyState, Field } from "@/components/tank/empty-state";
+import { ListPagination } from "@/components/tank/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +21,8 @@ import {
   archiveChemical,
   createChemical,
   deleteChemical,
+  listChemicalsPage,
+  TANK_LIST_PAGE_SIZE,
   TankError,
   updateChemical,
 } from "@/lib/tank/repository";
@@ -34,7 +37,7 @@ const emptyDraft = (): ChemicalDraft => ({
 });
 
 export function ChemicalsPage() {
-  const { chemicals, activeChemicals, entries, refresh, loading } = useTank();
+  const { chemicals, entries, refresh, loading } = useTank();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Chemical | null>(null);
   const [draft, setDraft] = useState<ChemicalDraft>(emptyDraft());
@@ -43,11 +46,41 @@ export function ChemicalsPage() {
   const [pctError, setPctError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageRows, setPageRows] = useState<Chemical[]>([]);
+  const [pageTotal, setPageTotal] = useState(0);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
 
   const usedIds = useMemo(
     () => new Set(entries.map((entry) => entry.chemicalId).filter(Boolean)),
     [entries],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    setListLoading(true);
+    setListError(null);
+    void listChemicalsPage({ page, pageSize: TANK_LIST_PAGE_SIZE })
+      .then((result) => {
+        if (cancelled) return;
+        setPageRows(result.rows);
+        setPageTotal(result.total);
+        const lastPage = Math.max(1, Math.ceil(result.total / TANK_LIST_PAGE_SIZE));
+        if (page > lastPage) setPage(lastPage);
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) {
+          setListError(caught instanceof Error ? caught.message : "Could not load chemicals.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [page, chemicals]);
 
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get("suggestPct");
@@ -139,9 +172,14 @@ export function ChemicalsPage() {
         </Button>
       </div>
 
-      {loading ? <p className="text-muted-foreground">Loading…</p> : null}
+      {loading || listLoading ? <p className="text-muted-foreground">Loading…</p> : null}
+      {listError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {listError}
+        </p>
+      ) : null}
 
-      {!loading && activeChemicals.length === 0 ? (
+      {!loading && !listLoading && pageTotal === 0 ? (
         <EmptyState
           title="Add your first chemical"
           description="Nothing else is required to start using Blend Calculator."
@@ -149,67 +187,78 @@ export function ChemicalsPage() {
           onAction={startAdd}
         />
       ) : (
-        <ul className="grid gap-3">
-          {activeChemicals.map((chemical) => (
-            <li key={chemical.id} className="rounded-2xl border border-border bg-card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-heading text-lg font-semibold">{chemical.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatPct(chemical.solidContentPct)}
-                    {chemical.qtyAvailable === null
-                      ? " · Stock not tracked"
-                      : ` · ${formatQty(chemical.qtyAvailable)} ${chemical.unit}`}
-                  </p>
+        <>
+          <ul className="grid gap-3">
+            {pageRows.map((chemical) => (
+              <li key={chemical.id} className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-heading text-lg font-semibold">{chemical.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatPct(chemical.solidContentPct)}
+                      {chemical.qtyAvailable === null
+                        ? " · Stock not tracked"
+                        : ` · ${formatQty(chemical.qtyAvailable)} ${chemical.unit}`}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="touch" onClick={() => startEdit(chemical)}>
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="touch"
+                      onClick={() => setConfirmId(chemical.id)}
+                    >
+                      {usedIds.has(chemical.id) ? "Archive" : "Delete"}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="touch" onClick={() => startEdit(chemical)}>
-                    Edit
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="touch"
-                    onClick={() => setConfirmId(chemical.id)}
+                {confirmId === chemical.id ? (
+                  <DeleteConfirm
+                    confirmLabel={usedIds.has(chemical.id) ? "Yes, archive it" : "Yes, delete it"}
+                    onConfirm={() => void remove(chemical)}
+                    onCancel={() => setConfirmId(null)}
                   >
-                    {usedIds.has(chemical.id) ? "Archive" : "Delete"}
-                  </Button>
-                </div>
-              </div>
-              {confirmId === chemical.id ? (
-                <DeleteConfirm
-                  confirmLabel={usedIds.has(chemical.id) ? "Yes, archive it" : "Yes, delete it"}
-                  onConfirm={() => void remove(chemical)}
-                  onCancel={() => setConfirmId(null)}
-                >
-                  {usedIds.has(chemical.id) ? (
-                    <>
-                      <p>
-                        {chemical.name} at {formatPct(chemical.solidContentPct)} will leave the list
-                        you pick from when you add, fill, blend, or plan.
-                      </p>
-                      <p>
-                        Old log rows stay, so the kilograms and solid content in the tank do not
-                        change. You can add a new polyol with this name later.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        {chemical.name} at {formatPct(chemical.solidContentPct)} will be removed
-                        from the polyol list.
-                      </p>
-                      <p>
-                        It has never been used in the tank log, so the kilograms and solid content
-                        in the tank stay the same.
-                      </p>
-                      <p>This cannot be undone. You would have to add the polyol again.</p>
-                    </>
-                  )}
-                </DeleteConfirm>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+                    {usedIds.has(chemical.id) ? (
+                      <>
+                        <p>
+                          {chemical.name} at {formatPct(chemical.solidContentPct)} will leave the list
+                          you pick from when you add, fill, blend, or plan.
+                        </p>
+                        <p>
+                          Old log rows stay, so the kilograms and solid content in the tank do not
+                          change. You can add a new polyol with this name later.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p>
+                          {chemical.name} at {formatPct(chemical.solidContentPct)} will be removed
+                          from the polyol list.
+                        </p>
+                        <p>
+                          It has never been used in the tank log, so the kilograms and solid content
+                          in the tank stay the same.
+                        </p>
+                        <p>This cannot be undone. You would have to add the polyol again.</p>
+                      </>
+                    )}
+                  </DeleteConfirm>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {pageTotal > 0 ? (
+            <ListPagination
+              page={page}
+              pageSize={TANK_LIST_PAGE_SIZE}
+              total={pageTotal}
+              onPageChange={setPage}
+              label="Chemicals pages"
+            />
+          ) : null}
+        </>
       )}
 
       <Sheet open={open} onOpenChange={setOpen}>

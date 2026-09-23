@@ -83,6 +83,7 @@ export function TankProvider({ children }: { children: ReactNode }) {
           chemicalId: entry.chemicalId,
           quantity: entry.quantity,
           solidContentPct: entry.solidContentPct,
+          note: entry.note,
         })),
       ),
     [entries],

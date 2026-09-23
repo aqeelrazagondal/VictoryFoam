@@ -855,6 +855,46 @@ async function run() {
     }
 
     {
+      const chemicals = [chemical("c25", "POP 25", 25)];
+      const entries = Array.from({ length: 12 }, (_, index) => {
+        const n = index + 1;
+        return logEntry(String(n), n === 1 ? "opening_balance" : "add_batch", 40, {
+          chemicalId: "c25",
+          solidContentPct: 25,
+          entryDate: `2026-01-${String(n).padStart(2, "0")}`,
+          createdAt: `2026-01-${String(n).padStart(2, "0")}T10:00:00.000Z`,
+          // Newest-first positions: 1=n12 … 11=n2. Marker belongs on page 2.
+          note: n === 2 ? "MARKER-ROW-11" : `seed-row-${n}`,
+        });
+      });
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: 8000, heel: 0 },
+          entries,
+        }),
+      );
+      await gotoTank(page, "/tank/log/");
+      check("ui.log.page.heading", "log shows Recent production", await visibleText(page, "Recent production"));
+      check(
+        "ui.log.page.1-hides-11",
+        "first page does not show row 11 marker",
+        !(await visibleText(page, "MARKER-ROW-11", 1500)),
+      );
+      check("ui.log.page.controls", "log has Next page control", (await page.getByRole("button", { name: "Next page" }).count()) === 1);
+      await page.getByRole("button", { name: "Next page" }).click();
+      check("ui.log.page.2-shows-11", "Next shows row 11 marker", await visibleText(page, "MARKER-ROW-11"));
+      await page.getByRole("button", { name: "Previous page" }).click();
+      check(
+        "ui.log.page.prev",
+        "Previous returns without row 11 marker",
+        !(await visibleText(page, "MARKER-ROW-11", 1500)),
+      );
+      await context.close();
+    }
+
+    {
       const { context, page } = await openPage(
         browser,
         tankState({
