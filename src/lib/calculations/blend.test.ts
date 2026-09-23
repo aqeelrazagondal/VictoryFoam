@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { solveBlend, solveBlendWithStock } from "./blend.ts";
+import { solveBlend, solveBlendThree, solveBlendThreeWithStock, solveBlendWithStock } from "./blend.ts";
 
 describe("blend calculator", () => {
   test("positive: two-component solve matches the weighted-average identity", () => {
@@ -164,5 +164,111 @@ describe("blend calculator", () => {
     assert.equal(result.ok, false);
     assert.equal(result.amounts, null);
     assert.equal("stock" in result, false);
+  });
+});
+
+describe("three-chemical blend", () => {
+  test("positive: locking 200 kg of 25% then finishing with 0% + 45% hits 1000 kg at 33%", () => {
+    const result = solveBlendThree({
+      q1: 0,
+      q2: 45,
+      q3: 25,
+      x3: 200,
+      targetPct: 33,
+      targetQty: 1000,
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok || !result.amounts) return;
+    const { x1, x2, x3 } = result.amounts;
+    assert.ok(Math.abs(x3 - 200) < 1e-9);
+    assert.ok(Math.abs(x1 + x2 + x3 - 1000) < 1e-9);
+    assert.ok(Math.abs((x1 * 0 + x2 * 45 + x3 * 25) / 1000 - 33) < 1e-9);
+    assert.ok(x1 > 0 && x2 > 0);
+  });
+
+  test("positive: a zero lock on the third chemical reduces to the two-chemical solve", () => {
+    const two = solveBlend({ q1: 10, q2: 40, targetPct: 25, targetQty: 1000 });
+    const three = solveBlendThree({
+      q1: 10,
+      q2: 40,
+      q3: 25,
+      x3: 0,
+      targetPct: 25,
+      targetQty: 1000,
+    });
+    assert.equal(two.ok, true);
+    assert.equal(three.ok, true);
+    if (!two.ok || !three.ok) return;
+    assert.ok(Math.abs(three.amounts.x1 - two.amounts.x1) < 1e-9);
+    assert.ok(Math.abs(three.amounts.x2 - two.amounts.x2) < 1e-9);
+    assert.ok(Math.abs(three.amounts.x3) < 1e-9);
+  });
+
+  test("positive: locking the whole batch to a matching third chemical uses only that chemical", () => {
+    const result = solveBlendThree({
+      q1: 0,
+      q2: 45,
+      q3: 33,
+      x3: 1000,
+      targetPct: 33,
+      targetQty: 1000,
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.ok(Math.abs(result.amounts.x1) < 1e-9);
+    assert.ok(Math.abs(result.amounts.x2) < 1e-9);
+    assert.ok(Math.abs(result.amounts.x3 - 1000) < 1e-9);
+  });
+
+  test("negative: locking more than the target quantity is infeasible", () => {
+    const result = solveBlendThree({
+      q1: 0,
+      q2: 45,
+      q3: 25,
+      x3: 1200,
+      targetPct: 33,
+      targetQty: 1000,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.amounts, null);
+    assert.match(result.reason, /less than the target/i);
+  });
+
+  test("negative: a locked third that leaves an unreachable pair hides amounts", () => {
+    const result = solveBlendThree({
+      q1: 0,
+      q2: 45,
+      q3: 0,
+      x3: 800,
+      targetPct: 33,
+      targetQty: 1000,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.amounts, null);
+  });
+
+  test("negative: a negative lock is infeasible", () => {
+    const result = solveBlendThree({
+      q1: 0,
+      q2: 45,
+      q3: 25,
+      x3: -10,
+      targetPct: 33,
+      targetQty: 1000,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.amounts, null);
+  });
+
+  test("positive: insufficient third-chemical stock warns but still returns amounts", () => {
+    const result = solveBlendThreeWithStock(
+      { q1: 0, q2: 45, q3: 25, x3: 200, targetPct: 33, targetQty: 1000 },
+      { qty1: null, qty2: null, qty3: 10 },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.status, "warning");
+    assert.equal(result.stock.chemical3.status, "insufficient");
+    assert.ok(result.amounts);
   });
 });

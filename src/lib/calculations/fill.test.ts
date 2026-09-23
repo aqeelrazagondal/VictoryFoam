@@ -1,7 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { computeRequiredBlend, solveFill, solveFillWithStock, suggestFillPair } from "./fill.ts";
+import {
+  computeRequiredBlend,
+  solveFill,
+  solveFillThree,
+  solveFillThreeWithStock,
+  solveFillWithStock,
+  suggestFillPair,
+} from "./fill.ts";
 import type { ChemicalRef } from "./types.ts";
 
 function chem(
@@ -241,5 +248,104 @@ describe("fill two-chemical solve", () => {
     assert.equal(result.status, "feasible");
     assert.equal(result.stock.chemicalA.status, "untracked");
     assert.equal(result.stock.chemicalB.status, "untracked");
+  });
+});
+
+describe("three-chemical fill", () => {
+  test("positive: locking 1000 kg of 25% then finishing the 6500 kg fill with 0% + 45% hits 8000 kg at 33%", () => {
+    const required = computeRequiredBlend({
+      existingQty: 1500,
+      existingPct: 25,
+      targetVolume: 8000,
+      targetPct: 33,
+    });
+    assert.equal(required.ok, true);
+    if (!required.ok) return;
+    const result = solveFillThree({
+      fillAmount: required.fillAmount,
+      requiredActive: required.requiredActive,
+      qA: 45,
+      qB: 0,
+      qC: 25,
+      xC: 1000,
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok || !result.amounts) return;
+    const { xA, xB, xC } = result.amounts;
+    assert.ok(Math.abs(xC - 1000) < 1e-9);
+    assert.ok(Math.abs(xA + xB + xC - required.fillAmount) < 1e-9);
+    const finalQty = 1500 + xA + xB + xC;
+    const finalActive = 1500 * 25 + xA * 45 + xB * 0 + xC * 25;
+    assert.ok(Math.abs(finalQty - 8000) < 1e-6);
+    assert.ok(Math.abs(finalActive / finalQty - 33) < 1e-9);
+  });
+
+  test("positive: a zero lock on the third chemical reduces to the two-chemical fill", () => {
+    const two = solveFill({
+      fillAmount: 6500,
+      requiredActive: 226_500,
+      qA: 45,
+      qB: 0,
+    });
+    const three = solveFillThree({
+      fillAmount: 6500,
+      requiredActive: 226_500,
+      qA: 45,
+      qB: 0,
+      qC: 25,
+      xC: 0,
+    });
+    assert.equal(two.ok, true);
+    assert.equal(three.ok, true);
+    if (!two.ok || !three.ok) return;
+    assert.ok(Math.abs(three.amounts.xA - two.amounts.xA) < 1e-9);
+    assert.ok(Math.abs(three.amounts.xB - two.amounts.xB) < 1e-9);
+    assert.ok(Math.abs(three.amounts.xC) < 1e-9);
+  });
+
+  test("negative: locking more than the fill amount is infeasible", () => {
+    const result = solveFillThree({
+      fillAmount: 6500,
+      requiredActive: 226_500,
+      qA: 45,
+      qB: 0,
+      qC: 25,
+      xC: 7000,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.amounts, null);
+    assert.match(result.reason, /less than the fill/i);
+  });
+
+  test("negative: a locked third that leaves an unreachable pair hides amounts", () => {
+    const result = solveFillThree({
+      fillAmount: 6500,
+      requiredActive: 226_500,
+      qA: 45,
+      qB: 0,
+      qC: 0,
+      xC: 6000,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.amounts, null);
+  });
+
+  test("positive: insufficient third-chemical stock warns but still returns amounts", () => {
+    const result = solveFillThreeWithStock(
+      {
+        fillAmount: 6500,
+        requiredActive: 226_500,
+        qA: 45,
+        qB: 0,
+        qC: 25,
+        xC: 1000,
+      },
+      { qtyA: null, qtyB: null, qtyC: 10 },
+    );
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.status, "warning");
+    assert.equal(result.stock.chemicalC.status, "insufficient");
+    assert.ok(result.amounts);
   });
 });

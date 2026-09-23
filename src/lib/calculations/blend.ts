@@ -114,6 +114,150 @@ export function solveBlend(input: BlendInput): BlendCoreResult {
   };
 }
 
+export type BlendThreeInput = BlendInput & {
+  q3: number;
+  x3: number;
+};
+
+export type BlendThreeAmounts = BlendAmounts & {
+  x3: number;
+};
+
+export type BlendThreeCoreResult =
+  | {
+      ok: false;
+      status: "infeasible";
+      reason: string;
+      amounts: null;
+      anyRatio: false;
+    }
+  | {
+      ok: true;
+      status: "feasible";
+      reason: string | null;
+      amounts: BlendThreeAmounts;
+      anyRatio: boolean;
+    };
+
+export type BlendThreeSolveResult =
+  | Extract<BlendThreeCoreResult, { ok: false }>
+  | {
+      ok: true;
+      status: Exclude<FeasibilityStatus, "infeasible">;
+      reason: string | null;
+      amounts: BlendThreeAmounts;
+      anyRatio: boolean;
+      stock: { chemical1: StockCheck; chemical2: StockCheck; chemical3: StockCheck };
+    };
+
+export function solveBlendThree(input: BlendThreeInput): BlendThreeCoreResult {
+  const { q1, q2, q3, x3, targetPct, targetQty } = input;
+
+  if (!(targetQty > 0)) {
+    return {
+      ok: false,
+      status: "infeasible",
+      reason: "Enter a target quantity greater than 0.",
+      amounts: null,
+      anyRatio: false,
+    };
+  }
+
+  if (x3 < -1e-9) {
+    return {
+      ok: false,
+      status: "infeasible",
+      reason: "The locked third-chemical amount cannot be negative.",
+      amounts: null,
+      anyRatio: false,
+    };
+  }
+
+  if (x3 - targetQty > 1e-9) {
+    return {
+      ok: false,
+      status: "infeasible",
+      reason: "The locked third-chemical amount must be less than the target quantity.",
+      amounts: null,
+      anyRatio: false,
+    };
+  }
+
+  if (nearlyEqual(x3, 0)) {
+    const pair = solveBlend({ q1, q2, targetPct, targetQty });
+    if (!pair.ok || !pair.amounts) return pair;
+    return {
+      ...pair,
+      amounts: { ...pair.amounts, x3: 0 },
+    };
+  }
+
+  if (nearlyEqual(x3, targetQty)) {
+    if (!nearlyEqual(q3, targetPct)) {
+      return {
+        ok: false,
+        status: "infeasible",
+        reason: "The locked third chemical cannot fill the whole batch at that target %.",
+        amounts: null,
+        anyRatio: false,
+      };
+    }
+    return {
+      ok: true,
+      status: "feasible",
+      reason: null,
+      amounts: { x1: 0, x2: 0, x3: clampNonNegative(targetQty) },
+      anyRatio: false,
+    };
+  }
+
+  const remainingQty = targetQty - x3;
+  const remainingPct = (targetQty * targetPct - x3 * q3) / remainingQty;
+  const pair = solveBlend({
+    q1,
+    q2,
+    targetPct: remainingPct,
+    targetQty: remainingQty,
+  });
+  if (!pair.ok || !pair.amounts) {
+    return {
+      ok: false,
+      status: "infeasible",
+      reason:
+        pair.reason ||
+        "The remaining pair cannot hit the target after the locked third chemical.",
+      amounts: null,
+      anyRatio: false,
+    };
+  }
+
+  return {
+    ...pair,
+    amounts: { ...pair.amounts, x3: clampNonNegative(x3) },
+  };
+}
+
+export function solveBlendThreeWithStock(
+  input: BlendThreeInput,
+  stock: { qty1: number | null; qty2: number | null; qty3: number | null },
+): BlendThreeSolveResult {
+  const solved = solveBlendThree(input);
+  if (!solved.ok || !solved.amounts) {
+    return solved;
+  }
+
+  const chemical1 = checkStock(solved.amounts.x1, stock.qty1);
+  const chemical2 = checkStock(solved.amounts.x2, stock.qty2);
+  const chemical3 = checkStock(solved.amounts.x3, stock.qty3);
+  const status = combineStockStatus([chemical1, chemical2, chemical3], "feasible");
+
+  return {
+    ...solved,
+    status,
+    stock: { chemical1, chemical2, chemical3 },
+  };
+}
+
 export function solveBlendWithStock(
   input: BlendInput,
   stock: { qty1: number | null; qty2: number | null },

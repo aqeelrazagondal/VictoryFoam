@@ -266,6 +266,17 @@ async function run() {
       check("ui.blend.pos.amounts", "blend amounts are shown", true);
       check("ui.blend.pos.low-stock", "short stock is a warning, numbers still shown", await visibleText(page, "Low stock"));
       check("ui.blend.pos.stock-copy", "insufficient stock still names the available qty", await visibleText(page, /Only .+ kg in stock/));
+
+      await jumpToStep(page, 2);
+      await page.locator("#blend-pct").fill("33");
+      await primaryButton(page, "Next").click();
+      await page.locator("#blend-qty").fill("1000");
+      await page.getByRole("button", { name: "Add a third chemical" }).click();
+      await page.locator("ul.grid").getByRole("button", { name: /POP 25/ }).click();
+      await page.locator("#blend-x3").fill("200");
+      await primaryButton(page, "See result").click();
+      check("ui.blend.pos.three", "optional third chemical shows a locked POP 25 line", await visibleText(page, /Use POP 25/));
+      check("ui.blend.pos.three-kg", "locked third amount is 200 kg", await visibleText(page, /200 kg/));
       await context.close();
     }
 
@@ -342,6 +353,37 @@ async function run() {
         "confirming Log this writes two add-batch rows",
         (await page.getByText("Add Batch").count()) >= 2,
       );
+      await context.close();
+    }
+
+    {
+      const chemicals = [
+        chemical("c0", "Conventional", 0),
+        chemical("c25", "POP 25", 25),
+        chemical("c45", "POP 45", 45),
+      ];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: 8000, heel: 0 },
+          entries: [logEntry("1", "opening_balance", 1500, { chemicalId: "c25", solidContentPct: 25 })],
+        }),
+      );
+      await gotoTank(page, "/tank/fill/");
+      await page.locator("#fill-vol").fill("8000");
+      await primaryButton(page, "Next").click();
+      await page.locator("#fill-pct").fill("33");
+      await primaryButton(page, "Next").click();
+      await page.getByRole("button", { name: "Add a third chemical" }).click();
+      await page.locator("ul.grid").getByRole("button", { name: /POP 25/ }).click();
+      await page.locator("#fill-x3").fill("1000");
+      await page.getByRole("button", { name: "Confirm or change chemicals" }).click();
+      await page.locator("ul.grid").getByRole("button", { name: /POP 45/ }).click();
+      await page.locator("ul.grid").getByRole("button", { name: /Conventional/ }).click();
+      check("ui.fill.pos.three", "three-chemical fill is feasible", await visibleText(page, "Feasible"));
+      check("ui.fill.pos.three-line", "locked third fill line is shown", await visibleText(page, /Add POP 25/));
+      check("ui.fill.pos.three-log", "three-chemical fill offers three log entries", await visibleText(page, "Log this (3 Add Batch entries)"));
       await context.close();
     }
 

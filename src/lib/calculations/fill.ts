@@ -147,6 +147,144 @@ export function solveFill(input: {
   };
 }
 
+export type FillThreeAmounts = FillAmounts & {
+  xC: number;
+};
+
+export type FillThreeSolveResult =
+  | {
+      ok: false;
+      status: "infeasible";
+      reason: string;
+      amounts: null;
+    }
+  | {
+      ok: true;
+      status: Exclude<FeasibilityStatus, "infeasible">;
+      reason: string | null;
+      amounts: FillThreeAmounts;
+      stock: { chemicalA: StockCheck; chemicalB: StockCheck; chemicalC: StockCheck };
+    };
+
+export function solveFillThree(input: {
+  fillAmount: number;
+  requiredActive: number;
+  qA: number;
+  qB: number;
+  qC: number;
+  xC: number;
+}): Extract<FillThreeSolveResult, { ok: false }> | {
+  ok: true;
+  status: "feasible";
+  reason: string | null;
+  amounts: FillThreeAmounts;
+} {
+  const { fillAmount: F, requiredActive: R, qA, qB, qC, xC } = input;
+
+  if (!(F > 0)) {
+    return {
+      ok: false,
+      status: "infeasible",
+      reason:
+        "You can only fill up, not down — use Tank Planner to dilute instead.",
+      amounts: null,
+    };
+  }
+
+  if (xC < -1e-9) {
+    return {
+      ok: false,
+      status: "infeasible",
+      reason: "The locked third-chemical amount cannot be negative.",
+      amounts: null,
+    };
+  }
+
+  if (xC - F > 1e-9) {
+    return {
+      ok: false,
+      status: "infeasible",
+      reason: "The locked third-chemical amount must be less than the fill amount.",
+      amounts: null,
+    };
+  }
+
+  if (nearlyEqual(xC, 0)) {
+    const pair = solveFill({ fillAmount: F, requiredActive: R, qA, qB });
+    if (!pair.ok || !pair.amounts) return pair;
+    return {
+      ...pair,
+      amounts: { ...pair.amounts, xC: 0 },
+    };
+  }
+
+  if (nearlyEqual(xC, F)) {
+    if (!nearlyEqual(qC * F, R)) {
+      return {
+        ok: false,
+        status: "infeasible",
+        reason: "The locked third chemical cannot fill the whole addition at that target.",
+        amounts: null,
+      };
+    }
+    return {
+      ok: true,
+      status: "feasible",
+      reason: null,
+      amounts: { xA: 0, xB: 0, xC: clampNonNegative(F) },
+    };
+  }
+
+  const pair = solveFill({
+    fillAmount: F - xC,
+    requiredActive: R - xC * qC,
+    qA,
+    qB,
+  });
+  if (!pair.ok || !pair.amounts) {
+    return {
+      ok: false,
+      status: "infeasible",
+      reason:
+        pair.reason ||
+        "The remaining pair cannot hit the target after the locked third chemical.",
+      amounts: null,
+    };
+  }
+
+  return {
+    ...pair,
+    amounts: { ...pair.amounts, xC: clampNonNegative(xC) },
+  };
+}
+
+export function solveFillThreeWithStock(
+  input: {
+    fillAmount: number;
+    requiredActive: number;
+    qA: number;
+    qB: number;
+    qC: number;
+    xC: number;
+  },
+  stock: { qtyA: number | null; qtyB: number | null; qtyC: number | null },
+): FillThreeSolveResult {
+  const solved = solveFillThree(input);
+  if (!solved.ok || !solved.amounts) {
+    return solved;
+  }
+
+  const chemicalA = checkStock(solved.amounts.xA, stock.qtyA);
+  const chemicalB = checkStock(solved.amounts.xB, stock.qtyB);
+  const chemicalC = checkStock(solved.amounts.xC, stock.qtyC);
+
+  return {
+    ...solved,
+    status: combineStockStatus([chemicalA, chemicalB, chemicalC], "feasible"),
+    stock: { chemicalA, chemicalB, chemicalC },
+  };
+}
+
 export function solveFillWithStock(
   input: {
     fillAmount: number;

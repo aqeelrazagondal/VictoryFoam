@@ -50,6 +50,8 @@ export type TankLogDraft = {
 export type BlendLastCalculation = {
   chemical1Id: string;
   chemical2Id: string;
+  chemical3Id?: string | null;
+  thirdQty?: number | null;
   targetPct: number;
   targetQty: number;
 };
@@ -59,6 +61,8 @@ export type FillLastCalculation = {
   targetPct: number;
   chemicalAId: string | null;
   chemicalBId: string | null;
+  chemicalCId?: string | null;
+  thirdQty?: number | null;
 };
 
 export type LastCalculator = "blend" | "fill";

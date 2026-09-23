@@ -13,24 +13,31 @@ export function ChemicalPicker({
   chemicals,
   selectedId,
   excludedId,
+  excludedIds,
   onSelect,
   emptyTitle = "Add your first chemical",
 }: {
   chemicals: Chemical[];
   selectedId?: string | null;
   excludedId?: string | null;
+  excludedIds?: readonly string[];
   onSelect: (chemical: Chemical) => void;
   emptyTitle?: string;
 }) {
   const [query, setQuery] = useState("");
+  const hidden = useMemo(() => {
+    const ids = new Set(excludedIds ?? []);
+    if (excludedId) ids.add(excludedId);
+    return ids;
+  }, [excludedId, excludedIds]);
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return chemicals.filter((chemical) => {
-      if (chemical.id === excludedId) return false;
+      if (hidden.has(chemical.id)) return false;
       if (!needle) return true;
       return chemical.name.toLowerCase().includes(needle);
     });
-  }, [chemicals, excludedId, query]);
+  }, [chemicals, hidden, query]);
 
   if (chemicals.length === 0) {
     return (

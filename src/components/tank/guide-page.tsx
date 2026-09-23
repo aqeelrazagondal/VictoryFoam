@@ -96,14 +96,16 @@ export function GuidePage() {
             <Link href="/tank/blend/" className="font-medium text-primary underline-offset-4 hover:underline">
               Blend Calculator
             </Link>
-            . Pick two chemicals, say what % and how much you need, done.
+            . Pick two chemicals, say what % and how much you need. If you must use a third drum,
+            tap Add a third chemical and lock that kg — the other two fill the rest.
           </li>
           <li>
             <strong className="text-foreground">Topping up your tank with two chemicals?</strong> →{" "}
             <Link href="/tank/fill/" className="font-medium text-primary underline-offset-4 hover:underline">
               Fill Calculator
             </Link>
-            . Say your target volume and %, and it&apos;ll suggest which two chemicals to use.
+            . Say your target volume and %, and it&apos;ll suggest which two chemicals to use. Add a
+            third chemical only if you need to lock one drum&apos;s kg.
           </li>
           <li>
             <strong className="text-foreground">Just added a batch or used some from the tank?</strong>{" "}

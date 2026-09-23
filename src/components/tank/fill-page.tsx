@@ -12,15 +12,19 @@ import { SuggestionList } from "@/components/tank/suggestion-list";
 import { StepWizard } from "@/components/tank/step-wizard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ThirdChemicalPanel } from "@/components/tank/third-chemical-panel";
 import {
   blendMissingChemical,
   computeRequiredBlend,
   formatPct,
   formatQty,
+  solveFillThreeWithStock,
   solveFillWithStock,
   suggestFillAlternatives,
   suggestFillPair,
+  checkStock,
   type FillApply,
+  type StockCheck,
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
 import type { Chemical, FillLastCalculation } from "@/lib/tank/models";
@@ -36,6 +40,9 @@ export function FillPage() {
   const [targetPct, setTargetPct] = useState("");
   const [chemA, setChemA] = useState<Chemical | null>(null);
   const [chemB, setChemB] = useState<Chemical | null>(null);
+  const [showThird, setShowThird] = useState(false);
+  const [chemC, setChemC] = useState<Chemical | null>(null);
+  const [thirdQty, setThirdQty] = useState("");
   const [logging, setLogging] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const [last, setLast] = useState<FillLastCalculation | null>(null);
@@ -82,9 +89,24 @@ export function FillPage() {
 
   const selectedA = chemA ?? suggestedPair.above;
   const selectedB = chemB ?? suggestedPair.below;
+  const lockedThird = parseNumber(thirdQty);
+  const usingThird = Boolean(chemC && lockedThird !== null && lockedThird > 0);
 
   const result = useMemo(() => {
     if (!required?.ok || !selectedA || !selectedB) return null;
+    if (usingThird && chemC && lockedThird !== null) {
+      return solveFillThreeWithStock(
+        {
+          fillAmount: required.fillAmount,
+          requiredActive: required.requiredActive,
+          qA: selectedA.solidContentPct,
+          qB: selectedB.solidContentPct,
+          qC: chemC.solidContentPct,
+          xC: lockedThird,
+        },
+        { qtyA: selectedA.qtyAvailable, qtyB: selectedB.qtyAvailable, qtyC: chemC.qtyAvailable },
+      );
+    }
     return solveFillWithStock(
       {
         fillAmount: required.fillAmount,
@@ -94,7 +116,7 @@ export function FillPage() {
       },
       { qtyA: selectedA.qtyAvailable, qtyB: selectedB.qtyAvailable },
     );
-  }, [required, selectedA, selectedB]);
+  }, [chemC, lockedThird, required, selectedA, selectedB, usingThird]);
 
   const alternatives = useMemo(() => {
     if (volume === null || pct === null) return [];
@@ -126,6 +148,9 @@ export function FillPage() {
     setChemA(activeChemicals.find((chemical) => chemical.id === apply.chemicalAId) ?? null);
     setChemB(activeChemicals.find((chemical) => chemical.id === apply.chemicalBId) ?? null);
     if (apply.targetPct !== undefined) setTargetPct(String(apply.targetPct));
+    setShowThird(false);
+    setChemC(null);
+    setThirdQty("");
     setStep(5);
   }
 
@@ -142,8 +167,10 @@ export function FillPage() {
       targetPct: pct,
       chemicalAId: selectedA.id,
       chemicalBId: selectedB.id,
+      chemicalCId: usingThird && chemC ? chemC.id : null,
+      thirdQty: usingThird && lockedThird !== null ? lockedThird : null,
     });
-  }, [pct, result, selectedA, selectedB, volume]);
+  }, [chemC, lockedThird, pct, result, selectedA, selectedB, usingThird, volume]);
 
   if (!tankReady) {
     return (
@@ -161,23 +188,26 @@ export function FillPage() {
 
   async function logFill() {
     if (!result?.ok || !result.amounts || !selectedA || !selectedB) return;
+    const batches: { chemical: Chemical; quantity: number }[] = [
+      { chemical: selectedA, quantity: result.amounts.xA },
+      { chemical: selectedB, quantity: result.amounts.xB },
+    ];
+    if (usingThird && chemC && lockedThird !== null) {
+      batches.push({ chemical: chemC, quantity: lockedThird });
+    }
     setLogging(true);
     setLogError(null);
     try {
-      await insertLogEntry({
-        type: "add_batch",
-        chemicalId: selectedA.id,
-        quantity: result.amounts.xA,
-        solidContentPct: selectedA.solidContentPct,
-        note: "Fill calculator",
-      });
-      await insertLogEntry({
-        type: "add_batch",
-        chemicalId: selectedB.id,
-        quantity: result.amounts.xB,
-        solidContentPct: selectedB.solidContentPct,
-        note: "Fill calculator",
-      });
+      for (const batch of batches) {
+        if (batch.quantity <= 1e-9) continue;
+        await insertLogEntry({
+          type: "add_batch",
+          chemicalId: batch.chemical.id,
+          quantity: batch.quantity,
+          solidContentPct: batch.chemical.solidContentPct,
+          note: "Fill calculator",
+        });
+      }
       await refresh();
       router.push("/tank/log/");
     } catch (caught) {
@@ -213,6 +243,12 @@ export function FillPage() {
             setTargetPct(String(last.targetPct));
             setChemA(activeChemicals.find((chemical) => chemical.id === last.chemicalAId) ?? null);
             setChemB(activeChemicals.find((chemical) => chemical.id === last.chemicalBId) ?? null);
+            const third = last.chemicalCId
+              ? activeChemicals.find((chemical) => chemical.id === last.chemicalCId) ?? null
+              : null;
+            setChemC(third);
+            setShowThird(Boolean(third));
+            setThirdQty(last.thirdQty != null ? String(last.thirdQty) : "");
             setStep(5);
             setLast(null);
           }}
@@ -326,7 +362,38 @@ export function FillPage() {
                     }
                   />
                 ) : null}
-                <Button size="touch" className="w-full" onClick={() => setStep(3)}>
+                {showThird ? (
+                  <ThirdChemicalPanel
+                    chemicals={activeChemicals}
+                    excludedIds={[selectedA?.id, selectedB?.id].filter((id): id is string => Boolean(id))}
+                    chemical={chemC}
+                    quantity={thirdQty}
+                    quantityId="fill-x3"
+                    hint="This amount is locked. The suggested pair fills the rest of the addition."
+                    onChemicalChange={setChemC}
+                    onQuantityChange={setThirdQty}
+                    onClear={() => {
+                      setShowThird(false);
+                      setChemC(null);
+                      setThirdQty("");
+                    }}
+                  />
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="touch"
+                    className="w-full"
+                    onClick={() => setShowThird(true)}
+                  >
+                    Add a third chemical
+                  </Button>
+                )}
+                <Button
+                  size="touch"
+                  className="w-full"
+                  disabled={showThird && (!chemC || lockedThird === null || lockedThird < 0)}
+                  onClick={() => setStep(3)}
+                >
                   Confirm or change chemicals
                 </Button>
               </>
@@ -337,7 +404,7 @@ export function FillPage() {
           <ChemicalPicker
             chemicals={activeChemicals}
             selectedId={selectedA?.id}
-            excludedId={selectedB?.id}
+            excludedIds={[selectedB?.id, chemC?.id].filter((id): id is string => Boolean(id))}
             onSelect={(chemical) => {
               setChemA(chemical);
               setStep(4);
@@ -348,7 +415,7 @@ export function FillPage() {
           <ChemicalPicker
             chemicals={activeChemicals}
             selectedId={selectedB?.id}
-            excludedId={selectedA?.id}
+            excludedIds={[selectedA?.id, chemC?.id].filter((id): id is string => Boolean(id))}
             onSelect={(chemical) => {
               setChemB(chemical);
               setStep(5);
@@ -364,29 +431,14 @@ export function FillPage() {
                 lines={
                   result.ok && result.amounts
                     ? [
-                        result.amounts.xA > 1e-9
-                          ? {
-                              eyebrow: `Add ${selectedA.name}`,
-                              value: `${formatQty(result.amounts.xA)} ${selectedA.unit}`,
-                              detail:
-                                result.stock.chemicalA.status === "untracked"
-                                  ? "Stock not tracked"
-                                  : result.stock.chemicalA.status === "insufficient"
-                                    ? `Only ${formatQty(result.stock.chemicalA.available ?? 0)} ${selectedA.unit} in stock`
-                                    : undefined,
-                            }
-                          : null,
-                        result.amounts.xB > 1e-9
-                          ? {
-                              eyebrow: `Add ${selectedB.name}`,
-                              value: `${formatQty(result.amounts.xB)} ${selectedB.unit}`,
-                              detail:
-                                result.stock.chemicalB.status === "untracked"
-                                  ? "Stock not tracked"
-                                  : result.stock.chemicalB.status === "insufficient"
-                                    ? `Only ${formatQty(result.stock.chemicalB.available ?? 0)} ${selectedB.unit} in stock`
-                                    : undefined,
-                            }
+                        fillAmountLine(selectedA, result.amounts.xA, result.stock.chemicalA),
+                        fillAmountLine(selectedB, result.amounts.xB, result.stock.chemicalB),
+                        usingThird && chemC && lockedThird !== null
+                          ? fillAmountLine(
+                              chemC,
+                              lockedThird,
+                              checkStock(lockedThird, chemC.qtyAvailable),
+                            )
                           : null,
                       ].filter((line) => line !== null)
                     : []
@@ -401,7 +453,13 @@ export function FillPage() {
                         disabled={logging}
                         onClick={() => void logFill()}
                       >
-                        {logging ? "Writing log…" : "Log this (two Add Batch entries)"}
+                        {logging
+                          ? "Writing log…"
+                          : logFillLabel([
+                              result.amounts.xA,
+                              result.amounts.xB,
+                              usingThird && lockedThird !== null ? lockedThird : 0,
+                            ])}
                       </Button>
                       <p className="text-xs text-muted-foreground">
                         Nothing is written until you confirm. You will land on Tank Log afterwards.
@@ -433,4 +491,25 @@ export function FillPage() {
       </StepWizard>
     </div>
   );
+}
+
+function fillAmountLine(chemical: Chemical, amount: number, stock: StockCheck) {
+  if (amount <= 1e-9) return null;
+  return {
+    eyebrow: `Add ${chemical.name}`,
+    value: `${formatQty(amount)} ${chemical.unit}`,
+    detail:
+      stock.status === "untracked"
+        ? "Stock not tracked"
+        : stock.status === "insufficient"
+          ? `Only ${formatQty(stock.available ?? 0)} ${chemical.unit} in stock`
+          : undefined,
+  };
+}
+
+function logFillLabel(amounts: number[]) {
+  const count = amounts.filter((amount) => amount > 1e-9).length;
+  if (count === 2) return "Log this (two Add Batch entries)";
+  if (count === 1) return "Log this (one Add Batch entry)";
+  return `Log this (${count} Add Batch entries)`;
 }

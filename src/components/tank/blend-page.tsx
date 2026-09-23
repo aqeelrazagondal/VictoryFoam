@@ -11,13 +11,17 @@ import { SuggestionList } from "@/components/tank/suggestion-list";
 import { StepWizard } from "@/components/tank/step-wizard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ThirdChemicalPanel } from "@/components/tank/third-chemical-panel";
 import {
   formatPct,
   formatQty,
   blendMissingChemical,
+  solveBlendThreeWithStock,
   solveBlendWithStock,
   suggestBlendAlternatives,
+  checkStock,
   type BlendApply,
+  type StockCheck,
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
 import type { BlendLastCalculation, Chemical } from "@/lib/tank/models";
@@ -33,6 +37,9 @@ export function BlendPage() {
   const [sameError, setSameError] = useState<string | null>(null);
   const [targetPct, setTargetPct] = useState("");
   const [targetQty, setTargetQty] = useState("");
+  const [showThird, setShowThird] = useState(false);
+  const [chem3, setChem3] = useState<Chemical | null>(null);
+  const [thirdQty, setThirdQty] = useState("");
   const [last, setLast] = useState<BlendLastCalculation | null>(null);
 
   useEffect(() => {
@@ -43,8 +50,23 @@ export function BlendPage() {
 
   const qty = parseNumber(targetQty);
   const pct = parseNumber(targetPct);
+  const lockedThird = parseNumber(thirdQty);
+  const usingThird = Boolean(chem3 && lockedThird !== null && lockedThird > 0);
   const result = useMemo(() => {
     if (!chem1 || !chem2 || pct === null || qty === null || !(qty > 0)) return null;
+    if (usingThird && chem3 && lockedThird !== null) {
+      return solveBlendThreeWithStock(
+        {
+          q1: chem1.solidContentPct,
+          q2: chem2.solidContentPct,
+          q3: chem3.solidContentPct,
+          x3: lockedThird,
+          targetPct: pct,
+          targetQty: qty,
+        },
+        { qty1: chem1.qtyAvailable, qty2: chem2.qtyAvailable, qty3: chem3.qtyAvailable },
+      );
+    }
     return solveBlendWithStock(
       {
         q1: chem1.solidContentPct,
@@ -54,7 +76,7 @@ export function BlendPage() {
       },
       { qty1: chem1.qtyAvailable, qty2: chem2.qtyAvailable },
     );
-  }, [chem1, chem2, pct, qty]);
+  }, [chem1, chem2, chem3, lockedThird, pct, qty, usingThird]);
 
   const alternatives = useMemo(() => {
     if (!chem1 || !chem2 || pct === null || qty === null || result?.ok) return [];
@@ -76,6 +98,9 @@ export function BlendPage() {
     setChem1(activeChemicals.find((chemical) => chemical.id === apply.chemical1Id) ?? null);
     setChem2(activeChemicals.find((chemical) => chemical.id === apply.chemical2Id) ?? null);
     setTargetPct(String(apply.targetPct));
+    setShowThird(false);
+    setChem3(null);
+    setThirdQty("");
     setStep(4);
   }
 
@@ -84,10 +109,12 @@ export function BlendPage() {
     void saveLastCalculation("blend", {
       chemical1Id: chem1.id,
       chemical2Id: chem2.id,
+      chemical3Id: usingThird && chem3 ? chem3.id : null,
+      thirdQty: usingThird && lockedThird !== null ? lockedThird : null,
       targetPct: pct,
       targetQty: qty,
     });
-  }, [chem1, chem2, pct, qty, result]);
+  }, [chem1, chem2, chem3, lockedThird, pct, qty, result, usingThird]);
 
   function continueLast() {
     if (!last) return;
@@ -97,6 +124,12 @@ export function BlendPage() {
     setChem2(second);
     setTargetPct(String(last.targetPct));
     setTargetQty(String(last.targetQty));
+    const third = last.chemical3Id
+      ? activeChemicals.find((chemical) => chemical.id === last.chemical3Id) ?? null
+      : null;
+    setChem3(third);
+    setShowThird(Boolean(third));
+    setThirdQty(last.thirdQty != null ? String(last.thirdQty) : "");
     setStep(first && second ? 4 : 0);
     setLast(null);
   }
@@ -113,8 +146,8 @@ export function BlendPage() {
     <div className="space-y-5 pb-10">
       <h1>Blend calculator</h1>
       <p className="text-muted-foreground">
-        Mix a fresh batch from two chemicals. No tank involved. To raise or lower the last tank to a
-        target % such as 53%, use{" "}
+        Mix a fresh batch from two chemicals, or lock a third amount if you need three. No tank
+        involved. To raise or lower the last tank to a target % such as 53%, use{" "}
         <Link href="/tank/planner/" className="font-medium text-primary underline-offset-4 hover:underline">
           Tank Planner
         </Link>
@@ -184,6 +217,7 @@ export function BlendPage() {
             </Field>
           ) : null}
           {step === 3 ? (
+            <div className="space-y-4">
             <Field
               id="blend-qty"
               label="Target quantity (kg)"
@@ -198,12 +232,43 @@ export function BlendPage() {
               <Button
                 className="mt-4 w-full"
                 size="touch"
-                disabled={qty === null || !(qty > 0)}
+                disabled={
+                  qty === null ||
+                  !(qty > 0) ||
+                  (showThird && (!chem3 || lockedThird === null || lockedThird < 0))
+                }
                 onClick={() => setStep(4)}
               >
                 See result
               </Button>
             </Field>
+            {showThird ? (
+              <ThirdChemicalPanel
+                chemicals={activeChemicals}
+                excludedIds={[chem1?.id, chem2?.id].filter((id): id is string => Boolean(id))}
+                chemical={chem3}
+                quantity={thirdQty}
+                quantityId="blend-x3"
+                hint="This amount is locked. The first two chemicals fill the rest of the batch."
+                onChemicalChange={setChem3}
+                onQuantityChange={setThirdQty}
+                onClear={() => {
+                  setShowThird(false);
+                  setChem3(null);
+                  setThirdQty("");
+                }}
+              />
+            ) : (
+              <Button
+                variant="outline"
+                size="touch"
+                className="w-full"
+                onClick={() => setShowThird(true)}
+              >
+                Add a third chemical
+              </Button>
+            )}
+            </div>
           ) : null}
           {step === 4 && result && chem1 && chem2 ? (
             <ResultCard
@@ -220,29 +285,10 @@ export function BlendPage() {
               lines={
                 result.ok && result.amounts
                   ? [
-                      result.amounts.x1 > 1e-9
-                        ? {
-                            eyebrow: `Use ${chem1.name}`,
-                            value: `${formatQty(result.amounts.x1)} ${chem1.unit}`,
-                            detail:
-                              result.stock.chemical1.status === "untracked"
-                                ? "Stock not tracked"
-                                : result.stock.chemical1.status === "insufficient"
-                                  ? `Only ${formatQty(result.stock.chemical1.available ?? 0)} ${chem1.unit} in stock`
-                                  : undefined,
-                          }
-                        : null,
-                      result.amounts.x2 > 1e-9
-                        ? {
-                            eyebrow: `Use ${chem2.name}`,
-                            value: `${formatQty(result.amounts.x2)} ${chem2.unit}`,
-                            detail:
-                              result.stock.chemical2.status === "untracked"
-                                ? "Stock not tracked"
-                                : result.stock.chemical2.status === "insufficient"
-                                  ? `Only ${formatQty(result.stock.chemical2.available ?? 0)} ${chem2.unit} in stock`
-                                  : undefined,
-                          }
+                      amountLine(chem1, result.amounts.x1, result.stock.chemical1),
+                      amountLine(chem2, result.amounts.x2, result.stock.chemical2),
+                      usingThird && chem3 && lockedThird !== null
+                        ? amountLine(chem3, lockedThird, checkStock(lockedThird, chem3.qtyAvailable))
                         : null,
                     ].filter((line) => line !== null)
                   : []
@@ -261,4 +307,18 @@ export function BlendPage() {
       )}
     </div>
   );
+}
+
+function amountLine(chemical: Chemical, amount: number, stock: StockCheck) {
+  if (amount <= 1e-9) return null;
+  return {
+    eyebrow: `Use ${chemical.name}`,
+    value: `${formatQty(amount)} ${chemical.unit}`,
+    detail:
+      stock.status === "untracked"
+        ? "Stock not tracked"
+        : stock.status === "insufficient"
+          ? `Only ${formatQty(stock.available ?? 0)} ${chemical.unit} in stock`
+          : undefined,
+  };
 }

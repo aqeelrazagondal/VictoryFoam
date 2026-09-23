@@ -13,12 +13,33 @@ export type {
   MissingChemicalAdvice,
   PlannerApply,
 } from "./alternatives.ts";
-export { solveBlend, solveBlendWithStock } from "./blend.ts";
-export type { BlendAmounts, BlendInput, BlendSolveResult } from "./blend.ts";
-export { computeRequiredBlend, solveFill, solveFillWithStock, suggestFillPair } from "./fill.ts";
+export {
+  solveBlend,
+  solveBlendThree,
+  solveBlendThreeWithStock,
+  solveBlendWithStock,
+} from "./blend.ts";
+export type {
+  BlendAmounts,
+  BlendInput,
+  BlendSolveResult,
+  BlendThreeAmounts,
+  BlendThreeInput,
+  BlendThreeSolveResult,
+} from "./blend.ts";
+export {
+  computeRequiredBlend,
+  solveFill,
+  solveFillThree,
+  solveFillThreeWithStock,
+  solveFillWithStock,
+  suggestFillPair,
+} from "./fill.ts";
 export type {
   FillAmounts,
   FillSolveResult,
+  FillThreeAmounts,
+  FillThreeSolveResult,
   RequiredBlendResult,
   SuggestedPair,
 } from "./fill.ts";
