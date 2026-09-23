@@ -1,4 +1,4 @@
-import { CALC_EPS } from "./format.ts";
+import { CALC_EPS, formatQty } from "./format.ts";
 import type { LogEntryType } from "./types.ts";
 
 export type LogEntryInput = {
@@ -59,10 +59,13 @@ export function replayLog(entries: LogEntryInput[]): TankSnapshot {
         reason: "The first entry must be an Opening Balance.",
       });
     }
-    if (index > 0 && entry.type === "opening_balance") {
+    if (
+      entry.type === "opening_balance" &&
+      entries.slice(0, index).some((item) => item.type !== "opening_balance")
+    ) {
       errors.push({
         entryId: entry.id,
-        reason: "Opening Balance can only be the first entry.",
+        reason: "Opening Balance can only be at the start of the log.",
       });
     }
 
@@ -118,6 +121,38 @@ export function replayLog(entries: LogEntryInput[]): TankSnapshot {
 
 export function canConsume(currentVolume: number, quantity: number) {
   return quantity <= currentVolume + CALC_EPS;
+}
+
+export function summarizeMix(lines: { quantity: number; solidContentPct: number }[]) {
+  let volume = 0;
+  let weighted = 0;
+  for (const line of lines) {
+    if (!(line.quantity > 0) || !Number.isFinite(line.solidContentPct)) continue;
+    volume += line.quantity;
+    weighted += line.quantity * line.solidContentPct;
+  }
+  return {
+    volume,
+    solidPct: volume > 0 ? weighted / volume : 0,
+  };
+}
+
+export function roomToCapacity(capacity: number, volume: number) {
+  return Math.max(0, capacity - volume);
+}
+
+/** Returns an error message if adding `addQty` would exceed tank capacity. */
+export function capacityOverflowMessage(input: {
+  volume: number;
+  addQty: number;
+  capacity: number | null | undefined;
+}): string | null {
+  if (input.capacity == null || !(input.capacity > 0)) return null;
+  if (!(input.addQty > 0)) return null;
+  const next = input.volume + input.addQty;
+  if (next <= input.capacity + CALC_EPS) return null;
+  const room = roomToCapacity(input.capacity, input.volume);
+  return `The tank holds ${formatQty(input.capacity)} kg. You can add at most ${formatQty(room)} kg.`;
 }
 
 export type ConsumptionRow = {

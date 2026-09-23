@@ -2,6 +2,12 @@
 
 import { useMemo, useState } from "react";
 
+import {
+  BatchLinesEditor,
+  createBatchLine,
+  parseBatchLines,
+  type BatchLine,
+} from "@/components/tank/batch-lines-editor";
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { ConsumptionTable } from "@/components/tank/consumption-table";
 import { EmptyState, Field } from "@/components/tank/empty-state";
@@ -16,10 +22,12 @@ import {
 } from "@/components/ui/sheet";
 import {
   canConsume,
+  capacityOverflowMessage,
   consumeBreakdown,
   formatPct,
   formatQty,
   isHeelBreach,
+  roomToCapacity,
   type LogEntryType,
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
@@ -27,6 +35,7 @@ import type { Chemical, TankLogDraft, TankLogEntry } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
 import {
   deleteLogEntry,
+  insertLogEntries,
   insertLogEntry,
   TankError,
   updateLogEntry,
@@ -48,6 +57,7 @@ export function LogPage() {
   const [note, setNote] = useState("");
   const [date, setDate] = useState("");
   const [chemical, setChemical] = useState<Chemical | null>(null);
+  const [batchLines, setBatchLines] = useState<BatchLine[]>([createBatchLine("line-1")]);
   const [rate, setRate] = useState("");
   const [minutes, setMinutes] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +65,8 @@ export function LogPage() {
 
   const reversed = useMemo(() => [...snapshot.entries].reverse(), [snapshot.entries]);
   const heel = settings?.heel ?? 0;
+  const capacity = settings?.capacity ?? null;
+  const room = capacity != null ? roomToCapacity(capacity, snapshot.volume) : null;
   const names = Object.fromEntries(chemicals.map((item) => [item.id, item]));
   const consumeQty = parseNumber(quantity);
   const consumePreview =
@@ -67,6 +79,7 @@ export function LogPage() {
           consumeQty,
         })
       : null;
+  const multiChemical = !editing && (type === "add_batch" || type === "opening_balance");
 
   function startAdd() {
     setEditing(null);
@@ -76,6 +89,7 @@ export function LogPage() {
     setNote("");
     setDate("");
     setChemical(null);
+    setBatchLines([createBatchLine("line-1")]);
     setRate("");
     setMinutes("");
     setError(null);
@@ -91,6 +105,7 @@ export function LogPage() {
     setNote(entry.note ?? "");
     setDate(entry.entryDate);
     setChemical(chemicals.find((item) => item.id === entry.chemicalId) ?? null);
+    setBatchLines([createBatchLine("line-1")]);
     setRate("");
     setMinutes("");
     setError(null);
@@ -98,6 +113,52 @@ export function LogPage() {
   }
 
   async function save() {
+    setError(null);
+    setHeelNote(null);
+
+    if (multiChemical) {
+      const parsed = parseBatchLines(batchLines);
+      if (!parsed.ok) {
+        setError(parsed.reason);
+        return;
+      }
+      const addQty = parsed.rows.reduce((sum, row) => sum + row.quantity, 0);
+      const overflow = capacityOverflowMessage({
+        volume: snapshot.volume,
+        addQty,
+        capacity,
+      });
+      if (overflow) {
+        setError(overflow);
+        return;
+      }
+      if (tankReady && type === "opening_balance") {
+        setError("Opening Balance can only be at the start of the log.");
+        return;
+      }
+      if (!tankReady && type !== "opening_balance") {
+        setError("The first entry must be an Opening Balance.");
+        return;
+      }
+      try {
+        await insertLogEntries(
+          parsed.rows.map((row) => ({
+            type,
+            chemicalId: row.chemicalId,
+            quantity: row.quantity,
+            solidContentPct: row.solidContentPct,
+            note: note.trim() || null,
+            entryDate: date || undefined,
+          })),
+        );
+        await refresh();
+        setOpen(false);
+      } catch (caught) {
+        setError(caught instanceof TankError ? caught.message : "Could not save the entry.");
+      }
+      return;
+    }
+
     const qty = parseNumber(quantity);
     if (qty === null || !(qty > 0)) {
       setError("Quantity is required.");
@@ -113,12 +174,35 @@ export function LogPage() {
       return;
     }
     if (tankReady && !editing && type === "opening_balance") {
-      setError("Opening Balance can only be the first entry.");
+      setError("Opening Balance can only be at the start of the log.");
       return;
     }
     if (type === "consume_usage" && !canConsume(snapshot.volume, qty) && !editing) {
       setError("Cannot consume more than the current tank volume.");
       return;
+    }
+    if (type !== "consume_usage" && !editing) {
+      const overflow = capacityOverflowMessage({
+        volume: snapshot.volume,
+        addQty: qty,
+        capacity,
+      });
+      if (overflow) {
+        setError(overflow);
+        return;
+      }
+    }
+    if (editing && type !== "consume_usage") {
+      const withoutThis = snapshot.volume - editing.quantity;
+      const overflow = capacityOverflowMessage({
+        volume: Math.max(0, withoutThis),
+        addQty: qty,
+        capacity,
+      });
+      if (overflow) {
+        setError(overflow);
+        return;
+      }
     }
 
     const draft: TankLogDraft = {
@@ -132,8 +216,6 @@ export function LogPage() {
 
     if (type === "consume_usage" && isHeelBreach(snapshot.volume - qty, heel)) {
       setHeelNote("This consume drops the tank below the heel. It will still be saved.");
-    } else {
-      setHeelNote(null);
     }
 
     try {
@@ -159,7 +241,7 @@ export function LogPage() {
           title="Set up your tank first"
           description="Tank Log starts with an Opening Balance."
           actionLabel="Set up tank"
-          actionHref="/tank/setup/"
+          actionHref="/tank/"
         />
       </div>
     );
@@ -172,6 +254,7 @@ export function LogPage() {
           <h1>Tank log</h1>
           <p className="text-muted-foreground">
             {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
+            {room != null ? ` · room for ${formatQty(room)} kg more` : ""}
           </p>
         </div>
         <Button size="touch" onClick={startAdd}>
@@ -204,7 +287,11 @@ export function LogPage() {
                 {formatPct(entry.runningPct)}
               </p>
               <div className="mt-3 flex gap-2">
-                <Button variant="outline" size="touch" onClick={() => startEdit(entries.find((item) => item.id === entry.id)!)}>
+                <Button
+                  variant="outline"
+                  size="touch"
+                  onClick={() => startEdit(entries.find((item) => item.id === entry.id)!)}
+                >
                   Edit
                 </Button>
                 <Button variant="ghost" size="touch" onClick={() => void remove(entry.id)}>
@@ -231,101 +318,133 @@ export function LogPage() {
                   return option !== "opening_balance";
                 })
                 .map((option) => (
-                  <label key={option} className="flex min-h-12 items-center gap-3 rounded-xl border border-border px-3">
+                  <label
+                    key={option}
+                    className="flex min-h-12 items-center gap-3 rounded-xl border border-border px-3"
+                  >
                     <input
                       type="radio"
                       name="log-type"
                       checked={type === option}
-                      onChange={() => setType(option)}
+                      onChange={() => {
+                        setType(option);
+                        if (option === "add_batch" || option === "opening_balance") {
+                          setBatchLines([createBatchLine("line-1")]);
+                        }
+                      }}
                       className="size-4"
                     />
                     {TYPE_LABEL[option]}
                   </label>
                 ))}
             </fieldset>
+
             {type === "consume_usage" ? (
-              <div className="grid grid-cols-2 gap-3">
-                <Field id="log-rate" label="kg per minute">
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <Field id="log-rate" label="kg per minute">
+                    <Input
+                      id="log-rate"
+                      inputMode="decimal"
+                      value={rate}
+                      onChange={(event) => {
+                        const nextRate = event.target.value;
+                        setRate(nextRate);
+                        const parsedRate = parseNumber(nextRate);
+                        const parsedMinutes = parseNumber(minutes);
+                        if (parsedRate !== null && parsedMinutes !== null) {
+                          setQuantity(String(parsedRate * parsedMinutes));
+                        }
+                      }}
+                    />
+                  </Field>
+                  <Field id="log-minutes" label="Minutes">
+                    <Input
+                      id="log-minutes"
+                      inputMode="decimal"
+                      value={minutes}
+                      onChange={(event) => {
+                        const nextMinutes = event.target.value;
+                        setMinutes(nextMinutes);
+                        const parsedRate = parseNumber(rate);
+                        const parsedMinutes = parseNumber(nextMinutes);
+                        if (parsedRate !== null && parsedMinutes !== null) {
+                          setQuantity(String(parsedRate * parsedMinutes));
+                        }
+                      }}
+                    />
+                  </Field>
+                </div>
+                <Field
+                  id="log-qty"
+                  label="Quantity (kg)"
+                  hint="Or type kg per minute and minutes above. 57 × 77 = 4 389."
+                >
                   <Input
-                    id="log-rate"
+                    id="log-qty"
                     inputMode="decimal"
-                    value={rate}
-                    onChange={(event) => {
-                      const nextRate = event.target.value;
-                      setRate(nextRate);
-                      const parsedRate = parseNumber(nextRate);
-                      const parsedMinutes = parseNumber(minutes);
-                      if (parsedRate !== null && parsedMinutes !== null) {
-                        setQuantity(String(parsedRate * parsedMinutes));
-                      }
-                    }}
+                    value={quantity}
+                    onChange={(event) => setQuantity(event.target.value)}
                   />
                 </Field>
-                <Field id="log-minutes" label="Minutes">
+                {consumePreview?.ok ? (
+                  <ConsumptionTable
+                    breakdown={consumePreview}
+                    names={Object.fromEntries(
+                      chemicals.map((item) => [item.id, { name: item.name }]),
+                    )}
+                  />
+                ) : null}
+              </>
+            ) : null}
+
+            {multiChemical ? (
+              <BatchLinesEditor
+                lines={batchLines}
+                chemicals={activeChemicals}
+                tankVolume={snapshot.volume}
+                capacity={capacity}
+                onChange={setBatchLines}
+              />
+            ) : null}
+
+            {editing && type !== "consume_usage" ? (
+              <>
+                <Field id="log-qty" label="Quantity (kg)">
                   <Input
-                    id="log-minutes"
+                    id="log-qty"
                     inputMode="decimal"
-                    value={minutes}
-                    onChange={(event) => {
-                      const nextMinutes = event.target.value;
-                      setMinutes(nextMinutes);
-                      const parsedRate = parseNumber(rate);
-                      const parsedMinutes = parseNumber(nextMinutes);
-                      if (parsedRate !== null && parsedMinutes !== null) {
-                        setQuantity(String(parsedRate * parsedMinutes));
-                      }
-                    }}
+                    value={quantity}
+                    onChange={(event) => setQuantity(event.target.value)}
                   />
                 </Field>
-              </div>
+                <Field id="log-pct" label="Solid Content %">
+                  <Input
+                    id="log-pct"
+                    inputMode="decimal"
+                    value={pct}
+                    onChange={(event) => setPct(event.target.value)}
+                  />
+                </Field>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Chemical (optional)</p>
+                  <ChemicalPicker
+                    chemicals={activeChemicals}
+                    selectedId={chemical?.id}
+                    onSelect={setChemical}
+                  />
+                  <Button variant="ghost" size="touch" onClick={() => setChemical(null)}>
+                    Leave unattributed
+                  </Button>
+                </div>
+                {capacity != null ? (
+                  <p className="text-sm text-muted-foreground">
+                    Tank holds {formatQty(capacity)} kg. Room after this edit must stay within that.
+                  </p>
+                ) : null}
+              </>
             ) : null}
-            <Field
-              id="log-qty"
-              label="Quantity (kg)"
-              hint={
-                type === "consume_usage"
-                  ? "Or type kg per minute and minutes above. 80 × 50 = 4 000."
-                  : undefined
-              }
-            >
-              <Input
-                id="log-qty"
-                inputMode="decimal"
-                value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-              />
-            </Field>
-            {type === "consume_usage" && consumePreview?.ok ? (
-              <ConsumptionTable
-                breakdown={consumePreview}
-                names={Object.fromEntries(
-                  chemicals.map((item) => [item.id, { name: item.name }]),
-                )}
-              />
-            ) : null}
-            {type !== "consume_usage" ? (
-              <Field id="log-pct" label="Solid Content %">
-                <Input
-                  id="log-pct"
-                  inputMode="decimal"
-                  value={pct}
-                  onChange={(event) => setPct(event.target.value)}
-                />
-              </Field>
-            ) : null}
-            {type !== "consume_usage" ? (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Chemical (optional)</p>
-                <ChemicalPicker
-                  chemicals={activeChemicals}
-                  selectedId={chemical?.id}
-                  onSelect={setChemical}
-                />
-                <Button variant="ghost" size="touch" onClick={() => setChemical(null)}>
-                  Leave unattributed
-                </Button>
-              </div>
-            ) : null}
+
             <Field id="log-date" label="Date (optional)">
               <Input
                 id="log-date"
@@ -341,8 +460,14 @@ export function LogPage() {
                 onChange={(event) => setNote(event.target.value)}
               />
             </Field>
-            {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            {heelNote ? <p className="text-sm text-amber-700 dark:text-amber-300">{heelNote}</p> : null}
+            {error ? (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
+            {heelNote ? (
+              <p className="text-sm text-amber-700 dark:text-amber-300">{heelNote}</p>
+            ) : null}
             <Button size="touch" className="w-full" onClick={() => void save()}>
               Save entry
             </Button>

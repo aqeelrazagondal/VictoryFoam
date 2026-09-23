@@ -18,6 +18,8 @@ import {
   computeRequiredBlend,
   formatPct,
   formatQty,
+  roomToCapacity,
+  capacityOverflowMessage,
   solveFillThreeWithStock,
   solveFillWithStock,
   suggestFillAlternatives,
@@ -30,7 +32,7 @@ import { useTank } from "@/lib/tank/context";
 import type { Chemical, FillLastCalculation } from "@/lib/tank/models";
 import { toChemicalRef } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
-import { getLastCalculation, insertLogEntry, saveLastCalculation } from "@/lib/tank/repository";
+import { getLastCalculation, insertLogEntries, saveLastCalculation } from "@/lib/tank/repository";
 
 export function FillPage() {
   const router = useRouter();
@@ -53,20 +55,13 @@ export function FillPage() {
     const pctParam = params.get("pct");
     if (volumeParam) setTargetVolume(volumeParam);
     if (pctParam) setTargetPct(pctParam);
-    const volumeReady = Boolean(volumeParam) || settings?.capacity != null;
-    if (pctParam && volumeReady) setStep(2);
-  }, [settings?.capacity]);
-
-  useEffect(() => {
-    if (targetVolume !== "") return;
-    if (settings?.capacity == null) return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("volume")) return;
-    setTargetVolume(String(settings.capacity));
-  }, [settings?.capacity, targetVolume]);
+    if (pctParam && volumeParam) setStep(2);
+  }, []);
 
   const volume = parseNumber(targetVolume);
   const pct = parseNumber(targetPct);
+  const capacity = settings?.capacity ?? null;
+  const overCapacity = capacity != null && volume != null && volume > capacity;
 
   const required = useMemo(() => {
     if (volume === null || pct === null) return null;
@@ -75,8 +70,9 @@ export function FillPage() {
       existingPct: snapshot.solidPct,
       targetVolume: volume,
       targetPct: pct,
+      capacity,
     });
-  }, [pct, snapshot.solidPct, snapshot.volume, volume]);
+  }, [capacity, pct, snapshot.solidPct, snapshot.volume, volume]);
 
   const suggestedPair = useMemo(() => {
     if (!required?.ok) return { above: null, below: null };
@@ -180,14 +176,14 @@ export function FillPage() {
           title="Set up your tank first"
           description="Fill Calculator tops up an existing tank. It stays hidden until Opening Balance is logged."
           actionLabel="Set up tank"
-          actionHref="/tank/setup/"
+          actionHref="/tank/"
         />
       </div>
     );
   }
 
   async function logFill() {
-    if (!result?.ok || !result.amounts || !selectedA || !selectedB) return;
+    if (!result?.ok || !result.amounts || !selectedA || !selectedB || volume === null) return;
     const batches: { chemical: Chemical; quantity: number }[] = [
       { chemical: selectedA, quantity: result.amounts.xA },
       { chemical: selectedB, quantity: result.amounts.xB },
@@ -195,19 +191,30 @@ export function FillPage() {
     if (usingThird && chemC && lockedThird !== null) {
       batches.push({ chemical: chemC, quantity: lockedThird });
     }
+    const addQty = batches.reduce((sum, batch) => sum + Math.max(0, batch.quantity), 0);
+    const overflow = capacityOverflowMessage({
+      volume: snapshot.volume,
+      addQty,
+      capacity,
+    });
+    if (overflow) {
+      setLogError(overflow);
+      return;
+    }
     setLogging(true);
     setLogError(null);
     try {
-      for (const batch of batches) {
-        if (batch.quantity <= 1e-9) continue;
-        await insertLogEntry({
-          type: "add_batch",
-          chemicalId: batch.chemical.id,
-          quantity: batch.quantity,
-          solidContentPct: batch.chemical.solidContentPct,
-          note: "Fill calculator",
-        });
-      }
+      await insertLogEntries(
+        batches
+          .filter((batch) => batch.quantity > 1e-9)
+          .map((batch) => ({
+            type: "add_batch" as const,
+            chemicalId: batch.chemical.id,
+            quantity: batch.quantity,
+            solidContentPct: batch.chemical.solidContentPct,
+            note: "Fill calculator",
+          })),
+      );
       await refresh();
       router.push("/tank/log/");
     } catch (caught) {
@@ -263,9 +270,11 @@ export function FillPage() {
             id="fill-vol"
             label="Target volume (kg)"
             hint={
-              pct !== null
-                ? `Target ${formatPct(pct)} is already set. Enter how full the tank should be, for example 8000 kg.`
-                : `Must be more than the current ${formatQty(snapshot.volume)} kg.`
+              capacity != null
+                ? `The tank holds ${formatQty(capacity)} kg. You can add at most ${formatQty(roomToCapacity(capacity, snapshot.volume))} kg, or type a smaller fill.`
+                : pct !== null
+                  ? `Target ${formatPct(pct)} is already set. Enter how full the tank should be, for example 8000 kg.`
+                  : `Must be more than the current ${formatQty(snapshot.volume)} kg.`
             }
           >
             <Input
@@ -279,10 +288,16 @@ export function FillPage() {
               }}
               placeholder="8000"
             />
+            {overCapacity && capacity != null ? (
+              <p className="mt-3 text-sm text-destructive" role="alert">
+                The tank holds {formatQty(capacity)} kg. You can add at most{" "}
+                {formatQty(roomToCapacity(capacity, snapshot.volume))} kg.
+              </p>
+            ) : null}
             <Button
               className="mt-4 w-full"
               size="touch"
-              disabled={volume === null}
+              disabled={volume === null || overCapacity}
               onClick={() => setStep(pct !== null ? 2 : 1)}
             >
               Next

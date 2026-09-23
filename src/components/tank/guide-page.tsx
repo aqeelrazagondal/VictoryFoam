@@ -42,33 +42,20 @@ export function GuidePage() {
         <h2 className="text-xl">Which screen do I use?</h2>
         <ul className="mt-4 space-y-3 text-muted-foreground">
           <li>
+            <strong className="text-foreground">Day to day.</strong> Stay on{" "}
+            <GuideLink href="/tank/">Home</GuideLink>. Enter what is already in the tank, then either
+            add to the tank or record what you used.
+            <Result>Home shows the kg, the overall solid content, and how much room is left.</Result>
+          </li>
+          <li>
             <strong className="text-foreground">Fresh batch in a mixer or drum, tank empty or ignored.</strong>{" "}
-            <GuideLink href="/tank/blend/">Blend</GuideLink>
+            More, then <GuideLink href="/tank/blend/">Blend</GuideLink>
             <Result>Two drums, or three if you lock one amount. No tank log is written.</Result>
           </li>
           <li>
-            <strong className="text-foreground">Tank already has something. Top it up to a kg and %.</strong>{" "}
-            <GuideLink href="/tank/fill/">Fill</GuideLink>
-            <Result>
-              Two drums (or three if you lock one). Log it and Home shows the new tank kg and %.
-            </Result>
-          </li>
-          <li>
-            <strong className="text-foreground">How many kg of ONE drum to hit a %.</strong>{" "}
-            <GuideLink href="/tank/planner/">Planner</GuideLink>
-            <Result>
-              One chemical only. This is a what-if. Nothing is saved until you Log that amount.
-            </Result>
-          </li>
-          <li>
-            <strong className="text-foreground">I poured or used foam.</strong>{" "}
-            <GuideLink href="/tank/log/">Log</GuideLink>
-            <Result>Home, Composition, and Fill all update from the new log.</Result>
-          </li>
-          <li>
-            <strong className="text-foreground">What is left of each drum in the tank?</strong>{" "}
-            <GuideLink href="/tank/composition/">Composition</GuideLink>
-            <Result>A live table. No extra calculation.</Result>
+            <strong className="text-foreground">The same sums, on the older screens.</strong> More, then
+            Fill, Planner, Log, or Composition.
+            <Result>Those screens still work. Home is the shorter path.</Result>
           </li>
         </ul>
       </section>
@@ -90,23 +77,33 @@ export function GuidePage() {
               <Result>You land on Home. The yellow “this device” banner should be gone.</Result>
             </li>
             <li>
-              <strong className="text-foreground">Add your chemicals.</strong>{" "}
-              <GuideLink href="/tank/chemicals/">Chemicals</GuideLink> → Add. Name + Solid Content %
-              is enough.
-              <Result>Each drum appears in the list. Blend can now pick them.</Result>
-            </li>
-            <li>
-              <strong className="text-foreground">Set up the tank</strong> only if you track a holding
-              tank.{" "}
-              <GuideLink href="/tank/setup/">Set up tank</GuideLink> → what is in it now (kg + %),
-              then optional capacity and heel.
+              <strong className="text-foreground">On Home, enter each polyol already in the tank.</strong>{" "}
+              Name, solid content, and kg. Tap Add another polyol for the next drum. Tank size starts
+              at 8,000 kg. You can change it. Save.
               <Result>
-                Home shows Current tank. Fill, Log, Composition, and Planner appear in the menu.
+                Home shows the total kg, the overall solid content, and how many kg you can still add.
+                You do not type the overall %.
               </Result>
             </li>
             <li>
-              If you do not have a tank, skip setup.{" "}
-              <GuideLink href="/tank/blend/">Blend</GuideLink> still works.
+              <strong className="text-foreground">Add to the tank</strong> when you need a solid
+              content. Type how full the tank should be this time (kg — not locked to the tank
+              size), the solid content, and one polyol, two, or all three. For three, type how many
+              kg of one of them.
+              <Result>Home lists the kg of each polyol. Nothing is saved until you confirm.</Result>
+            </li>
+            <li>
+              <strong className="text-foreground">I used some</strong> after a job. Type kg per minute
+              and minutes, for example 57 and 77.
+              <Result>
+                Home shows how many kg of each polyol were in that use, what is left, and that the
+                solid content did not change.
+              </Result>
+            </li>
+            <li>
+              No holding tank? More, then <GuideLink href="/tank/blend/">Blend</GuideLink>. Heel, if
+              you use it, is on More → <GuideLink href="/tank/setup/">Set up tank</GuideLink> before
+              the first save.
             </li>
           </ol>
         ) : (
@@ -145,8 +142,8 @@ export function GuidePage() {
         <h2 className="text-xl">Fill — top up the tank (2 or 3 drums)</h2>
         <ol className="mt-4 list-decimal space-y-3 pl-5 text-muted-foreground">
           <li>
-            On <GuideLink href="/tank/">Home</GuideLink> type “Fill the tank to (kg)” and “Target
-            Solid Content %”, then Plan this fill. Or open{" "}
+            On <GuideLink href="/tank/">Home</GuideLink> tap Add to the tank and type how full the
+            tank should be and the solid content. Or open{" "}
             <GuideLink href="/tank/fill/">Fill</GuideLink> and enter the same numbers.
             <Result>
               Required blend % is for the added portion only, not the whole tank.
@@ -194,7 +191,12 @@ export function GuidePage() {
         <ul className="mt-4 space-y-3 text-muted-foreground">
           <li>
             <strong className="text-foreground">Add batch</strong> after you pour into the tank.
-            <Result>Volume and % go up. Composition adds that chemical.</Result>
+            Pick one or more chemicals and type the kg for each. The tank size is a maximum — you
+            can add less. The form refuses a total that would go over capacity.
+            <Result>
+              One Add Batch row is written per chemical. Volume and % go up. Composition lists each
+              chemical.
+            </Result>
           </li>
           <li>
             <strong className="text-foreground">Consume</strong> after you use foam. Type kg, or
@@ -212,29 +214,28 @@ export function GuidePage() {
       </section>
 
       <section>
-        <h2 className="text-xl">A production day (Umer&apos;s 33% then 4 000 kg)</h2>
+        <h2 className="text-xl">A production day</h2>
         <ol className="mt-4 list-decimal space-y-3 pl-5 text-muted-foreground">
           <li>
-            <strong className="text-foreground">Once:</strong> add Conventional (0%), POP 25, POP 45
-            on <GuideLink href="/tank/chemicals/">Chemicals</GuideLink>.{" "}
-            <GuideLink href="/tank/setup/">Set up</GuideLink> 1 500 kg at 25% as POP 25. Capacity
-            8 000 kg. Heel 890 kg if that bottom stock stays in the tank.
-            <Result>Home shows 1 500 kg at 25%.</Result>
+            <strong className="text-foreground">Already in the tank:</strong> Conventional 0% 700 kg,
+            polymer 25% 220 kg, polymer 45% 1,150 kg. Tank size 8,000 kg.
+            <Result>Home shows 2,070 kg at about 27.66% (often called 28). You can add at most 5,930 kg.</Result>
           </li>
           <li>
-            <strong className="text-foreground">Make 33%:</strong> Home → type 8 000 and 33 → Plan
-            this fill. Confirm POP 45 + Conventional. Log it.
-            <Result>About 5 033 kg + 1 467 kg on top of the 1 500 kg. Tank is 8 000 kg at 33%.</Result>
+            <strong className="text-foreground">Requirement:</strong> Add to the tank. Type how full
+            you need it this time (type the kg — never assumed to be 8,000), the solid content, and
+            the polyols. Two polyols is the usual case, such as 45 and conventional for 28%, or 45
+            and 25 for 28.7%. One polyol asks only for the solid content. All three asks how many kg
+            of one polyol you will pour.
+            <Result>Home shows the kg of each polyol and the tank afterwards. Confirm to save.</Result>
           </li>
           <li>
-            <strong className="text-foreground">After 80 kg/min × 50 min:</strong>{" "}
-            <GuideLink href="/tank/log/">Tank Log</GuideLink> → Consume. Type 80 and 50, or 4 000.
-            <Result>Used/remaining table. Leftover is still 33%.</Result>
-          </li>
-          <li>
-            <strong className="text-foreground">Next job at 28%:</strong> Home → type the new kg and
-            28 → Plan this fill. Do not dilute 33% to 25% first.
-            <Result>Fill picks a little Conventional plus POP 25 in one step.</Result>
+            <strong className="text-foreground">After the job:</strong> I used some. Type 57 kg per
+            minute and 77 minutes.
+            <Result>
+              57 × 77 = 4,389 kg. Home lists how much of each polyol was in that 4,389 kg. The
+              remainder stays at the same solid content.
+            </Result>
           </li>
         </ol>
       </section>
@@ -243,7 +244,7 @@ export function GuidePage() {
         <h2 className="text-xl">Every time you use it</h2>
         <ul className="mt-4 space-y-3 text-muted-foreground">
           <li>
-            <strong className="text-foreground">Making a fresh batch from scratch?</strong> →{" "}
+            <strong className="text-foreground">Making a fresh batch from scratch?</strong> → More, then{" "}
             <GuideLink href="/tank/blend/">Blend Calculator</GuideLink>
             . Pick two chemicals, say what % and how much you need. If you must use a third drum,
             tap Add a third chemical and lock that kg — the other two fill the rest.
@@ -256,8 +257,10 @@ export function GuidePage() {
           </li>
           <li>
             <strong className="text-foreground">Just added a batch or used some from the tank?</strong>{" "}
-            → <GuideLink href="/tank/log/">Tank Log</GuideLink> → Add Entry. Pick Add Batch or
-            Consume/Usage, enter the amount, done — everything else updates itself.
+            → <GuideLink href="/tank/log/">Tank Log</GuideLink> → Add Entry. For Add Batch, pick
+            several chemicals if the blend used more than one, and type the kg for each. For Consume,
+            use kg/min × minutes. The form shows how much room is left and blocks a fill over the
+            tank size.
           </li>
           <li>
             <strong className="text-foreground">Want to know what&apos;s left of each chemical in the tank?</strong>{" "}

@@ -290,6 +290,45 @@ export async function saveTankSettings(settings: TankSettings) {
   if (error) throw new TankError(error.message);
 }
 
+export async function insertLogEntries(drafts: TankLogDraft[]) {
+  if (drafts.length === 0) return [];
+  const base = Date.now();
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const local = readLocal();
+    const created: TankLogEntry[] = drafts.map((draft, index) => ({
+      id: crypto.randomUUID(),
+      entryDate: draft.entryDate ?? todayIsoDate(),
+      type: draft.type,
+      chemicalId: draft.chemicalId,
+      quantity: draft.quantity,
+      solidContentPct: draft.solidContentPct,
+      note: draft.note,
+      createdAt: new Date(base + index).toISOString(),
+    }));
+    local.entries = [...local.entries, ...created];
+    writeLocal(local);
+    return created;
+  }
+
+  const { data, error } = await supabase
+    .from("tank_log_entries")
+    .insert(
+      drafts.map((draft, index) => ({
+        entry_date: draft.entryDate ?? todayIsoDate(),
+        type: draft.type,
+        chemical_id: draft.chemicalId,
+        quantity: draft.quantity,
+        solid_content_pct: draft.solidContentPct,
+        note: draft.note,
+        created_at: new Date(base + index).toISOString(),
+      })),
+    )
+    .select("*");
+  if (error) throw new TankError(error.message);
+  return (data ?? []).map(mapEntry).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
 export async function insertLogEntry(draft: TankLogDraft) {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
