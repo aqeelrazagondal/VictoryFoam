@@ -3,8 +3,9 @@
 import { useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
+import { EditableReport, type EditedPour, type ReportSuggestion } from "@/components/tank/editable-report";
 import { Field } from "@/components/tank/empty-state";
-import { ResultCard, type ResultLine } from "@/components/tank/result-card";
+import { ResultCard } from "@/components/tank/result-card";
 import { TankSummary } from "@/components/tank/tank-summary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,14 +13,16 @@ import {
   computeRequiredBlend,
   formatPct,
   formatQty,
+  capacityOverflowMessage,
   previewAddBatch,
+  previewTankAfterAdds,
   reverseAdd,
   roomToCapacity,
   solveFill,
   solveFillThree,
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
-import type { Chemical, TankLogDraft } from "@/lib/tank/models";
+import type { Chemical } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
 import { insertLogEntries, saveTankSettings, TankError } from "@/lib/tank/repository";
 import { cn } from "@/lib/utils";
@@ -31,10 +34,8 @@ type AddPlan =
   | { state: "blocked"; reason: string }
   | {
       state: "ready";
-      rows: TankLogDraft[];
-      lines: ResultLine[];
+      suggestions: ReportSuggestion[];
       volume: number;
-      solidPct: number;
       message: string;
     };
 
@@ -90,17 +91,43 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
     setTargetVolume(String(Math.min(capacity, parsed)));
   }
 
-  async function confirm() {
-    if (plan.state !== "ready") return;
+  async function confirm(lines: EditedPour[]) {
+    const preview = previewTankAfterAdds({
+      currentQty: snapshot.volume,
+      currentPct: snapshot.solidPct,
+      adds: lines.map((line) => ({
+        quantity: line.quantity,
+        solidContentPct: line.solidContentPct,
+      })),
+    });
+    const overflow = capacityOverflowMessage({
+      volume: snapshot.volume,
+      addQty: preview.addedKg,
+      capacity,
+    });
+    if (overflow) {
+      setError(overflow);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       if (settings?.capacity == null && capacity != null) {
         await saveTankSettings({ capacity, heel: settings?.heel ?? 0 });
       }
-      await insertLogEntries(plan.rows);
+      await insertLogEntries(
+        lines
+          .filter((line) => line.quantity > 1e-6)
+          .map((line) => ({
+            type: "add_batch" as const,
+            chemicalId: line.id,
+            quantity: line.quantity,
+            solidContentPct: line.solidContentPct,
+            note: null,
+          })),
+      );
       await refresh();
-      onDone(`The tank is now ${formatQty(plan.volume)} kg at ${formatPct(plan.solidPct)}.`);
+      onDone(`The tank is now ${formatQty(preview.volume)} kg at ${formatPct(preview.solidPct)}.`);
     } catch (caught) {
       setError(caught instanceof TankError ? caught.message : "Could not save this fill.");
     } finally {
@@ -256,15 +283,16 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
         <ResultCard status="infeasible" message={plan.reason} lines={[]} />
       ) : null}
       {plan.state === "ready" ? (
-        <ResultCard
-          status="feasible"
+        <EditableReport
+          key={plan.suggestions.map((line) => `${line.id}:${line.suggestedKg}`).join("|")}
           message={`${plan.message}${shortOfUse}`}
-          lines={plan.lines}
-          footer={
-            <Button size="touch" className="w-full" disabled={saving} onClick={() => void confirm()}>
-              {saving ? "Saving…" : "Add this to the tank"}
-            </Button>
-          }
+          currentQty={snapshot.volume}
+          currentPct={snapshot.solidPct}
+          capacity={capacity}
+          suggestions={plan.suggestions}
+          confirmLabel="Add this to the tank"
+          confirming={saving}
+          onConfirm={(lines) => void confirm(lines)}
         />
       ) : null}
 
@@ -285,17 +313,6 @@ function useAboutHint(useQty: number | null, capacity: number | null, volume: nu
     return `The tank must be at least ${formatQty(useQty)} kg before this job, and not over ${formatQty(capacity)} kg.`;
   }
   return `The tank already holds enough for ${formatQty(useQty)} kg of use. You can still top it up.`;
-}
-
-function batchRow(chemical: Chemical, quantity: number): TankLogDraft | null {
-  if (!(quantity > 1e-6)) return null;
-  return {
-    type: "add_batch",
-    chemicalId: chemical.id,
-    quantity,
-    solidContentPct: chemical.solidContentPct,
-    note: null,
-  };
 }
 
 function planAddition(input: {
@@ -350,21 +367,13 @@ function planAddition(input: {
         reason: `${input.chemA.name} needs ${formatQty(reverse.quantity)} kg to reach ${formatPct(input.targetPct)}. You can add at most ${formatQty(room)} kg. Filling that room reaches ${formatPct(reached.solidPct)}.`,
       };
     }
-    const row = batchRow(input.chemA, reverse.quantity);
-    if (!row) return { state: "incomplete" };
     return {
       state: "ready",
-      rows: [row],
-      volume: nextVolume,
-      solidPct: input.targetPct,
-      message: `Add ${formatQty(reverse.quantity)} kg of ${input.chemA.name}.`,
-      lines: [
-        { eyebrow: `Add ${input.chemA.name}`, value: `${formatQty(reverse.quantity)} kg` },
-        {
-          eyebrow: "Tank afterwards",
-          value: `${formatQty(nextVolume)} kg at ${formatPct(input.targetPct)}`,
-        },
+      suggestions: [
+        suggestion(input.chemA, reverse.quantity),
       ],
+      volume: nextVolume,
+      message: `Add ${formatQty(reverse.quantity)} kg of ${input.chemA.name}.`,
     };
   }
 
@@ -431,32 +440,31 @@ function planAddition(input: {
   );
 }
 
+function suggestion(chemical: Chemical, quantity: number): ReportSuggestion {
+  return {
+    id: chemical.id,
+    name: chemical.name,
+    suggestedKg: quantity,
+    solidContentPct: chemical.solidContentPct,
+  };
+}
+
 function readyPlan(
   pairs: [Chemical, number][],
   volume: number,
   solidPct: number,
   fillAmount: number,
 ): AddPlan {
-  const rows = pairs.flatMap(([chemical, quantity]) => {
-    const row = batchRow(chemical, quantity);
-    return row ? [row] : [];
-  });
-  if (rows.length === 0) {
+  const suggestions = pairs
+    .filter(([, quantity]) => quantity > 1e-6)
+    .map(([chemical, quantity]) => suggestion(chemical, quantity));
+  if (suggestions.length === 0) {
     return { state: "blocked", reason: "This mix does not add any polyol." };
   }
   return {
     state: "ready",
-    rows,
+    suggestions,
     volume,
-    solidPct,
-    message: `This fill adds ${formatQty(fillAmount)} kg.`,
-    lines: [
-      ...pairs.flatMap(([chemical, quantity]) =>
-        quantity > 1e-6
-          ? [{ eyebrow: `Add ${chemical.name}`, value: `${formatQty(quantity)} kg` }]
-          : [],
-      ),
-      { eyebrow: "Tank afterwards", value: `${formatQty(volume)} kg at ${formatPct(solidPct)}` },
-    ],
+    message: `This fill adds ${formatQty(fillAmount)} kg. The suggestion is ${formatPct(solidPct)} before you edit the kg.`,
   };
 }

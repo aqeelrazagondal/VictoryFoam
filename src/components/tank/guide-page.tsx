@@ -91,7 +91,11 @@ export function GuidePage() {
               content. Type how full the tank should be this time (kg — not locked to the tank
               size), the solid content, and one polyol, two, or all three. For three, type how many
               kg of one of them.
-              <Result>Home lists the kg of each polyol. Nothing is saved until you confirm.</Result>
+              <Result>
+                Home lists the kg of each polyol. After the suggestion, type the kg you will
+                actually pour, read the solid content, then download the PDF. Nothing is saved
+                until you confirm.
+              </Result>
             </li>
             <li>
               <strong className="text-foreground">I used some</strong> after a job. Type kg per minute
@@ -152,12 +156,59 @@ export function GuidePage() {
           </li>
           <li>
             Confirm the suggested pair, or pick two other drums.
-            <Result>You see kg of drum A and drum B. Log writes two Add Batch rows.</Result>
+            <Result>
+              Each drum shows kg and solid content, already filled. Type the kg you will pour, read
+              Your solid content, then download the PDF. Nothing is saved until you confirm.
+            </Result>
           </li>
           <li>
             Need a third drum? Tap <strong className="text-foreground">Add a third chemical</strong>{" "}
             and lock that kg.
             <Result>The pair fills the rest. Log writes three Add Batch rows.</Result>
+          </li>
+        </ol>
+      </section>
+
+      <section>
+        <h2 className="text-xl">Change the suggestion</h2>
+        <p className="mt-3 text-muted-foreground">
+          Home and Fill start with the calculator kilograms. Type the kilograms you will actually
+          pour. Change a solid content only if this drum differs a little from the saved chemical.
+          The suggestion stays on the screen. It is not calculated again.
+        </p>
+        <ol className="mt-4 list-decimal space-y-3 pl-5 text-muted-foreground">
+          <li>
+            Each polyol has kg and solid content, already filled. Under the kg it says Calculator
+            suggested, with the original number.
+            <Result>
+              Your solid content is the tank you already have, plus the kilograms and solid content
+              you typed.
+            </Result>
+          </li>
+          <li>
+            Type a different kg. For example, write 1,050 where the calculator said 925, and 5,250
+            where it said 5,093.
+            <Result>Tank afterwards shows the new total kg and the solid content those pours make.</Result>
+          </li>
+          <li>
+            If the typed total is more than the tank size, the solid content still shows.
+            <Result>Add this to the tank and Log this stay off until the total fits.</Result>
+          </li>
+          <li>
+            Tap <strong className="text-foreground">Download PDF</strong>.
+            <Result>
+              tank-report.pdf saves on this phone or computer. It lists the date, what is already in
+              the tank, each polyol with the typed kg and solid content, the suggestion when you
+              changed it, and the tank afterwards.
+            </Result>
+          </li>
+          <li>
+            Tap Add this to the tank, or Log this on Fill, only when the numbers are the pour you
+            want.
+            <Result>
+              The log stores the typed kg and the typed solid content for this pour. The chemical
+              saved solid content does not change.
+            </Result>
           </li>
         </ol>
       </section>
@@ -228,7 +279,10 @@ export function GuidePage() {
             the polyols. Two polyols is the usual case, such as 45 and conventional for 28%, or 45
             and 25 for 28.7%. One polyol asks only for the solid content. All three asks how many kg
             of one polyol you will pour.
-            <Result>Home shows the kg of each polyol and the tank afterwards. Confirm to save.</Result>
+            <Result>
+              Home shows the kg of each polyol. Type the kg you will pour, read Your solid content,
+              download the PDF, then confirm to save.
+            </Result>
           </li>
           <li>
             <strong className="text-foreground">After the job:</strong> I used some. Type 57 kg per
@@ -254,7 +308,8 @@ export function GuidePage() {
             <strong className="text-foreground">Topping up your tank with two chemicals?</strong> →{" "}
             <GuideLink href="/tank/fill/">Fill Calculator</GuideLink>
             . Say your target volume and %, and it&apos;ll suggest which two chemicals to use. Add a
-            third chemical only if you need to lock one drum&apos;s kg.
+            third chemical only if you need to lock one drum&apos;s kg. You can type different kg
+            before you log, then download the PDF.
           </li>
           <li>
             <strong className="text-foreground">Just added a batch or used some from the tank?</strong>{" "}

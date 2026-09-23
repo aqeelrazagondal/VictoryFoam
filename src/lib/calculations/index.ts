@@ -58,6 +58,7 @@ export {
   replayLog,
   roomToCapacity,
   capacityOverflowMessage,
+  previewTankAfterAdds,
   summarizeMix,
 } from "./tank-log.ts";
 export type {

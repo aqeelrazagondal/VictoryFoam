@@ -123,6 +123,25 @@ export function canConsume(currentVolume: number, quantity: number) {
   return quantity <= currentVolume + CALC_EPS;
 }
 
+export function previewTankAfterAdds(input: {
+  currentQty: number;
+  currentPct: number;
+  adds: { quantity: number; solidContentPct: number }[];
+}) {
+  let addedKg = 0;
+  let addedWeighted = 0;
+  for (const line of input.adds) {
+    if (!(line.quantity > 0) || !Number.isFinite(line.solidContentPct)) continue;
+    if (line.solidContentPct < 0 || line.solidContentPct > 100) continue;
+    addedKg += line.quantity;
+    addedWeighted += line.quantity * line.solidContentPct;
+  }
+  const volume = input.currentQty + addedKg;
+  const solidPct =
+    volume > 0 ? (input.currentQty * input.currentPct + addedWeighted) / volume : 0;
+  return { volume, solidPct, addedKg };
+}
+
 export function summarizeMix(lines: { quantity: number; solidContentPct: number }[]) {
   let volume = 0;
   let weighted = 0;

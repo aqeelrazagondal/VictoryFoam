@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
+import { EditableReport, type EditedPour, type ReportSuggestion } from "@/components/tank/editable-report";
 import { EmptyState, Field } from "@/components/tank/empty-state";
 import { ResultCard } from "@/components/tank/result-card";
 import { NeedChemicalHint } from "@/components/tank/need-chemical-hint";
@@ -182,16 +183,8 @@ export function FillPage() {
     );
   }
 
-  async function logFill() {
-    if (!result?.ok || !result.amounts || !selectedA || !selectedB || volume === null) return;
-    const batches: { chemical: Chemical; quantity: number }[] = [
-      { chemical: selectedA, quantity: result.amounts.xA },
-      { chemical: selectedB, quantity: result.amounts.xB },
-    ];
-    if (usingThird && chemC && lockedThird !== null) {
-      batches.push({ chemical: chemC, quantity: lockedThird });
-    }
-    const addQty = batches.reduce((sum, batch) => sum + Math.max(0, batch.quantity), 0);
+  async function logFill(lines: EditedPour[]) {
+    const addQty = lines.reduce((sum, line) => sum + Math.max(0, line.quantity), 0);
     const overflow = capacityOverflowMessage({
       volume: snapshot.volume,
       addQty,
@@ -205,13 +198,13 @@ export function FillPage() {
     setLogError(null);
     try {
       await insertLogEntries(
-        batches
-          .filter((batch) => batch.quantity > 1e-9)
-          .map((batch) => ({
+        lines
+          .filter((line) => line.quantity > 1e-9)
+          .map((line) => ({
             type: "add_batch" as const,
-            chemicalId: batch.chemical.id,
-            quantity: batch.quantity,
-            solidContentPct: batch.chemical.solidContentPct,
+            chemicalId: line.id,
+            quantity: line.quantity,
+            solidContentPct: line.solidContentPct,
             note: "Fill calculator",
           })),
       );
@@ -439,53 +432,48 @@ export function FillPage() {
         ) : null}
         {step === 5 ? (
           <div className="space-y-4">
-            {result && selectedA && selectedB ? (
+            {result && selectedA && selectedB && result.ok && result.amounts ? (
+              <>
+                {logError ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {logError}
+                  </p>
+                ) : null}
+                <EditableReport
+                  key={`${selectedA.id}:${result.amounts.xA}:${selectedB.id}:${result.amounts.xB}:${chemC?.id ?? ""}:${lockedThird ?? ""}`}
+                  status={result.status}
+                  message={result.reason ?? undefined}
+                  currentQty={snapshot.volume}
+                  currentPct={snapshot.solidPct}
+                  capacity={capacity}
+                  suggestions={fillSuggestions({
+                    chemicalA: selectedA,
+                    amountA: result.amounts.xA,
+                    stockA: result.stock.chemicalA,
+                    chemicalB: selectedB,
+                    amountB: result.amounts.xB,
+                    stockB: result.stock.chemicalB,
+                    chemicalC: usingThird ? chemC : null,
+                    amountC: usingThird ? lockedThird : null,
+                  })}
+                  confirmLabel={(lines) => logFillLabel(lines.map((line) => line.quantity))}
+                  confirming={logging}
+                  onConfirm={(lines) => void logFill(lines)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Nothing is written until you confirm. You will land on Tank Log afterwards.
+                </p>
+              </>
+            ) : result && selectedA && selectedB ? (
               <ResultCard
                 status={result.status}
-                message={result.ok ? (result.reason ?? undefined) : result.reason}
-                lines={
-                  result.ok && result.amounts
-                    ? [
-                        fillAmountLine(selectedA, result.amounts.xA, result.stock.chemicalA),
-                        fillAmountLine(selectedB, result.amounts.xB, result.stock.chemicalB),
-                        usingThird && chemC && lockedThird !== null
-                          ? fillAmountLine(
-                              chemC,
-                              lockedThird,
-                              checkStock(lockedThird, chemC.qtyAvailable),
-                            )
-                          : null,
-                      ].filter((line) => line !== null)
-                    : []
-                }
+                message={result.reason ?? undefined}
+                lines={[]}
                 footer={
-                  result.ok ? (
-                    <div className="space-y-3">
-                      {logError ? <p className="text-sm text-destructive">{logError}</p> : null}
-                      <Button
-                        size="touch"
-                        className="w-full"
-                        disabled={logging}
-                        onClick={() => void logFill()}
-                      >
-                        {logging
-                          ? "Writing log…"
-                          : logFillLabel([
-                              result.amounts.xA,
-                              result.amounts.xB,
-                              usingThird && lockedThird !== null ? lockedThird : 0,
-                            ])}
-                      </Button>
-                      <p className="text-xs text-muted-foreground">
-                        Nothing is written until you confirm. You will land on Tank Log afterwards.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <SuggestionList alternatives={alternatives} onSelect={applyFillAlternative} />
-                      {missingChemical ? <NeedChemicalHint advice={missingChemical} /> : null}
-                    </div>
-                  )
+                  <div className="space-y-4">
+                    <SuggestionList alternatives={alternatives} onSelect={applyFillAlternative} />
+                    {missingChemical ? <NeedChemicalHint advice={missingChemical} /> : null}
+                  </div>
                 }
               />
             ) : (
@@ -508,18 +496,51 @@ export function FillPage() {
   );
 }
 
-function fillAmountLine(chemical: Chemical, amount: number, stock: StockCheck) {
-  if (amount <= 1e-9) return null;
+function fillSuggestions(input: {
+  chemicalA: Chemical;
+  amountA: number;
+  stockA: StockCheck;
+  chemicalB: Chemical;
+  amountB: number;
+  stockB: StockCheck;
+  chemicalC: Chemical | null;
+  amountC: number | null;
+}): ReportSuggestion[] {
+  const lines: ReportSuggestion[] = [];
+  if (input.amountA > 1e-9) {
+    lines.push(reportLine(input.chemicalA, input.amountA, input.stockA));
+  }
+  if (input.amountB > 1e-9) {
+    lines.push(reportLine(input.chemicalB, input.amountB, input.stockB));
+  }
+  if (input.chemicalC && input.amountC != null && input.amountC > 1e-9) {
+    lines.push(
+      reportLine(
+        input.chemicalC,
+        input.amountC,
+        checkStock(input.amountC, input.chemicalC.qtyAvailable),
+      ),
+    );
+  }
+  return lines;
+}
+
+function reportLine(chemical: Chemical, amount: number, stock: StockCheck): ReportSuggestion {
   return {
-    eyebrow: `Add ${chemical.name}`,
-    value: `${formatQty(amount)} ${chemical.unit}`,
-    detail:
-      stock.status === "untracked"
-        ? "Stock not tracked"
-        : stock.status === "insufficient"
-          ? `Only ${formatQty(stock.available ?? 0)} ${chemical.unit} in stock`
-          : undefined,
+    id: chemical.id,
+    name: chemical.name,
+    suggestedKg: amount,
+    solidContentPct: chemical.solidContentPct,
+    note: stockNote(stock, chemical.unit),
   };
+}
+
+function stockNote(stock: StockCheck, unit: string) {
+  if (stock.status === "untracked") return "Stock not tracked";
+  if (stock.status === "insufficient") {
+    return `Only ${formatQty(stock.available ?? 0)} ${unit} in stock`;
+  }
+  return undefined;
 }
 
 function logFillLabel(amounts: number[]) {

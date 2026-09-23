@@ -11,6 +11,7 @@ import {
   replayLog,
   roomToCapacity,
   capacityOverflowMessage,
+  previewTankAfterAdds,
   summarizeMix,
   type LogEntryInput,
 } from "./tank-log.ts";
@@ -195,6 +196,37 @@ describe("tank log replay", () => {
       assert.ok(Math.abs(row.used - row.before * fraction) < 1e-6);
       assert.ok(Math.abs(row.remaining - row.before * (1 - fraction)) < 1e-6);
     }
+  });
+
+  test("positive: edited pours replace the suggested solid content", () => {
+    const currentPct = 57250 / 2070;
+    const result = previewTankAfterAdds({
+      currentQty: 2070,
+      currentPct,
+      adds: [
+        { quantity: 1050, solidContentPct: 45 },
+        { quantity: 5250, solidContentPct: 25 },
+      ],
+    });
+    const solids = 57250 + 1050 * 45 + 5250 * 25;
+    assert.equal(result.addedKg, 6300);
+    assert.equal(result.volume, 8370);
+    assert.ok(Math.abs(result.solidPct - solids / 8370) < 1e-9);
+  });
+
+  test("negative: a blank kg and a solid content outside 0 to 100 are left out", () => {
+    const result = previewTankAfterAdds({
+      currentQty: 1000,
+      currentPct: 20,
+      adds: [
+        { quantity: 0, solidContentPct: 45 },
+        { quantity: 100, solidContentPct: 110 },
+        { quantity: 100, solidContentPct: 40 },
+      ],
+    });
+    assert.equal(result.addedKg, 100);
+    assert.equal(result.volume, 1100);
+    assert.ok(Math.abs(result.solidPct - (1000 * 20 + 100 * 40) / 1100) < 1e-9);
   });
 
   test("positive: summarizeMix matches the weighted opening", () => {

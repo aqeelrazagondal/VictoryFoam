@@ -166,6 +166,8 @@ async function run() {
       await gotoTank(page, "/tank/guide/");
       check("ui.guide.1", "guide has first-time setup copy", await visibleText(page, "First-time setup (do this once)"));
       check("ui.guide.2", "guide covers blend / fill / log / composition / planner", await visibleText(page, "Making a fresh batch from scratch?"));
+      check("ui.guide.3", "guide explains editing the suggestion", await visibleText(page, "Change the suggestion"));
+      check("ui.guide.4", "guide explains the local PDF", await visibleText(page, "tank-report.pdf"));
       await gotoTank(page, "/tank/blend/setup/");
       await page.waitForURL("**/tank/setup/");
       check("ui.redirect.setup", "mistaken /tank/blend/setup/ opens tank setup", /\/tank\/setup\/?$/.test(new URL(page.url()).pathname));
@@ -385,7 +387,12 @@ async function run() {
       await page.locator("ul.grid").getByRole("button", { name: /POP 45/ }).click();
       await page.locator("ul.grid").getByRole("button", { name: /POP 25/ }).click();
       check("ui.fill.pos.three", "three-chemical fill is feasible", await visibleText(page, "Feasible"));
-      check("ui.fill.pos.three-line", "locked third fill line is shown", await visibleText(page, /Add Conventional/));
+      check(
+        "ui.fill.pos.three-line",
+        "locked third fill line is shown",
+        (await visibleText(page, "Conventional")) &&
+          (await visibleText(page, /Calculator suggested 1[\s\u00a0\u202f]?000 kg/)),
+      );
       check("ui.fill.pos.three-log", "three-chemical fill offers three log entries", await visibleText(page, "Log this (3 Add Batch entries)"));
       await context.close();
     }
@@ -702,6 +709,65 @@ async function run() {
         "ui.hub.neg.overdraw",
         "57 kg/min for 77 min is refused when the tank is only 2,070 kg",
         await visibleText(page, "Cannot consume more than the current tank volume."),
+      );
+      await context.close();
+    }
+
+    {
+      const chemicals = [
+        chemical("c0", "Conventional polyol", 0),
+        chemical("c25", "Polymer polyol 25", 25),
+        chemical("c45", "Polymer polyol 45", 45),
+      ];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: 8000, heel: 0 },
+          entries: [
+            logEntry("1", "opening_balance", 700, { chemicalId: "c0", solidContentPct: 0 }),
+            logEntry("2", "opening_balance", 220, { chemicalId: "c25", solidContentPct: 25 }),
+            logEntry("3", "opening_balance", 1150, { chemicalId: "c45", solidContentPct: 45 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/");
+      await page.getByRole("button", { name: "Add to the tank" }).click();
+      await page.locator("#target-kg").fill("8000");
+      await page.locator("#target-pct").fill("28");
+      const pickers = page.locator("ul.grid");
+      await pickers.nth(0).getByRole("button", { name: /Polymer polyol 45/ }).click();
+      await pickers.nth(1).getByRole("button", { name: /Polymer polyol 25/ }).click();
+      const solid = page.locator("p.hero-number.mt-1");
+      await solid.waitFor();
+      const suggested = (await solid.innerText()).trim();
+      check("ui.report.pos.suggestion", "the suggestion shows your solid content", suggested.length > 0);
+      check(
+        "ui.report.pos.hint",
+        "each line keeps the calculator suggestion",
+        await visibleText(page, /Calculator suggested/),
+      );
+      const save = page.getByRole("button", { name: "Add this to the tank" });
+      check("ui.report.pos.save", "a fit suggestion can be saved", await save.isEnabled());
+      await page.locator("#report-c45-kg").fill("1050");
+      await page.locator("#report-c25-kg").fill("5250");
+      await page.locator("#report-c45-pct").fill("44");
+      const edited = (await solid.innerText()).trim();
+      check("ui.report.pos.edited", "typed kg and solid content replace the suggestion", edited !== suggested);
+      check(
+        "ui.report.neg.overcap",
+        "a typed pour over the tank size is refused",
+        (await visibleText(page, /The tank holds/)) && (await save.isDisabled()),
+      );
+      const [download] = await Promise.all([
+        page.waitForEvent("download"),
+        page.getByRole("button", { name: "Download PDF" }).click(),
+      ]);
+      check("ui.report.pos.pdf", "the edited report downloads on this device", download.suggestedFilename() === "tank-report.pdf");
+      check(
+        "ui.report.neg.unsaved",
+        "downloading the PDF does not write the log",
+        (await page.getByRole("heading", { name: "Add to the tank" }).count()) === 1,
       );
       await context.close();
     }
