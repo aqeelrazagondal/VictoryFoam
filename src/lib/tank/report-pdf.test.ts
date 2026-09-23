@@ -42,6 +42,8 @@ test("the pour sheet draws the solid content, the pours, and the capacity note",
   assert.match(pdf, /^%PDF-1\.4/);
   assert.match(pdf, /Helvetica-Bold/);
   assert.match(pdf, / re\nf/);
+  assert.match(pdf, /UMAR/);
+  assert.doesNotMatch(pdf, /Victory Foam|VICTORY FOAM/);
   assert.match(pdf, /Tank report/);
   assert.match(pdf, /23 September 2026/);
   assert.match(pdf, /YOUR SOLID CONTENT|OVER THE TANK SIZE/);

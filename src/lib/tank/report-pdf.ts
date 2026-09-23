@@ -83,7 +83,7 @@ function paintReport(report: TankReport) {
 
   const headerH = 104;
   fill(ops, 0, PAGE_H - headerH, PAGE_W, headerH, PINE);
-  text(ops, MARGIN, PAGE_H - 40, 10, "F1", MIST, "VICTORY FOAM");
+  text(ops, MARGIN, PAGE_H - 40, 10, "F1", MIST, "UMAR");
   text(ops, MARGIN, PAGE_H - 74, 28, "F2", WHITE, "Tank report");
   const date = prettyDate(report.date);
   text(ops, PAGE_W - MARGIN - textWidth(date, 11), PAGE_H - 42, 11, "F1", MIST, date);

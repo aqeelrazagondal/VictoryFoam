@@ -134,7 +134,7 @@ export function EditableReport({
       <div className="bg-[#14322c] px-5 py-5 text-[#f4f7f4]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[0.7rem] font-semibold tracking-[0.22em] text-[#b7d0c6]">VICTORY FOAM</p>
+            <p className="text-[0.7rem] font-semibold tracking-[0.22em] text-[#b7d0c6]">UMAR</p>
             <p className="mt-1 font-heading text-2xl font-semibold tracking-tight">Tank report</p>
           </div>
           <StatusBadge status={status} />
