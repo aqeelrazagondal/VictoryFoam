@@ -55,7 +55,8 @@ export function HubPage() {
       <div>
         <h1>Foam calculator</h1>
         <p className="mt-2 text-muted-foreground">
-          One decision at a time. Blend a batch, or track a holding tank if you have one.
+          One decision at a time. Blend a fresh batch (2 or 3 drums), fill the tank, or ask
+          Planner how much of one drum to add. Open the ? guide if you are unsure which screen.
         </p>
       </div>
 

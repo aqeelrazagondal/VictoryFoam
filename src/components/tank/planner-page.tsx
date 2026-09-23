@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
@@ -126,8 +127,17 @@ export function PlannerPage() {
     <div className="space-y-5 pb-10">
       <h1>Tank planner</h1>
       <p className="text-muted-foreground">
-        What-if tools only. Drawable now: {formatQty(drawableNow(snapshot.volume, heel))} kg. Log
-        entries: {logCount}.
+        What-if only — nothing is saved here. Planner uses <strong className="text-foreground">one
+        chemical</strong>. For two or three drums use{" "}
+        <Link href="/tank/fill/" className="font-medium text-primary underline-offset-4 hover:underline">
+          Fill
+        </Link>{" "}
+        (tank already has something) or{" "}
+        <Link href="/tank/blend/" className="font-medium text-primary underline-offset-4 hover:underline">
+          Blend
+        </Link>{" "}
+        (fresh batch). Drawable now: {formatQty(drawableNow(snapshot.volume, heel))} kg. Log entries:{" "}
+        {logCount}.
       </p>
       <div className="grid grid-cols-2 gap-2">
         <Button
@@ -182,9 +192,9 @@ export function PlannerPage() {
       ) : (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Type the Solid Content % you want, such as 53%. The last logged tank is used unless you
-            edit the volume or % below. The calculator then names which chemical to add, and how
-            many kg.
+            Type the Solid Content % you want, such as 53%. Then pick <strong className="text-foreground">one</strong>{" "}
+            chemical. You cannot select several here — that would need Fill or Blend. The last
+            logged tank is used unless you edit the volume or % below.
           </p>
           <p className="text-sm">
             Last logged tank: {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
