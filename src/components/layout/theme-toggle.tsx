@@ -6,7 +6,7 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
 
@@ -15,7 +15,7 @@ export function ThemeToggle() {
       variant="ghost"
       size="icon"
       aria-label="Toggle theme"
-      className="relative min-h-11 min-w-11"
+      className={cn("relative min-h-11 min-w-11", className)}
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
       <Sun className={cn("h-4 w-4 transition-transform", isDark ? "scale-0" : "scale-100")} />

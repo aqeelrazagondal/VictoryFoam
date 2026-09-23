@@ -53,26 +53,26 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to calculator
       </a>
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
-        <div className="container-tank flex items-center justify-between gap-2 py-3">
-          <Link href="/tank/" className="font-heading text-lg font-semibold">
+        <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-2 px-4 py-1.5 md:max-w-2xl md:px-6">
+          <Link href="/tank/" className="font-heading text-base font-semibold">
             Tank calculator
           </Link>
-          <div className="flex items-center gap-1">
-            <Button asChild variant="ghost" size="icon" className="min-h-11 min-w-11">
+          <div className="flex items-center">
+            <Button asChild variant="ghost" size="icon" className="size-9 min-h-9 min-w-9">
               <Link href="/tank/guide/" aria-label="Open the in-app guide">
-                <CircleHelp className="size-5" />
+                <CircleHelp className="size-4" />
               </Link>
             </Button>
-            <ThemeToggle />
+            <ThemeToggle className="size-9 min-h-9 min-w-9" />
             {configured ? (
               <Button
                 variant="ghost"
                 size="icon"
-                className="min-h-11 min-w-11"
+                className="size-9 min-h-9 min-w-9"
                 aria-label="Sign out"
                 onClick={() => void signOut()}
               >
-                <LogOut className="size-5" />
+                <LogOut className="size-4" />
               </Button>
             ) : null}
           </div>
@@ -80,14 +80,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav
           aria-label="Calculator"
           data-tank-state={loading ? "loading" : tankReady ? "ready" : "empty"}
-          className="container-tank overflow-x-auto pb-3"
+          className="mx-auto w-full max-w-xl overflow-x-auto px-4 pb-2 md:max-w-2xl md:px-6"
         >
-          <ul className="flex gap-2">
+          <ul id="calculator-more" className="flex flex-wrap gap-1.5">
             <li>
               <Link
                 href={HOME_LINK.href}
                 className={cn(
-                  "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium",
+                  "inline-flex h-8 items-center rounded-full px-3 text-sm font-medium",
                   isActive(pathname, HOME_LINK.href)
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground",
@@ -101,7 +101,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 className={cn(
-                  "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium",
+                  "inline-flex h-8 items-center rounded-full px-3 text-sm font-medium",
                   showMore ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
                 )}
                 aria-expanded={showMore}
@@ -111,27 +111,25 @@ export function AppShell({ children }: { children: ReactNode }) {
                 More
               </button>
             </li>
+            {showMore
+              ? moreLinks.map((link) => (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className={cn(
+                        "inline-flex h-8 items-center rounded-full px-3 text-sm font-medium",
+                        isActive(pathname, link.href)
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-foreground",
+                      )}
+                      aria-current={isActive(pathname, link.href) ? "page" : undefined}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))
+              : null}
           </ul>
-          {showMore ? (
-            <ul id="calculator-more" className="mt-2 flex gap-2">
-              {moreLinks.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className={cn(
-                      "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium",
-                      isActive(pathname, link.href)
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground",
-                    )}
-                    aria-current={isActive(pathname, link.href) ? "page" : undefined}
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : null}
         </nav>
       </header>
       <main id="tank-main" className="container-tank flex-1">
