@@ -35,7 +35,7 @@ export function SetupPage() {
         <h1>Set up your tank</h1>
         <EmptyState
           title="Tank already set up"
-          description="Opening Balance is already in the log. Use Tank Log to add batches or usage."
+          description="The tank already has a starting amount. Use Home to pour or record what you used."
           actionLabel="Open tank log"
           actionHref="/tank/log/"
         />
@@ -82,7 +82,7 @@ export function SetupPage() {
     <div className="space-y-5 pb-10">
       <h1>Set up your tank</h1>
       <p className="text-muted-foreground">
-        Optional. This unlocks Fill Calculator, Tank Log, Composition, and Planner.
+        Do this once, before anything is in the tank. After you save, day-to-day work is on Home.
       </p>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <StepWizard steps={steps} currentIndex={step} onJump={setStep}>
@@ -152,26 +152,28 @@ export function SetupPage() {
         ) : null}
         {step === 3 ? (
           <div className="space-y-4">
-            <Field id="capacity" label="Tank capacity (optional)">
-              <Input
-                id="capacity"
-                inputMode="decimal"
-                value={capacity}
-                onChange={(event) => setCapacity(event.target.value)}
-              />
-            </Field>
-            <Field
-              id="heel"
-              label="Heel / dead stock (optional)"
-              hint="Warning threshold only. It does not change the math."
-            >
-              <Input
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field id="capacity" label="Tank capacity (optional)">
+                <Input
+                  id="capacity"
+                  inputMode="decimal"
+                  value={capacity}
+                  onChange={(event) => setCapacity(event.target.value)}
+                />
+              </Field>
+              <Field
                 id="heel"
-                inputMode="decimal"
-                value={heel}
-                onChange={(event) => setHeel(event.target.value)}
-              />
-            </Field>
+                label="Minimum left in the tank (optional)"
+                hint="A warning only, sometimes called the heel. The tank can still go below this."
+              >
+                <Input
+                  id="heel"
+                  inputMode="decimal"
+                  value={heel}
+                  onChange={(event) => setHeel(event.target.value)}
+                />
+              </Field>
+            </div>
             <Button size="touch" className="w-full" disabled={saving} onClick={() => void complete()}>
               {saving ? "Saving…" : "Start tracking"}
             </Button>

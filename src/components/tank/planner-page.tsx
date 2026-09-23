@@ -113,7 +113,7 @@ export function PlannerPage() {
         <h1>Tank planner</h1>
         <EmptyState
           title="Set up your tank first"
-          description="Planner uses current tank state and never writes to the log until you do that yourself in Tank Log."
+          description="This tries one chemical against the tank you already have. Say what is in the tank on Home first. Nothing is saved here."
           actionLabel="Set up tank"
           actionHref="/tank/setup/"
         />
@@ -141,8 +141,8 @@ export function PlannerPage() {
     <div className="space-y-5 pb-10">
       <h1>Tank planner</h1>
       <p className="text-muted-foreground">
-        What-if only — nothing is saved here. Planner uses <strong className="text-foreground">one
-        chemical</strong>. For two or three drums use{" "}
+        Try one chemical before you pour. Nothing is saved here. Planner uses{" "}
+        <strong className="text-foreground">one chemical</strong>. For two or three drums use{" "}
         <Link href="/tank/fill/" className="font-medium text-primary underline-offset-4 hover:underline">
           Fill
         </Link>{" "}
@@ -150,8 +150,8 @@ export function PlannerPage() {
         <Link href="/tank/blend/" className="font-medium text-primary underline-offset-4 hover:underline">
           Blend
         </Link>{" "}
-        (fresh batch). Drawable now: {formatQty(drawableNow(snapshot.volume, heel))} kg. Log entries:{" "}
-        {logCount}.
+        (fresh batch). You can still use {formatQty(drawableNow(snapshot.volume, heel))} kg. Log
+        entries: {logCount}.
       </p>
       <div className="grid grid-cols-2 gap-2">
         <Button
@@ -175,22 +175,24 @@ export function PlannerPage() {
           <p className="text-sm text-muted-foreground">
             Type a batch quantity and Solid Content % to see the tank afterwards. Nothing is saved.
           </p>
-          <Field id="preview-qty" label="Hypothetical batch quantity (kg)">
-            <Input
-              id="preview-qty"
-              inputMode="decimal"
-              value={addQty}
-              onChange={(event) => setAddQty(event.target.value)}
-            />
-          </Field>
-          <Field id="preview-pct" label="Batch Solid Content %">
-            <Input
-              id="preview-pct"
-              inputMode="decimal"
-              value={addPct}
-              onChange={(event) => setAddPct(event.target.value)}
-            />
-          </Field>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field id="preview-qty" label="Hypothetical batch quantity (kg)">
+              <Input
+                id="preview-qty"
+                inputMode="decimal"
+                value={addQty}
+                onChange={(event) => setAddQty(event.target.value)}
+              />
+            </Field>
+            <Field id="preview-pct" label="Batch Solid Content %">
+              <Input
+                id="preview-pct"
+                inputMode="decimal"
+                value={addPct}
+                onChange={(event) => setAddPct(event.target.value)}
+              />
+            </Field>
+          </div>
           {preview ? (
             <ResultCard
               status="feasible"
@@ -214,28 +216,30 @@ export function PlannerPage() {
             Last logged tank: {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
             {usingLastTank ? "" : " · using your edited values for this what-if"}
           </p>
-          <Field id="tank-qty" label="Tank quantity (kg)" hint="Leave blank to use the last logged volume.">
-            <Input
-              id="tank-qty"
-              inputMode="decimal"
-              value={overrideQty}
-              onChange={(event) => setOverrideQty(event.target.value)}
-              placeholder={String(snapshot.volume)}
-            />
-          </Field>
-          <Field
-            id="tank-pct"
-            label="Tank Solid Content %"
-            hint="Leave blank to use the last logged solid %."
-          >
-            <Input
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field id="tank-qty" label="Tank quantity (kg)" hint="Leave blank to use the last logged volume.">
+              <Input
+                id="tank-qty"
+                inputMode="decimal"
+                value={overrideQty}
+                onChange={(event) => setOverrideQty(event.target.value)}
+                placeholder={String(snapshot.volume)}
+              />
+            </Field>
+            <Field
               id="tank-pct"
-              inputMode="decimal"
-              value={overridePct}
-              onChange={(event) => setOverridePct(event.target.value)}
-              placeholder={String(snapshot.solidPct)}
-            />
-          </Field>
+              label="Tank Solid Content %"
+              hint="Leave blank to use the last logged solid %."
+            >
+              <Input
+                id="tank-pct"
+                inputMode="decimal"
+                value={overridePct}
+                onChange={(event) => setOverridePct(event.target.value)}
+                placeholder={String(snapshot.solidPct)}
+              />
+            </Field>
+          </div>
           {usingLastTank ? null : (
             <Button variant="outline" size="touch" onClick={resetToLastTank}>
               Use last logged tank

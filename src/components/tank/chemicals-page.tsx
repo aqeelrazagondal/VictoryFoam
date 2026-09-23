@@ -166,11 +166,15 @@ export function ChemicalsPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1>Chemicals</h1>
-          <p className="mt-1 text-muted-foreground">Name and Solid Content % are enough.</p>
+          <p className="mt-1 text-muted-foreground">
+            Name and solid content live here. Kilograms still in the drums are on Shelf stock.
+          </p>
         </div>
-        <Button size="touch" onClick={startAdd}>
-          Add
-        </Button>
+        {!loading && !listLoading && pageTotal > 0 ? (
+          <Button size="touch" onClick={startAdd}>
+            Add a chemical
+          </Button>
+        ) : null}
       </div>
 
       {loading || listLoading ? <p className="text-muted-foreground">Loading…</p> : null}
@@ -183,8 +187,8 @@ export function ChemicalsPage() {
       {!loading && !listLoading && pageTotal === 0 ? (
         <EmptyState
           title="Add your first chemical"
-          description="Nothing else is required to start using Blend Calculator."
-          actionLabel="Add chemical"
+          description="A name and a solid content are enough. Kilograms go on Shelf stock after that."
+          actionLabel="Add a chemical"
           onAction={startAdd}
         />
       ) : (
@@ -196,16 +200,15 @@ export function ChemicalsPage() {
                   <div>
                     <p className="font-heading text-lg font-semibold">{chemical.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatPct(chemical.solidContentPct)}
+                      {formatPct(chemical.solidContentPct)} solid content
                       {" · "}
                       {chemical.qtyAvailable === null
-                        ? "Not tracked"
+                        ? "Not tracked yet. No kilograms on the shelf yet."
                         : `${formatQty(chemical.qtyAvailable)} ${chemical.unit} on the shelf`}
-                      {" · "}
-                      <Link href="/tank/inventory/" className="font-medium text-primary underline-offset-4 hover:underline">
-                        Inventory
-                      </Link>
                     </p>
+                    <Button asChild variant="link" size="touch" className="h-auto min-h-0 px-0">
+                      <Link href="/tank/inventory/">Update shelf stock</Link>
+                    </Button>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="touch" onClick={() => startEdit(chemical)}>
@@ -268,88 +271,115 @@ export function ChemicalsPage() {
       )}
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl">
+        <SheetContent side="bottom">
           <SheetHeader>
-            <SheetTitle>{editing ? "Edit chemical" : "Add chemical"}</SheetTitle>
+            <SheetTitle>{editing ? "Edit chemical" : "Add a chemical"}</SheetTitle>
           </SheetHeader>
           <div className="mt-6 space-y-4">
-            <Field id="chem-name" label="Name" error={nameError ?? undefined}>
-              <Input
-                id="chem-name"
-                value={draft.name}
-                onChange={(event) => {
-                  setDraft({ ...draft, name: event.target.value });
-                  setNameError(null);
-                }}
-                aria-invalid={Boolean(nameError)}
-                aria-describedby={nameError ? "chem-name-error" : undefined}
-              />
-            </Field>
-            <Field id="chem-pct" label="Solid Content %" error={pctError ?? undefined}>
-              <Input
-                id="chem-pct"
-                inputMode="decimal"
-                value={Number.isFinite(draft.solidContentPct) ? String(draft.solidContentPct) : ""}
-                onChange={(event) => {
-                  const parsed = parseNumber(event.target.value);
-                  setDraft({ ...draft, solidContentPct: parsed ?? Number.NaN });
-                  setPctError(null);
-                }}
-              />
-            </Field>
+            {!editing ? (
+              <p className="text-sm text-muted-foreground">
+                A name and a solid content are enough to start.
+              </p>
+            ) : null}
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field id="chem-name" label="Name" error={nameError ?? undefined}>
+                <Input
+                  id="chem-name"
+                  value={draft.name}
+                  onChange={(event) => {
+                    setDraft({ ...draft, name: event.target.value });
+                    setNameError(null);
+                  }}
+                  aria-invalid={Boolean(nameError)}
+                  aria-describedby={nameError ? "chem-name-error" : undefined}
+                />
+              </Field>
+              <Field id="chem-pct" label="Solid Content %" error={pctError ?? undefined}>
+                <Input
+                  id="chem-pct"
+                  inputMode="decimal"
+                  value={Number.isFinite(draft.solidContentPct) ? String(draft.solidContentPct) : ""}
+                  onChange={(event) => {
+                    const parsed = parseNumber(event.target.value);
+                    setDraft({ ...draft, solidContentPct: parsed ?? Number.NaN });
+                    setPctError(null);
+                  }}
+                />
+              </Field>
+            </div>
             {showDetails ? (
               <>
                 {editing ? (
                   <p className="text-sm text-muted-foreground">
                     On hand is{" "}
                     {editing.qtyAvailable === null
-                      ? "not tracked"
+                      ? "no kilograms on the shelf yet"
                       : `${formatQty(editing.qtyAvailable)} ${editing.unit}`}
-                    . Change it on <Link href="/tank/inventory/" className="font-medium text-primary underline-offset-4 hover:underline">Inventory</Link>.
+                    . Change kilograms on{" "}
+                    <Link
+                      href="/tank/inventory/"
+                      className="font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      Shelf stock
+                    </Link>
+                    .
                   </p>
                 ) : (
-                  <Field
-                    id="chem-qty"
-                    label="Opening stock (kg)"
-                    hint="Kilograms on the shelf now. Leave blank if stock is not tracked. Later changes are on Inventory."
-                  >
-                    <Input
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field
                       id="chem-qty"
+                      label="Opening stock (kg)"
+                      hint="Kilograms on the shelf now. Leave blank and enter them later on Shelf stock."
+                    >
+                      <Input
+                        id="chem-qty"
+                        inputMode="decimal"
+                        value={draft.qtyAvailable ?? ""}
+                        onChange={(event) =>
+                          setDraft({ ...draft, qtyAvailable: parseNumber(event.target.value) })
+                        }
+                      />
+                    </Field>
+                    <Field id="chem-unit" label="Unit">
+                      <Input
+                        id="chem-unit"
+                        value={draft.unit}
+                        onChange={(event) => setDraft({ ...draft, unit: event.target.value })}
+                      />
+                    </Field>
+                  </div>
+                )}
+                {editing ? (
+                  <Field id="chem-unit" label="Unit">
+                    <Input
+                      id="chem-unit"
+                      value={draft.unit}
+                      onChange={(event) => setDraft({ ...draft, unit: event.target.value })}
+                    />
+                  </Field>
+                ) : null}
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field id="chem-oh" label="OH value" hint="Reference only — never used in calculations.">
+                    <Input
+                      id="chem-oh"
                       inputMode="decimal"
-                      value={draft.qtyAvailable ?? ""}
+                      value={draft.ohValue ?? ""}
                       onChange={(event) =>
-                        setDraft({ ...draft, qtyAvailable: parseNumber(event.target.value) })
+                        setDraft({ ...draft, ohValue: parseNumber(event.target.value) })
                       }
                     />
                   </Field>
-                )}
-                <Field id="chem-unit" label="Unit">
-                  <Input
-                    id="chem-unit"
-                    value={draft.unit}
-                    onChange={(event) => setDraft({ ...draft, unit: event.target.value })}
-                  />
-                </Field>
-                <Field id="chem-oh" label="OH value" hint="Reference only — never used in calculations.">
-                  <Input
-                    id="chem-oh"
-                    inputMode="decimal"
-                    value={draft.ohValue ?? ""}
-                    onChange={(event) =>
-                      setDraft({ ...draft, ohValue: parseNumber(event.target.value) })
-                    }
-                  />
-                </Field>
-                <Field id="chem-visc" label="Viscosity" hint="Reference only — never used in calculations.">
-                  <Input
-                    id="chem-visc"
-                    inputMode="decimal"
-                    value={draft.viscosity ?? ""}
-                    onChange={(event) =>
-                      setDraft({ ...draft, viscosity: parseNumber(event.target.value) })
-                    }
-                  />
-                </Field>
+                  <Field id="chem-visc" label="Viscosity" hint="Reference only — never used in calculations.">
+                    <Input
+                      id="chem-visc"
+                      inputMode="decimal"
+                      value={draft.viscosity ?? ""}
+                      onChange={(event) =>
+                        setDraft({ ...draft, viscosity: parseNumber(event.target.value) })
+                      }
+                    />
+                  </Field>
+                </div>
               </>
             ) : (
               <Button type="button" variant="ghost" size="touch" onClick={() => setShowDetails(true)}>

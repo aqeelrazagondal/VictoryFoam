@@ -350,8 +350,8 @@ export function HubPage() {
       <div>
         <h1>Tank</h1>
         <p className="mt-2 text-muted-foreground">
-          Add chemical up to the tank size, or record what you used. You can also edit the kilograms
-          or overall solid content below.
+          This is what is already in the tank. Pour more with Add to the tank. After a job, use I
+          used some. Drums you have not poured yet are on Shelf stock.
         </p>
       </div>
 
@@ -362,7 +362,8 @@ export function HubPage() {
       ) : null}
       {isHeelBreach(display.volume, heel) ? (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
-          Running volume is below the heel. Check the log.
+          The tank is below the heel, the minimum you want left in it. Check the log if that looks
+          wrong.
         </p>
       ) : null}
 
@@ -421,28 +422,38 @@ export function HubPage() {
             actionHref="/tank/chemicals/"
           />
         ) : (
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <Button
+              size="touch"
+              className="w-full"
+              onClick={() => {
+                setNotice(null);
+                setPanel("add");
+              }}
+            >
+              Add to the tank
+            </Button>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Pour drums in. When you confirm, those kilograms leave Shelf stock.
+            </p>
+          </div>
+        )}
+        <div className="rounded-2xl border border-border bg-card p-4">
           <Button
             size="touch"
+            variant="secondary"
             className="w-full"
             onClick={() => {
               setNotice(null);
-              setPanel("add");
+              setPanel("use");
             }}
           >
-            Add to the tank
+            I used some
           </Button>
-        )}
-        <Button
-          size="touch"
-          variant="secondary"
-          className="w-full"
-          onClick={() => {
-            setNotice(null);
-            setPanel("use");
-          }}
-        >
-          I used some
-        </Button>
+          <p className="mt-2 text-sm text-muted-foreground">
+            After a job. Each chemical drops by the same share. Shelf stock stays as it is.
+          </p>
+        </div>
       </div>
     </div>
   );

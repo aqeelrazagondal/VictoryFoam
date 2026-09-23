@@ -63,7 +63,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
           Sign in to load chemicals and the tank log. Ask the site owner for the shared factory
           account.
         </p>
-        <form onSubmit={onSubmit} className="mt-8 space-y-4">
+        <form onSubmit={onSubmit} className="mx-auto mt-8 w-full max-w-md space-y-4">
           <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium">
               Email

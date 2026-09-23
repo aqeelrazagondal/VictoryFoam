@@ -165,7 +165,8 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
         <h1>Add to the tank</h1>
         <p className="mt-2 text-muted-foreground">
           Type how full the tank should be this time (at or below the tank size), the solid content
-          you need, and which polyols to use. Every fill asks for the kg again.
+          you need, and which polyols to use. Every fill asks for the kg again. Confirming the pour
+          takes those kilograms off Shelf stock.
         </p>
       </div>
 
@@ -182,7 +183,7 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
         </Field>
       ) : null}
 
-      <div className="grid gap-2" role="group" aria-label="Which polyols will you add?">
+      <div className="grid gap-2 md:grid-cols-3" role="group" aria-label="Which polyols will you add?">
         {MODES.map((option) => (
           <button
             key={option.id}
@@ -223,25 +224,27 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
         </p>
       )}
 
-      <Field id="use-about" label="I will use about (kg, optional)" hint={useHint}>
-        <Input
-          id="use-about"
-          inputMode="decimal"
-          value={useAbout}
-          onChange={(event) => onUseAboutChange(event.target.value)}
-          placeholder="4389"
-        />
-      </Field>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field id="use-about" label="I will use about (kg, optional)" hint={useHint}>
+          <Input
+            id="use-about"
+            inputMode="decimal"
+            value={useAbout}
+            onChange={(event) => onUseAboutChange(event.target.value)}
+            placeholder="4389"
+          />
+        </Field>
 
-      <Field id="target-pct" label="Solid content you need (%)">
-        <Input
-          id="target-pct"
-          inputMode="decimal"
-          value={targetPctText}
-          onChange={(event) => setTargetPctText(event.target.value)}
-          placeholder="28.7"
-        />
-      </Field>
+        <Field id="target-pct" label="Solid content you need (%)">
+          <Input
+            id="target-pct"
+            inputMode="decimal"
+            value={targetPctText}
+            onChange={(event) => setTargetPctText(event.target.value)}
+            placeholder="28.7"
+          />
+        </Field>
+      </div>
 
       <div className="space-y-4">
           <div className="space-y-2">

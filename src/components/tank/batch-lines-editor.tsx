@@ -108,7 +108,7 @@ export function BatchLinesEditor({
                 >
                   Leave unattributed
                 </Button>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                   <Field id={`${line.key}-kg`} label="kg">
                     <Input
                       id={`${line.key}-kg`}

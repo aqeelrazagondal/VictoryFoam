@@ -172,7 +172,7 @@ export function BlendPage() {
       }
       await refresh();
       setRecordedKey(useKey);
-      setUsedMessage("Taken off the shelf. The tank log was not changed.");
+      setUsedMessage("Taken off the shelf. The tank was not filled.");
     } catch (caught) {
       setUsedError(caught instanceof TankError ? caught.message : "Could not record this blend.");
     } finally {
@@ -192,8 +192,9 @@ export function BlendPage() {
     <div className="space-y-5 pb-10">
       <h1>Blend calculator</h1>
       <p className="text-muted-foreground">
-        Mix a fresh batch from two chemicals, or lock a third amount if you need three. No tank
-        involved. To raise or lower the last tank to a target % such as 53%, use{" "}
+        Mix a fresh batch in a drum or mixer. This does not change the tank. Take this off the shelf
+        when those drums are gone. To change what is already in the tank, go back to Home. To try
+        one chemical first, use{" "}
         <Link href="/tank/planner/" className="font-medium text-primary underline-offset-4 hover:underline">
           Tank Planner
         </Link>
@@ -348,13 +349,16 @@ export function BlendPage() {
                         {usedError}
                       </p>
                     ) : null}
+                    <p className="text-sm text-muted-foreground">
+                      This takes the kilograms off the shelf. It does not fill the tank.
+                    </p>
                     <Button
                       size="touch"
                       className="w-full"
                       disabled={recording || recordedKey === useKey}
                       onClick={() => void recordUsed()}
                     >
-                      {recording ? "Saving…" : "Record as used"}
+                      {recording ? "Saving…" : recordedKey === useKey ? "Taken off the shelf" : "Take this off the shelf"}
                     </Button>
                   </div>
                 ) : (

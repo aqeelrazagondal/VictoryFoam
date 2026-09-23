@@ -175,7 +175,7 @@ export function FillPage() {
         <h1>Fill calculator</h1>
         <EmptyState
           title="Set up your tank first"
-          description="Fill Calculator tops up an existing tank. It stays hidden until Opening Balance is logged."
+          description="This tops up a tank that already has something in it. Say what is in the tank on Home first."
           actionLabel="Set up tank"
           actionHref="/tank/"
         />
@@ -244,6 +244,7 @@ export function FillPage() {
     <div className="space-y-5 pb-10">
       <h1>Fill calculator</h1>
       <p className="text-sm text-muted-foreground">
+        Home, then Add to the tank, is the shorter way to top up. This screen does the same sums.
         Tank now: {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}. This is read
         from the log and cannot be edited here.
       </p>

@@ -124,7 +124,7 @@ async function visibleText(page, pattern, timeout = 5000) {
 }
 
 async function addChemicalViaUi(page, { name, pct, qty }) {
-  await primaryButton(page, "Add").click();
+  await page.getByRole("button", { name: "Add a chemical" }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.waitFor();
   await dialog.locator("#chem-name").fill(name);
@@ -149,9 +149,9 @@ async function run() {
       const emptyNav = page.getByRole("navigation", { name: "Calculator" });
       check("ui.empty.2", "Fill stays under More until it is opened", (await emptyNav.getByRole("link", { name: "Fill" }).count()) === 0);
       check("ui.empty.3", "Log stays under More until it is opened", (await emptyNav.getByRole("link", { name: "Log" }).count()) === 0);
+      check("ui.empty.inventory", "Shelf stock sits next to Home", (await emptyNav.getByRole("link", { name: "Shelf stock" }).count()) === 1);
       await page.getByRole("button", { name: "More" }).click();
       check("ui.empty.4", "Set up tank is available under More", (await page.getByRole("link", { name: /Set up tank/i }).count()) > 0);
-      check("ui.empty.inventory", "Inventory is under More", (await page.getByRole("link", { name: "Inventory" }).count()) === 1);
       check("ui.empty.5", "localStorage banner is shown without Supabase", await visibleText(page, "Data is stored on this device"));
       await context.close();
     }
@@ -232,7 +232,7 @@ async function run() {
     {
       const { context, page } = await openPage(browser);
       await gotoTank(page, "/tank/chemicals/");
-      await primaryButton(page, "Add").click();
+      await page.getByRole("button", { name: "Add a chemical" }).first().click();
       const dialog = page.getByRole("dialog");
       await dialog.waitFor();
       await dialog.getByRole("button", { name: "Save" }).click();
@@ -251,10 +251,14 @@ async function run() {
 
       await addChemicalViaUi(page, { name: "POP 10", pct: 10 });
       await addChemicalViaUi(page, { name: "POP 40", pct: 40, qty: 10 });
-      check("ui.chem.pos.untracked", "chemical without qty shows Stock not tracked", await visibleText(page, /not tracked/i));
+      check(
+        "ui.chem.pos.untracked",
+        "chemical without qty says no kilograms on the shelf yet",
+        await visibleText(page, /No kilograms on the shelf yet/i),
+      );
       check("ui.chem.pos.tracked", "chemical with qty shows the stock amount", await page.getByText(/10 kg/).first().isVisible());
 
-      await primaryButton(page, "Add").click();
+      await page.getByRole("button", { name: "Add a chemical" }).first().click();
       await page.getByRole("dialog").waitFor();
       await page.getByRole("dialog").locator("#chem-name").fill("pop 10");
       await page.getByRole("dialog").locator("#chem-pct").fill("10");
@@ -1129,6 +1133,28 @@ async function run() {
     }
 
     {
+      const { context, page } = await openPage(browser, tankState({ chemicals: [] }));
+      await gotoTank(page, "/tank/inventory/");
+      check(
+        "ui.inventory.empty.add",
+        "empty inventory tells the user to add a chemical",
+        await visibleText(page, "Add a chemical") &&
+          await visibleText(page, /A name and a solid content are enough/i),
+      );
+      await primaryButton(page, "Add a chemical").click();
+      const emptyAdd = page.getByRole("dialog");
+      await emptyAdd.waitFor();
+      check(
+        "ui.inventory.empty.name",
+        "empty inventory add form asks for a name",
+        await emptyAdd.locator("#inv-chem-name").isVisible(),
+      );
+      await page.keyboard.press("Escape");
+      await emptyAdd.waitFor({ state: "hidden" });
+      await context.close();
+    }
+
+    {
       const { context, page } = await openPage(
         browser,
         tankState({
@@ -1136,22 +1162,68 @@ async function run() {
         }),
       );
       await gotoTank(page, "/tank/inventory/");
-      check("ui.inventory.pos.untracked", "untracked stock says Not tracked", await visibleText(page, "Not tracked"));
-      await page.getByRole("button", { name: "Receive POP 10" }).click();
+      check(
+        "ui.inventory.pos.add",
+        "inventory with chemicals shows Add a chemical",
+        (await page.getByRole("button", { name: "Add a chemical" }).count()) === 1,
+      );
+      await primaryButton(page, "Add a chemical").click();
+      const addDialog = page.getByRole("dialog");
+      await addDialog.waitFor();
+      check(
+        "ui.inventory.pos.add-name",
+        "opening Add a chemical asks for a name",
+        await addDialog.locator("#inv-chem-name").isVisible(),
+      );
+      await page.keyboard.press("Escape");
+      await addDialog.waitFor({ state: "hidden" });
+      check(
+        "ui.inventory.pos.untracked",
+        "untracked stock says no kilograms on the shelf yet",
+        await visibleText(page, "No kilograms on the shelf yet"),
+      );
+      check(
+        "ui.inventory.pos.receive-primary",
+        "Drums arrived is the primary stock action",
+        (await page.getByRole("button", { name: "Drums arrived for POP 10" }).count()) === 1,
+      );
+      await page.getByRole("button", { name: "Drums arrived for POP 10" }).click();
+      const receiveDialog = page.getByRole("dialog");
+      await receiveDialog.waitFor();
+      check(
+        "ui.inventory.pos.receive-hint",
+        "receive form explains shelf vs tank",
+        await visibleText(page, /does not pour them into the tank/i),
+      );
       await page.locator("#stock-qty").fill("250");
+      check(
+        "ui.inventory.pos.receive-preview",
+        "the form says what the shelf will show",
+        await visibleText(page, /The shelf will show 250 kg/i),
+      );
       await page.getByRole("button", { name: "Save" }).click();
+      await receiveDialog.waitFor({ state: "hidden" });
       check("ui.inventory.pos.receive", "a receive sets on-hand kilograms", await visibleText(page, "250 kg"));
-      await page.getByRole("button", { name: "Issue POP 10" }).click();
+      await page.getByRole("button", { name: "Other change for POP 10" }).click();
+      await page.getByRole("button", { name: "Used somewhere else" }).click();
+      const issueDialog = page.getByRole("dialog");
+      await issueDialog.waitFor();
       await page.locator("#stock-qty").fill("50");
       await page.getByRole("button", { name: "Save" }).click();
+      await issueDialog.waitFor({ state: "hidden" });
       check("ui.inventory.pos.issue", "an issue reduces on-hand kilograms", await visibleText(page, "200 kg"));
-      await page.getByRole("button", { name: "Set count POP 10" }).click();
+      await page.getByRole("button", { name: "Other change for POP 10" }).click();
+      await page.getByRole("button", { name: "I counted the shelf" }).click();
+      const countDialog = page.getByRole("dialog");
+      await countDialog.waitFor();
       await page.locator("#stock-qty").fill("180");
       await page.getByRole("button", { name: "Save" }).click();
+      await countDialog.waitFor({ state: "hidden" });
       check("ui.inventory.pos.count", "a physical count replaces on-hand kilograms", await visibleText(page, "180 kg"));
-      await page.getByRole("button", { name: "History for POP 10" }).click();
-      await page.getByRole("heading", { name: "POP 10 history" }).waitFor();
-      check("ui.inventory.pos.history", "history lists the count and the balance", await visibleText(page, /balance/i));
+      await page.getByRole("button", { name: "Other change for POP 10" }).click();
+      await page.getByRole("button", { name: "What changed" }).click();
+      await page.getByRole("heading", { name: "What changed for POP 10" }).waitFor();
+      check("ui.inventory.pos.history", "history lists the count and what is left", await visibleText(page, /left on the shelf/i));
       await context.close();
     }
 
@@ -1179,15 +1251,14 @@ async function run() {
         "the pour is saved on Home",
         await visibleText(page, /The tank is now/),
       );
-      await page.getByRole("button", { name: "More" }).click();
-      await page.getByRole("link", { name: "Inventory" }).click();
+      await page.getByRole("link", { name: "Shelf stock" }).click();
       await page.waitForURL("**/tank/inventory/**");
       const poured = await page.locator("li").filter({ hasText: "POP 20" }).innerText();
       const untouched = await page.locator("li").filter({ hasText: "Conventional polyol" }).innerText();
       check(
         "ui.inventory.pos.pour",
         "a confirmed pour reduces shelf stock and leaves the opening balance alone",
-        /^500 kg$/m.test(poured) && /Not tracked/.test(untouched),
+        /500 kg on the shelf/.test(poured.replace(/\s+/g, " ")) && /No kilograms on the shelf yet/.test(untouched),
         poured.replace(/\s+/g, " "),
       );
       await context.close();

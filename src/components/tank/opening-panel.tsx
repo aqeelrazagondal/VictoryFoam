@@ -195,7 +195,8 @@ export function OpeningPanel() {
         <h1>What&apos;s in the tank</h1>
         <p className="mt-2 text-muted-foreground">
           Choose the chemical already in the tank, or type one such as Conventional polyol. Then
-          enter the solid content and the kg. The overall solid content is calculated for you.
+          enter the solid content and the kg. The overall solid content is calculated for you. This
+          does not change Shelf stock.
         </p>
       </div>
 
@@ -351,7 +352,7 @@ function OpeningLineFields({
       ) : null}
 
       {chemicalChosen ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2">
           <Field
             id={`${line.key}-pct`}
             label="Solid content %"

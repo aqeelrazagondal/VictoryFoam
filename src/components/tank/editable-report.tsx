@@ -185,7 +185,7 @@ export function EditableReport({
                 <h2 className="font-heading text-lg font-semibold">{row.line.name}</h2>
               </div>
               {row.line.note ? <p className="mt-1 text-sm text-[#5d6d67]">{row.line.note}</p> : null}
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <Field id={`report-${row.line.id}-kg`} label="kg">
                   <Input
                     id={`report-${row.line.id}-kg`}

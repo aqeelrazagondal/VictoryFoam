@@ -56,6 +56,9 @@ export function TankSummary({
             />
             <span className="text-lg font-medium text-muted-foreground">kg</span>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Change this and every chemical scales together.
+          </p>
         </div>
       ) : (
         <p className="hero-number">{formatQty(volume)} kg</p>
@@ -78,12 +81,20 @@ export function TankSummary({
             />
             <span className="text-lg font-medium text-muted-foreground">%</span>
           </div>
+          <p className="text-sm text-muted-foreground">
+            Change this and the kilograms move. The total stays the same.
+          </p>
         </div>
       ) : (
         <p className="hero-number">{formatPct(solidPct)}</p>
       )}
       {room != null ? (
         <p className="mt-4 text-sm">You can add at most {formatQty(room)} kg.</p>
+      ) : null}
+      {editable && rows && rows.length > 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Change one chemical and the others move so the total stays the same.
+        </p>
       ) : null}
       {rows && rows.length > 0 ? (
         <ul className="mt-4 space-y-3 border-t border-border pt-4 text-sm">

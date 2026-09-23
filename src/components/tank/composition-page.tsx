@@ -18,7 +18,7 @@ export function CompositionPage() {
         <h1>Tank composition</h1>
         <EmptyState
           title="Set up your tank first"
-          description="Composition is computed from the tank log."
+          description="Kilograms of each chemical, taken from the tank log. Set the tank up first."
           actionLabel="Set up tank"
           actionHref="/tank/setup/"
         />
@@ -36,7 +36,8 @@ export function CompositionPage() {
     <div className="space-y-5 pb-10">
       <h1>Tank composition</h1>
       <p className="text-muted-foreground">
-        Remaining amounts after every consume, including Opening Balance with nothing else logged.
+        Kilograms of each chemical still in the tank. This follows the log. To change a number, go
+        back to Home.
       </p>
       <ul className="space-y-3">
         {rows.map((row) => (

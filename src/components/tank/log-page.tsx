@@ -352,7 +352,7 @@ export function LogPage() {
         <h1>Tank log</h1>
         <EmptyState
           title="Set up your tank first"
-          description="Tank Log starts with an Opening Balance."
+          description="The log starts when you say what is already in the tank."
           actionLabel="Set up tank"
           actionHref="/tank/"
         />
@@ -376,6 +376,10 @@ export function LogPage() {
         <div>
           <h1>Tank log</h1>
           <p className="text-muted-foreground">
+            History of what went into the tank and what was used. Deleting a pour puts those
+            kilograms back on the shelf.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
             {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
             {room != null ? ` · room for ${formatQty(room)} kg more` : ""}
           </p>
@@ -387,7 +391,8 @@ export function LogPage() {
 
       {isHeelBreach(snapshot.volume, heel) ? (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
-          Running volume is below the heel. Something may have been mis-logged.
+          The tank is below the heel, the minimum you want left in it. Something may have been
+          mis-logged.
         </p>
       ) : null}
 
@@ -568,39 +573,41 @@ export function LogPage() {
       </section>
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="bottom" className="max-h-[92vh] overflow-y-auto rounded-t-2xl">
+        <SheetContent side="bottom">
           <SheetHeader>
             <SheetTitle>{editing ? "Edit entry" : "Add entry"}</SheetTitle>
           </SheetHeader>
           <div className="mt-6 space-y-4">
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium">Type</legend>
-              {(["opening_balance", "add_batch", "consume_usage"] as const)
-                .filter((option) => {
-                  if (editing?.type === option) return true;
-                  if (!tankReady) return option === "opening_balance";
-                  return option !== "opening_balance";
-                })
-                .map((option) => (
-                  <label
-                    key={option}
-                    className="flex min-h-12 items-center gap-3 rounded-xl border border-border px-3"
-                  >
-                    <input
-                      type="radio"
-                      name="log-type"
-                      checked={type === option}
-                      onChange={() => {
-                        setType(option);
-                        if (option === "add_batch" || option === "opening_balance") {
-                          setBatchLines([createBatchLine("line-1")]);
-                        }
-                      }}
-                      className="size-4"
-                    />
-                    {TYPE_LABEL[option]}
-                  </label>
-                ))}
+              <div className="grid gap-2 md:grid-cols-2">
+                {(["opening_balance", "add_batch", "consume_usage"] as const)
+                  .filter((option) => {
+                    if (editing?.type === option) return true;
+                    if (!tankReady) return option === "opening_balance";
+                    return option !== "opening_balance";
+                  })
+                  .map((option) => (
+                    <label
+                      key={option}
+                      className="flex min-h-12 items-center gap-3 rounded-xl border border-border px-3"
+                    >
+                      <input
+                        type="radio"
+                        name="log-type"
+                        checked={type === option}
+                        onChange={() => {
+                          setType(option);
+                          if (option === "add_batch" || option === "opening_balance") {
+                            setBatchLines([createBatchLine("line-1")]);
+                          }
+                        }}
+                        className="size-4"
+                      />
+                      {TYPE_LABEL[option]}
+                    </label>
+                  ))}
+              </div>
             </fieldset>
 
             {type === "consume_usage" ? (
@@ -683,22 +690,24 @@ export function LogPage() {
 
             {editing && type !== "consume_usage" ? (
               <>
-                <Field id="log-qty" label="Quantity (kg)">
-                  <Input
-                    id="log-qty"
-                    inputMode="decimal"
-                    value={quantity}
-                    onChange={(event) => setQuantity(event.target.value)}
-                  />
-                </Field>
-                <Field id="log-pct" label="Solid Content %">
-                  <Input
-                    id="log-pct"
-                    inputMode="decimal"
-                    value={pct}
-                    onChange={(event) => setPct(event.target.value)}
-                  />
-                </Field>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field id="log-qty" label="Quantity (kg)">
+                    <Input
+                      id="log-qty"
+                      inputMode="decimal"
+                      value={quantity}
+                      onChange={(event) => setQuantity(event.target.value)}
+                    />
+                  </Field>
+                  <Field id="log-pct" label="Solid Content %">
+                    <Input
+                      id="log-pct"
+                      inputMode="decimal"
+                      value={pct}
+                      onChange={(event) => setPct(event.target.value)}
+                    />
+                  </Field>
+                </div>
                 <div className="space-y-2">
                   <p className="text-sm font-medium">Chemical (optional)</p>
                   <ChemicalPicker

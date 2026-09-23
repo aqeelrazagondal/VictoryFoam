@@ -64,7 +64,8 @@ export function UsePanel({ onDone, onCancel }: { onDone: (message: string) => vo
         <h1>I used some</h1>
         <p className="mt-2 text-muted-foreground">
           Enter kg per minute and how many minutes. The tank is one mixture, so each polyol is used
-          in the same proportion, and the solid content stays the same.
+          in the same proportion, and the solid content stays the same. This does not change Shelf
+          stock. Those drums were already poured.
         </p>
       </div>
 

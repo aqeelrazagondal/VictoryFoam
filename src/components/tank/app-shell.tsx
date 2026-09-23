@@ -11,21 +11,54 @@ import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/tank/client";
 import { useTank } from "@/lib/tank/context";
 import { cn } from "@/lib/utils";
 
-const HOME_LINK = { href: "/tank/", label: "Home" } as const;
+const HOME_LINK = { href: "/tank/", label: "Home", hint: "What is already in the tank" } as const;
+const SHELF_LINK = { href: "/tank/inventory/", label: "Shelf stock", hint: "Drums you have not poured" } as const;
 
 const MORE_LINKS = [
-  { href: "/tank/chemicals/", label: "Chemicals" },
-  { href: "/tank/inventory/", label: "Inventory" },
-  { href: "/tank/blend/", label: "Blend" },
-  { href: "/tank/fill/", label: "Fill" },
-  { href: "/tank/log/", label: "Log" },
-  { href: "/tank/composition/", label: "Composition" },
-  { href: "/tank/planner/", label: "Planner" },
+  { href: "/tank/chemicals/", label: "Chemicals", hint: "Names and solid content" },
+  { href: "/tank/blend/", label: "Blend", hint: "A fresh mix, not the tank" },
+  { href: "/tank/fill/", label: "Fill", hint: "Older way to top the tank up" },
+  { href: "/tank/log/", label: "Log", hint: "History of what went in and out" },
+  { href: "/tank/composition/", label: "Composition", hint: "How many kg of each chemical" },
+  { href: "/tank/planner/", label: "Planner", hint: "Try one chemical. Nothing is saved" },
 ] as const;
 
 function isActive(pathname: string, href: string) {
   if (href === "/tank/") return pathname === "/tank" || pathname === "/tank/";
   return pathname === href || pathname === href.replace(/\/$/, "");
+}
+
+function NavChip({
+  href,
+  label,
+  hint,
+  current,
+}: {
+  href: string;
+  label: string;
+  hint: string;
+  current: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "inline-flex min-h-8 flex-col justify-center rounded-2xl px-3 py-1.5 text-sm",
+        current ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+      )}
+      aria-current={current ? "page" : undefined}
+    >
+      <span className="font-medium leading-tight">{label}</span>
+      <span
+        className={cn(
+          "text-xs leading-tight",
+          current ? "text-primary-foreground/80" : "text-muted-foreground",
+        )}
+      >
+        {hint}
+      </span>
+    </Link>
+  );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -34,7 +67,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const configured = isSupabaseConfigured();
   const moreLinks = [
     ...MORE_LINKS,
-    ...(loading || tankReady ? [] : [{ href: "/tank/setup/", label: "Set up tank" }]),
+    ...(loading || tankReady
+      ? []
+      : [{ href: "/tank/setup/", label: "Set up tank", hint: "First time only" }]),
   ];
   const moreActive = moreLinks.some((link) => isActive(pathname, link.href));
   const [moreOpen, setMoreOpen] = useState(false);
@@ -54,14 +89,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to calculator
       </a>
       <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-2 px-4 py-1.5 md:max-w-2xl md:px-6">
+        <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-2 px-4 py-1.5 md:max-w-3xl md:px-6 lg:max-w-[48rem]">
           <Link href="/tank/" className="font-heading text-base font-semibold">
             Tank calculator
           </Link>
           <div className="flex items-center">
-            <Button asChild variant="ghost" size="icon" className="size-9 min-h-9 min-w-9">
-              <Link href="/tank/guide/" aria-label="Open the in-app guide">
+            <Button asChild variant="ghost" className="h-9 min-h-9 gap-1.5 px-2">
+              <Link href="/tank/guide/">
                 <CircleHelp className="size-4" />
+                Help
               </Link>
             </Button>
             <ThemeToggle className="size-9 min-h-9 min-w-9" />
@@ -81,52 +117,48 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav
           aria-label="Calculator"
           data-tank-state={loading ? "loading" : tankReady ? "ready" : "empty"}
-          className="mx-auto w-full max-w-xl overflow-x-auto px-4 pb-2 md:max-w-2xl md:px-6"
+          className="mx-auto w-full max-w-xl overflow-x-auto px-4 pb-2 md:max-w-3xl md:px-6 lg:max-w-[48rem]"
         >
-          <ul id="calculator-more" className="flex flex-wrap gap-1.5">
+          <ul id="calculator-more" className="flex flex-wrap items-stretch gap-1.5">
             <li>
-              <Link
+              <NavChip
                 href={HOME_LINK.href}
-                className={cn(
-                  "inline-flex h-8 items-center rounded-full px-3 text-sm font-medium",
-                  isActive(pathname, HOME_LINK.href)
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-foreground",
-                )}
-                aria-current={isActive(pathname, HOME_LINK.href) ? "page" : undefined}
-              >
-                {HOME_LINK.label}
-              </Link>
+                label={HOME_LINK.label}
+                hint={HOME_LINK.hint}
+                current={isActive(pathname, HOME_LINK.href)}
+              />
+            </li>
+            <li>
+              <NavChip
+                href={SHELF_LINK.href}
+                label={SHELF_LINK.label}
+                hint={SHELF_LINK.hint}
+                current={isActive(pathname, SHELF_LINK.href)}
+              />
             </li>
             <li>
               <button
                 type="button"
                 className={cn(
-                  "inline-flex h-8 items-center rounded-full px-3 text-sm font-medium",
+                  "inline-flex h-full min-h-8 items-center rounded-2xl px-3 text-sm font-medium",
                   showMore ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
                 )}
                 aria-expanded={showMore}
                 aria-controls="calculator-more"
                 onClick={() => setMoreOpen((open) => !open)}
               >
-                More
+                More screens
               </button>
             </li>
             {showMore
               ? moreLinks.map((link) => (
                   <li key={link.href}>
-                    <Link
+                    <NavChip
                       href={link.href}
-                      className={cn(
-                        "inline-flex h-8 items-center rounded-full px-3 text-sm font-medium",
-                        isActive(pathname, link.href)
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground",
-                      )}
-                      aria-current={isActive(pathname, link.href) ? "page" : undefined}
-                    >
-                      {link.label}
-                    </Link>
+                      label={link.label}
+                      hint={link.hint}
+                      current={isActive(pathname, link.href)}
+                    />
                   </li>
                 ))
               : null}

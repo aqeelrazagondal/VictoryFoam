@@ -45,7 +45,16 @@ const SheetContent = React.forwardRef<
         side === "top" &&
           "inset-x-0 top-0 border-b border-border data-[state=closed]:-translate-y-full data-[state=open]:translate-y-0",
         side === "bottom" &&
-          "inset-x-0 bottom-0 border-t border-border data-[state=closed]:translate-y-full data-[state=open]:translate-y-0",
+          [
+            // Phone: bottom sheet
+            "inset-x-0 bottom-0 max-h-[92vh] overflow-y-auto rounded-t-2xl border-t border-border",
+            "data-[state=closed]:translate-y-full data-[state=open]:translate-y-0",
+            // Desktop / laptop: centered dialog
+            "md:inset-auto md:bottom-auto md:left-1/2 md:top-1/2 md:max-h-[85vh] md:w-full md:max-w-xl",
+            "md:translate-x-[-50%] md:translate-y-[-50%] md:rounded-2xl md:border md:border-border",
+            "md:data-[state=closed]:translate-x-[-50%] md:data-[state=closed]:translate-y-[-48%] md:data-[state=closed]:opacity-0",
+            "md:data-[state=open]:translate-x-[-50%] md:data-[state=open]:translate-y-[-50%] md:data-[state=open]:opacity-100",
+          ].join(" "),
         className,
       )}
       {...props}

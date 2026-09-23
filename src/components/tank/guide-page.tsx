@@ -48,22 +48,24 @@ export function GuidePage() {
             <Result>Home shows the kg, the overall solid content, and how much room is left. You can edit each chemical’s kg on Home; the others move so the total stays the same until you confirm. You can also edit the overall solid content; the chemical kilograms move so the total stays the same.</Result>
           </li>
           <li>
-            <strong className="text-foreground">Drums on the shelf.</strong> More, then{" "}
-            <GuideLink href="/tank/inventory/">Inventory</GuideLink>. Receive, issue, waste, or set a
-            count.
+            <strong className="text-foreground">Drums on the shelf.</strong> Open{" "}
+            <GuideLink href="/tank/inventory/">Shelf stock</GuideLink>, next to Home. Tap Drums
+            arrived when a delivery comes in. Other change covers a use somewhere else, a spill, a
+            count, or the history.
             <Result>
-              Inventory is kilograms still on the shelf. Home is what is already in the tank. A
-              confirmed pour takes those kilograms off Inventory.
+              Shelf stock is kilograms still in the drums. Home is what is already in the tank. A
+              confirmed pour takes those kilograms off the shelf.
             </Result>
           </li>
           <li>
             <strong className="text-foreground">Fresh batch in a mixer or drum, tank empty or ignored.</strong>{" "}
-            More, then <GuideLink href="/tank/blend/">Blend</GuideLink>
+            More screens, then <GuideLink href="/tank/blend/">Blend</GuideLink>
             <Result>Two drums, or three if you lock one amount. No tank log is written.</Result>
           </li>
           <li>
-            <strong className="text-foreground">The same sums, on the older screens.</strong> More, then
-            Fill, Planner, Log, or Composition.
+            <strong className="text-foreground">The same sums, on the older screens.</strong> More
+            screens, then Fill, Planner, Log, or Composition. Each one has a short line under the
+            name.
             <Result>Those screens still work. Home is the shorter path.</Result>
           </li>
         </ul>
@@ -96,7 +98,7 @@ export function GuidePage() {
               </Result>
             </li>
             <li>
-              <strong className="text-foreground">No polyol in the list yet?</strong> More, then
+              <strong className="text-foreground">No polyol in the list yet?</strong> More screens, then
               Chemicals. Add a name and a solid content before you fill.
               <Result>
                 Add to the tank, Fill, Planner, and Log add batch stay closed until that polyol is
@@ -156,8 +158,8 @@ export function GuidePage() {
           </li>
         </ol>
         <p className="mt-3 text-sm text-muted-foreground">
-          Blend does not change the tank. Record as used takes the kilograms off Inventory and does
-          not write a tank log. To put this mix into the tank, go to Log → Add batch.
+          Blend does not fill the tank. Take this off the shelf removes those kilograms from Shelf
+          stock and does not write a tank log. To put the mix into the tank, add it on Home.
         </p>
       </section>
 
@@ -371,15 +373,16 @@ export function GuidePage() {
             </dd>
           </div>
           <div>
-            <dt className="font-medium">Heel / Dead stock</dt>
+            <dt className="font-medium">Heel</dt>
             <dd className="text-muted-foreground">
-              The part of the tank you physically can&apos;t draw out.
+              The minimum you want left in the tank. Going below it shows a warning. It does not
+              change the kilograms.
             </dd>
           </div>
           <div>
-            <dt className="font-medium">Drawable Now</dt>
+            <dt className="font-medium">You can still use</dt>
             <dd className="text-muted-foreground">
-              How much you can actually still use right now (tank volume minus heel).
+              Kilograms in the tank minus that minimum.
             </dd>
           </div>
         </dl>
