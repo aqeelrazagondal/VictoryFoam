@@ -18,11 +18,26 @@ describe("parseNumber", () => {
     assert.equal(parseNumber("27,66"), 27.66);
   });
 
-  test("positive: UK thousands separators still count as kilograms", () => {
-    assert.equal(parseNumber("8,000"), 8000);
-    assert.equal(parseNumber("1,150"), 1150);
-    assert.equal(parseNumber("9,000"), 9000);
-    assert.equal(parseNumber("5,930.5"), 5930.5);
+  test("positive: comma is a decimal mark, including three fraction digits", () => {
+    assert.equal(parseNumber("1,000"), 1);
+    assert.equal(parseNumber("8,000"), 8);
+    assert.equal(parseNumber("1,150"), 1.15);
+  });
+
+  test("positive: spaces group thousands", () => {
+    assert.equal(parseNumber("9 000"), 9000);
+    assert.equal(parseNumber("5 930.5"), 5930.5);
+  });
+
+  test("negative: mixed comma and point is rejected", () => {
+    assert.equal(parseNumber("5,930.5"), null);
+    assert.equal(parseNumber("1.000,5"), null);
+  });
+
+  test("negative: zero and negatives parse, empty does not become zero", () => {
+    assert.equal(parseNumber("0"), 0);
+    assert.equal(parseNumber("-2,5"), -2.5);
+    assert.equal(parseNumber(""), null);
   });
 
   test("positive: grouped spaces from the on-screen quantity", () => {

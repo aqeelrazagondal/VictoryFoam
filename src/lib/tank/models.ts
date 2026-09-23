@@ -55,8 +55,19 @@ export type TankSettings = {
   heel: number;
 };
 
+export type Tank = {
+  id: string;
+  name: string;
+  capacity: number | null;
+  heel: number;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type TankLogEntry = {
   id: string;
+  tankId: string;
   entryDate: string;
   type: LogEntryType;
   chemicalId: string | null;

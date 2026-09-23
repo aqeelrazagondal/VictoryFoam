@@ -7,14 +7,12 @@ export function TankSummary({
   volume,
   solidPct,
   room,
+  capacity = null,
   rows,
   editable = false,
   volumeText,
   onVolumeChange,
   onVolumeBlur,
-  solidText,
-  onSolidChange,
-  onSolidBlur,
   rowTexts,
   onRowChange,
   onRowBlur,
@@ -23,14 +21,12 @@ export function TankSummary({
   volume: number;
   solidPct: number;
   room: number | null;
+  capacity?: number | null;
   rows?: { id: string; name: string; amount: number }[];
   editable?: boolean;
   volumeText?: string;
   onVolumeChange?: (value: string) => void;
   onVolumeBlur?: () => void;
-  solidText?: string;
-  onSolidChange?: (value: string) => void;
-  onSolidBlur?: () => void;
   rowTexts?: Record<string, string>;
   onRowChange?: (id: string, value: string) => void;
   onRowBlur?: (id: string) => void;
@@ -38,7 +34,7 @@ export function TankSummary({
 }) {
   return (
     <section className="rounded-2xl border border-border bg-card p-5" aria-live="polite">
-      <p className="text-sm uppercase tracking-wide text-muted-foreground">In the tank</p>
+      <p className="text-sm font-medium text-muted-foreground">Total mass</p>
       {editable ? (
         <div className="mt-1 space-y-2">
           <label htmlFor="tank-total-kg" className="sr-only">
@@ -61,33 +57,34 @@ export function TankSummary({
           </p>
         </div>
       ) : (
-        <p className="hero-number">{formatQty(volume)} kg</p>
+        <p className="tank-metric">{formatQty(volume)} kg</p>
       )}
-      <p className="mt-4 text-sm uppercase tracking-wide text-muted-foreground">Overall solid content</p>
-      {editable ? (
-        <div className="mt-1 space-y-2">
-          <label htmlFor="tank-solid-pct" className="sr-only">
-            Overall solid content
-          </label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="tank-solid-pct"
-              inputMode="decimal"
-              className="h-auto min-h-14 max-w-[14rem] border-border bg-background px-3 py-2 font-heading text-3xl font-bold tracking-tight tabular-nums"
-              value={solidText ?? ""}
-              onChange={(event) => onSolidChange?.(event.target.value)}
-              onBlur={() => onSolidBlur?.()}
-              aria-describedby={editError ? "tank-edit-error" : undefined}
-            />
-            <span className="text-lg font-medium text-muted-foreground">%</span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Change this and the kilograms move. The total stays the same.
+      {capacity != null && capacity > 0 ? (
+        <div className="mt-3">
+          <p className="text-sm">
+            {formatQty(volume)} of {formatQty(capacity)} kg
           </p>
+          <div
+            className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
+            role="meter"
+            aria-label="Tank mass"
+            aria-valuemin={0}
+            aria-valuemax={capacity}
+            aria-valuenow={Math.min(volume, capacity)}
+            aria-valuetext={`${formatQty(volume)} of ${formatQty(capacity)} kg`}
+          >
+            <div
+              className="h-full bg-primary"
+              style={{ width: `${Math.min(100, (volume / capacity) * 100)}%` }}
+            />
+          </div>
         </div>
-      ) : (
-        <p className="hero-number">{formatPct(solidPct)}</p>
-      )}
+      ) : null}
+      <p className="mt-4 text-sm font-medium text-muted-foreground">Solid content</p>
+      <p id="tank-solid-pct" className={editable ? "mt-1 font-heading text-3xl font-bold tracking-tight tabular-nums" : "hero-number"}>
+        {formatPct(solidPct)}
+      </p>
+      <p className="mt-2 text-sm text-muted-foreground">Calculated from the chemicals.</p>
       {room != null ? (
         <p className="mt-4 text-sm">You can add at most {formatQty(room)} kg.</p>
       ) : null}

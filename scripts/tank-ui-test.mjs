@@ -58,8 +58,26 @@ function logEntry(id, type, quantity, extra = {}) {
   };
 }
 
+const TEST_TANK_ID = "tank-test";
+
 function tankState({ chemicals = [], settings = null, entries = [], lastCalculation = {} } = {}) {
-  return { chemicals, settings, entries, lastCalculation };
+  const tank = {
+    id: TEST_TANK_ID,
+    name: "Tank",
+    capacity: settings?.capacity ?? null,
+    heel: settings?.heel ?? 0,
+    archivedAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const memory = lastCalculation.blend || lastCalculation.fill ? { [TEST_TANK_ID]: lastCalculation } : {};
+  return {
+    chemicals,
+    tanks: [tank],
+    entries: entries.map((entry) => ({ ...entry, tankId: entry.tankId ?? TEST_TANK_ID })),
+    movements: [],
+    lastCalculation: memory,
+  };
 }
 
 async function launchBrowser() {
@@ -78,6 +96,7 @@ async function openPage(browser, state) {
     viewport: { width: 390, height: 844 },
     locale: "en-GB",
     timezoneId: "Europe/London",
+    reducedMotion: "reduce",
   });
   if (state) {
     await context.addInitScript(
@@ -114,6 +133,10 @@ function primaryButton(page, name) {
   return page.getByRole("button", { name, exact: true });
 }
 
+function pickerAfter(page, label) {
+  return page.getByText(label, { exact: true }).locator("xpath=following-sibling::div[1]");
+}
+
 async function visibleText(page, pattern, timeout = 5000) {
   try {
     await page.getByText(pattern).first().waitFor({ state: "visible", timeout });
@@ -124,7 +147,7 @@ async function visibleText(page, pattern, timeout = 5000) {
 }
 
 async function addChemicalViaUi(page, { name, pct, qty }) {
-  await page.getByRole("button", { name: "Add a chemical" }).first().click();
+  await page.getByRole("button", { name: "Add chemical", exact: true }).first().click();
   const dialog = page.getByRole("dialog");
   await dialog.waitFor();
   await dialog.locator("#chem-name").fill(name);
@@ -144,12 +167,12 @@ async function run() {
     {
       const { context, page } = await openPage(browser);
       await gotoTank(page, "/tank/");
-      await page.getByRole("heading", { name: "What's in the tank" }).waitFor();
-      check("ui.empty.1", "hub asks what is already in the tank", await visibleText(page, "What's in the tank"));
+      await page.getByRole("heading", { name: "Name your tank" }).waitFor();
+      check("ui.empty.1", "hub asks for a tank name before setup", await visibleText(page, "Name your tank"));
       const emptyNav = page.getByRole("navigation", { name: "Calculator" });
       check("ui.empty.2", "Fill stays under More until it is opened", (await emptyNav.getByRole("link", { name: "Fill" }).count()) === 0);
       check("ui.empty.3", "Log stays under More until it is opened", (await emptyNav.getByRole("link", { name: "Log" }).count()) === 0);
-      check("ui.empty.inventory", "Shelf stock sits next to Home", (await emptyNav.getByRole("link", { name: "Shelf stock" }).count()) === 1);
+      check("ui.empty.inventory", "Inventory sits next to Tank", (await emptyNav.getByRole("link", { name: "Inventory" }).count()) === 1);
       await page.getByRole("button", { name: "More" }).click();
       check("ui.empty.4", "Set up tank is available under More", (await page.getByRole("link", { name: /Set up tank/i }).count()) > 0);
       check("ui.empty.5", "localStorage banner is shown without Supabase", await visibleText(page, "Data is stored on this device"));
@@ -215,9 +238,9 @@ async function run() {
     {
       const { context, page } = await openPage(browser);
       await gotoTank(page, "/tank/guide/");
-      check("ui.guide.1", "guide has first-time setup copy", await visibleText(page, "First-time setup (do this once)"));
-      check("ui.guide.2", "guide covers blend / fill / log / composition / planner", await visibleText(page, "Making a fresh batch from scratch?"));
-      check("ui.guide.3", "guide explains editing the suggestion", await visibleText(page, "Change the suggestion"));
+      check("ui.guide.1", "guide lists add chemicals", await visibleText(page, "Add chemicals"));
+      check("ui.guide.2", "guide lists a fresh blend", await visibleText(page, "Fresh blend"));
+      check("ui.guide.3", "guide explains the PDF download", await visibleText(page, "Download PDF"));
       check("ui.guide.4", "guide explains the local PDF", await visibleText(page, "tank-report.pdf"));
       await gotoTank(page, "/tank/blend/setup/");
       await page.waitForURL("**/tank/setup/");
@@ -232,7 +255,7 @@ async function run() {
     {
       const { context, page } = await openPage(browser);
       await gotoTank(page, "/tank/chemicals/");
-      await page.getByRole("button", { name: "Add a chemical" }).first().click();
+      await page.getByRole("button", { name: "Add chemical", exact: true }).first().click();
       const dialog = page.getByRole("dialog");
       await dialog.waitFor();
       await dialog.getByRole("button", { name: "Save" }).click();
@@ -258,7 +281,7 @@ async function run() {
       );
       check("ui.chem.pos.tracked", "chemical with qty shows the stock amount", await page.getByText(/10 kg/).first().isVisible());
 
-      await page.getByRole("button", { name: "Add a chemical" }).first().click();
+      await page.getByRole("button", { name: "Add chemical", exact: true }).first().click();
       await page.getByRole("dialog").waitFor();
       await page.getByRole("dialog").locator("#chem-name").fill("pop 10");
       await page.getByRole("dialog").locator("#chem-pct").fill("10");
@@ -359,22 +382,25 @@ async function run() {
       );
       await gotoTank(page, "/tank/");
       const nav = page.getByRole("navigation", { name: "Calculator" });
+      check("ui.nav.pos.activity", "Activity is a primary destination", (await nav.getByRole("link", { name: "Activity" }).count()) === 1);
       await page.getByRole("button", { name: "More" }).click();
-      check("ui.nav.pos.fill", "Fill appears under More after Opening Balance", (await nav.getByRole("link", { name: "Fill" }).count()) === 1);
-      check("ui.nav.pos.log", "Log appears under More after Opening Balance", (await nav.getByRole("link", { name: "Log" }).count()) === 1);
-      check("ui.nav.neg.setup", "Set up tank leaves the nav once the tank exists", (await nav.getByRole("link", { name: /Set up tank/i }).count()) === 0);
+      const moreSheet = page.getByRole("dialog");
+      check("ui.nav.pos.fill", "Fill appears under More after Opening Balance", (await moreSheet.getByRole("link", { name: "Fill" }).count()) === 1);
+      check("ui.nav.neg.setup", "Set up tank leaves the nav once the tank exists", (await moreSheet.getByRole("link", { name: /Set up tank/i }).count()) === 0);
+      await moreSheet.getByRole("button", { name: "Close" }).last().click();
       const volumeField = page.locator("#tank-total-kg");
       const volumeShown =
         ((await volumeField.count()) > 0 && /1[\s\u00a0\u202f]?500/.test(await volumeField.inputValue())) ||
         (await visibleText(page, /1.?500 kg/));
       check("ui.hub.pos.volume", "hub shows opening volume", volumeShown);
       check("ui.hub.pos.add", "hub offers Add to the tank", (await page.getByRole("button", { name: "Add to the tank" }).count()) === 1);
-      check("ui.hub.pos.use", "hub offers I used some", (await page.getByRole("button", { name: "I used some" }).count()) === 1);
-      const solidField = page.locator("#tank-solid-pct");
-      const pctShown =
-        ((await solidField.count()) > 0 && /^25([,.]\d+)?$/.test((await solidField.inputValue()).trim())) ||
-        (await visibleText(page, "25%"));
-      check("ui.hub.pos.pct", "hub shows opening solid %", pctShown);
+      check("ui.hub.pos.use", "hub offers Record usage", (await page.getByRole("button", { name: "Record usage" }).count()) === 1);
+      check("ui.hub.pos.pct", "hub shows opening solid %", await visibleText(page, "25%"));
+      check(
+        "ui.home.solid.readonly",
+        "overall solid content is not an editable field",
+        (await page.locator("input#tank-solid-pct").count()) === 0,
+      );
 
       await gotoTank(page, "/tank/setup/");
       check("ui.setup.neg.repeat", "setup refuses a second Opening Balance", await visibleText(page, "Tank already set up"));
@@ -403,24 +429,23 @@ async function run() {
       );
       await gotoTank(page, "/tank/fill/");
       await page.locator("#fill-vol").fill("3000");
-      await primaryButton(page, "Next").click();
       await page.locator("#fill-pct").fill("20");
       await primaryButton(page, "Next").click();
       check("ui.fill.neg.down", "target volume below current is infeasible", await visibleText(page, /fill up, not down/i));
       check("ui.fill.neg.planner", "fill-down offers Tank Planner, not a fake mix", await visibleText(page, "Open Tank Planner"));
 
-      await page.getByRole("button", { name: "Target volume" }).click();
+      await page.getByRole("button", { name: "Target", exact: true }).click();
       await page.locator("#fill-vol").fill("8000");
       await primaryButton(page, "Next").click();
       check("ui.fill.pos.required", "required blend % is for the added portion (7%)", await visibleText(page, /7%/));
       check("ui.fill.pos.suggest-above", "suggestion picks closest above required blend", await visibleText(page, /POP 10/));
       check("ui.fill.pos.suggest-below", "suggestion picks closest below required blend", await visibleText(page, /Water/));
-      await page.getByRole("button", { name: "Confirm or change chemicals" }).click();
-      await page.locator("ul.grid").getByRole("button", { name: /POP 10/ }).click();
-      await page.locator("ul.grid").getByRole("button", { name: /Water/ }).click();
-      check("ui.fill.pos.result", "reachable fill pair is feasible", await visibleText(page, "Feasible"));
-      check("ui.fill.pos.log-cta", "Log this is offered and not auto-written", await visibleText(page, "Log this (two Add Batch entries)"));
-      await page.getByRole("button", { name: "Log this (two Add Batch entries)" }).click();
+      await pickerAfter(page, "First chemical").getByRole("button", { name: /POP 10/ }).click();
+      await pickerAfter(page, "Second chemical").getByRole("button", { name: /Water/ }).click();
+      await page.getByRole("button", { name: "Review addition" }).click();
+      check("ui.fill.pos.result", "reachable fill pair is achievable", await visibleText(page, "Target achievable"));
+      check("ui.fill.pos.log-cta", "Confirm addition is offered and not auto-written", await visibleText(page, "Confirm addition"));
+      await page.getByRole("button", { name: "Confirm addition" }).click();
       await page.waitForURL("**/tank/log/**");
       await page.getByText("Pour").first().waitFor({ state: "visible" });
       check(
@@ -447,23 +472,26 @@ async function run() {
       );
       await gotoTank(page, "/tank/fill/");
       await page.locator("#fill-vol").fill("8000");
-      await primaryButton(page, "Next").click();
       await page.locator("#fill-pct").fill("33");
       await primaryButton(page, "Next").click();
       await page.getByRole("button", { name: "Add a third chemical" }).click();
-      await page.locator("ul.grid").getByRole("button", { name: /Conventional 0%/ }).click();
+      await page
+        .getByText("Optional. Lock how much", { exact: false })
+        .locator("xpath=following-sibling::div[1]")
+        .getByRole("button", { name: /Conventional 0%/ })
+        .click();
       await page.locator("#fill-x3").fill("1000");
-      await page.getByRole("button", { name: "Confirm or change chemicals" }).click();
-      await page.locator("ul.grid").getByRole("button", { name: /POP 45/ }).click();
-      await page.locator("ul.grid").getByRole("button", { name: /POP 25/ }).click();
-      check("ui.fill.pos.three", "three-chemical fill is feasible", await visibleText(page, "Feasible"));
+      await pickerAfter(page, "First chemical").getByRole("button", { name: /POP 45/ }).click();
+      await pickerAfter(page, "Second chemical").getByRole("button", { name: /POP 25/ }).click();
+      await page.getByRole("button", { name: "Review addition" }).click();
+      check("ui.fill.pos.three", "three-chemical fill is achievable", await visibleText(page, "Target achievable"));
       check(
         "ui.fill.pos.three-line",
         "locked third fill line is shown",
         (await visibleText(page, "Conventional")) &&
           (await visibleText(page, /Calculator suggested 1[\s\u00a0\u202f]?000 kg/)),
       );
-      check("ui.fill.pos.three-log", "three-chemical fill offers three log entries", await visibleText(page, "Log this (3 Add Batch entries)"));
+      check("ui.fill.pos.three-log", "three-chemical fill offers confirm", await visibleText(page, "Confirm addition"));
       await context.close();
     }
 
@@ -485,22 +513,24 @@ async function run() {
       );
       await gotoTank(page, "/tank/fill/");
       await page.locator("#fill-vol").fill("8000");
-      await primaryButton(page, "Next").click();
       await page.locator("#fill-pct").fill("33");
       await primaryButton(page, "Next").click();
-      await page.getByRole("button", { name: "Confirm or change chemicals" }).waitFor();
+      await page.getByRole("button", { name: "Review addition" }).waitFor();
       check("ui.umer.pos.pair", "33% fill includes POP 45 as the strong drum", await visibleText(page, "POP 45"));
       check("ui.umer.pos.other-pair", "45% + Conventional is offered as another pair", await visibleText(page, "Conventional"));
       const umerPair = page.getByRole("button", { name: /Conventional/ }).first();
       if (await umerPair.count()) {
         await umerPair.click();
       } else {
-        await page.getByRole("button", { name: "Confirm or change chemicals" }).click();
         await page.locator("ul.grid").getByRole("button", { name: /POP 45/ }).click();
         await page.locator("ul.grid").getByRole("button", { name: /Conventional/ }).click();
+        await page.getByRole("button", { name: "Review addition" }).click();
+      }
+      if ((await page.getByRole("button", { name: "Review addition" }).count()) > 0) {
+        await page.getByRole("button", { name: "Review addition" }).click();
       }
       check("ui.umer.pos.amounts", "33% fill is about 5 033 kg + 1 467 kg", await visibleText(page, /5[\s\u00a0\u202f]?033/) && await visibleText(page, /1[\s\u00a0\u202f]?466|1[\s\u00a0\u202f]?467/));
-      await page.getByRole("button", { name: "Log this (two Add Batch entries)" }).click();
+      await page.getByRole("button", { name: "Confirm addition" }).click();
       await page.waitForURL("**/tank/log/**");
       await page.getByRole("button", { name: "Add entry" }).click();
       const umerLog = page.getByRole("dialog");
@@ -581,14 +611,13 @@ async function run() {
       );
       await gotoTank(page, "/tank/fill/");
       await page.locator("#fill-vol").fill("8000");
-      await primaryButton(page, "Next").click();
       await page.locator("#fill-pct").fill("20");
       await primaryButton(page, "Next").click();
       check("ui.fill.neg.pair", "required 7% with no below chemical is infeasible", await visibleText(page, "Not reachable"));
       check("ui.fill.pos.alts", "fill offers a reachable combination", await visibleText(page, "Try one of these instead"));
       await page.getByRole("heading", { name: "Try one of these instead" }).locator("..").getByRole("button").first().click();
-      check("ui.fill.pos.alt-apply", "tapping a fill alternative is feasible", await visibleText(page, "Feasible"));
-      check("ui.fill.pos.alt-no-autolog", "applying a fill alternative does not write the log", await visibleText(page, /Log this/));
+      check("ui.fill.pos.alt-apply", "tapping a fill alternative is achievable", await visibleText(page, "Target achievable"));
+      check("ui.fill.pos.alt-no-autolog", "applying a fill alternative does not write the log", await visibleText(page, "Confirm addition"));
       check("ui.fill.pos.alt-stays", "fill alternative stays on Fill", page.url().includes("/tank/fill"));
       await context.close();
     }
@@ -648,7 +677,7 @@ async function run() {
       );
       await gotoTank(page, "/tank/planner/");
       const logCountCopy = await page.getByText(/Log entries:/).textContent();
-      await page.getByRole("button", { name: "Preview add" }).click();
+      await page.getByRole("button", { name: "Preview addition" }).click();
       await page.locator("#preview-qty").fill("1000");
       await page.locator("#preview-pct").fill("40");
       check("ui.planner.pos.preview-vol", "preview shows resulting volume", await visibleText(page, /2.?000 kg/));
@@ -656,11 +685,16 @@ async function run() {
       const logCountAfter = await page.getByText(/Log entries:/).textContent();
       check("ui.planner.pos.no-write", "preview leaves the log count unchanged", logCountCopy === logCountAfter);
 
-      await page.getByRole("button", { name: "Reverse calc" }).click();
+      await page.getByRole("button", { name: "Reach target %" }).click();
       check("ui.planner.pos.reverse-hint", "reverse mode asks for a target first", await visibleText(page, "Enter a target % to continue."));
-      check("ui.planner.pos.last-tank", "planner shows the last logged tank", await visibleText(page, /Last logged tank/));
+      check("ui.planner.pos.last-tank", "planner shows the last recorded tank quantity", await visibleText(page, /Last recorded tank quantity/));
       await page.locator("#rev-pct").fill("10");
-      check("ui.planner.pos.hits", "target 10% lists Water as a reachable add", await visibleText(page, /Add one of these to reach that target/));
+      await page.locator("#rev-pct").blur();
+      check(
+        "ui.planner.pos.hits",
+        "target 10% lists Water as a reachable add",
+        await visibleText(page, "Add one of these to reach that target", 8000),
+      );
       await page.locator("#rev-pct").fill("53");
       check("ui.planner.pos.need-chem", "53% with max 40% asks for a stronger drum", await visibleText(page, "Add a stronger chemical"));
       await page.locator("#rev-pct").fill("10");
@@ -668,9 +702,9 @@ async function run() {
       check("ui.planner.neg.reverse", "unreachable reverse target hides the amount", await visibleText(page, "Not reachable"));
       check("ui.planner.pos.alts", "planner offers reachable alternatives", await visibleText(page, "Try one of these instead"));
       await page.getByRole("button", { name: /Set target to 20%/ }).click();
-      check("ui.planner.pos.alt-apply", "tapping a planner alternative is feasible", await visibleText(page, "Feasible"));
+      check("ui.planner.pos.alt-apply", "tapping a planner alternative is achievable", await visibleText(page, "Target achievable"));
       await page.locator("#rev-pct").fill("30");
-      check("ui.planner.pos.reverse", "reachable reverse raise shows how much to add", await visibleText(page, "Feasible"));
+      check("ui.planner.pos.reverse", "reachable reverse raise shows how much to add", await visibleText(page, "Target achievable"));
       check(
         "ui.planner.pos.reverse-qty",
         "reverse 20% → 30% with 40% chemical is 1000 kg",
@@ -740,7 +774,7 @@ async function run() {
     }
 
     {
-      const { context, page } = await openPage(browser);
+      const { context, page } = await openPage(browser, tankState({}));
       await gotoTank(page, "/tank/");
       check(
         "ui.opening.neg.details-before-name",
@@ -749,8 +783,8 @@ async function run() {
       );
       await page.locator("#line-1-name").fill("Conventional polyol");
       await page.locator("#line-1-pct").fill("0");
-      await page.locator("#line-1-kg").fill("9,000");
-      await page.locator("#tank-capacity").fill("8,000");
+      await page.locator("#line-1-kg").fill("9 000");
+      await page.locator("#tank-capacity").fill("8 000");
       check(
         "ui.opening.neg.uk-overcap",
         "UK-grouped kg above the tank size is refused",
@@ -785,8 +819,9 @@ async function run() {
       );
       await gotoTank(page, "/tank/");
       await page.getByRole("button", { name: "Add to the tank" }).click();
-      await page.locator("#target-kg").fill("9,000");
+      await page.locator("#target-kg").fill("9 000");
       await page.locator("#target-pct").fill("28.7");
+      await primaryButton(page, "Next").click();
       const pickers = page.locator("ul.grid");
       await pickers.nth(0).getByRole("button", { name: /Polymer polyol 25/ }).click();
       await pickers.nth(1).getByRole("button", { name: /Polymer polyol 45/ }).click();
@@ -795,14 +830,16 @@ async function run() {
         "a UK-grouped fill above 8,000 kg is refused",
         await visibleText(page, /You can add at most/),
       );
-      await page.locator("#target-kg").fill("1,000");
+      await page.getByRole("button", { name: "Target", exact: true }).click();
+      await page.locator("#target-kg").fill("1 000");
+      await primaryButton(page, "Next").click();
       check(
         "ui.hub.neg.down",
         "a fill below what is already in the tank is refused",
         await visibleText(page, /fill up, not down/i),
       );
       await page.getByRole("button", { name: "Back" }).click();
-      await page.getByRole("button", { name: "I used some" }).click();
+      await page.getByRole("button", { name: "Record usage" }).click();
       await page.locator("#use-rate").fill("57");
       await page.locator("#use-minutes").fill("77");
       check(
@@ -835,9 +872,11 @@ async function run() {
       await page.getByRole("button", { name: "Add to the tank" }).click();
       await page.locator("#target-kg").fill("8000");
       await page.locator("#target-pct").fill("28");
+      await primaryButton(page, "Next").click();
       const pickers = page.locator("ul.grid");
       await pickers.nth(0).getByRole("button", { name: /Polymer polyol 45/ }).click();
       await pickers.nth(1).getByRole("button", { name: /Polymer polyol 25/ }).click();
+      await page.getByRole("button", { name: "Review addition" }).click();
       const solid = page.locator("p.hero-number.mt-1");
       await solid.waitFor();
       const suggested = (await solid.innerText()).trim();
@@ -847,7 +886,7 @@ async function run() {
         "each line keeps the calculator suggestion",
         await visibleText(page, /Calculator suggested/),
       );
-      const save = page.getByRole("button", { name: "Add this to the tank" });
+      const save = page.getByRole("button", { name: "Confirm addition" });
       check("ui.report.pos.save", "a fit suggestion can be saved", await save.isEnabled());
       await page.locator("#report-c45-kg").fill("1050");
       await page.locator("#report-c25-kg").fill("5250");
@@ -894,7 +933,7 @@ async function run() {
         }),
       );
       await gotoTank(page, "/tank/log/");
-      check("ui.log.page.heading", "log shows Last production and Log", await visibleText(page, "Last production") && await visibleText(page, "Earlier log"));
+      check("ui.log.page.heading", "activity shows latest production and all activity", await visibleText(page, "Latest production activity") && await visibleText(page, "All activity"));
       check(
         "ui.log.page.1-hides-11",
         "first page does not show row 11 marker",
@@ -962,16 +1001,23 @@ async function run() {
         }),
       );
       await gotoTank(page, "/tank/");
+      check("ui.home.edit.readonly", "viewing the tank does not show kg inputs", (await page.locator("input#tank-total-kg").count()) === 0);
+      await page.getByRole("button", { name: "Correct tank readings" }).click();
       const total = page.locator("#tank-total-kg");
       const chemA = page.locator("#tank-chem-c45");
       const chemB = page.locator("#tank-chem-c25");
       const chemC = page.locator("#tank-chem-c0");
-      check("ui.home.edit.fields", "home shows editable kg fields", (await total.count()) === 1 && (await chemA.count()) === 1);
+      check("ui.home.edit.fields", "correction shows editable kg fields", (await total.count()) === 1 && (await chemA.count()) === 1);
+      await page.waitForFunction(() => {
+        const field = document.querySelector("#tank-total-kg");
+        return field instanceof HTMLInputElement && field.value.trim().length > 0;
+      });
 
       const beforeTotal = await total.inputValue();
       const beforeB = await chemB.inputValue();
       await chemA.fill("1200");
       await chemA.blur();
+      await page.getByRole("button", { name: "Review correction" }).click();
       check("ui.home.edit.rebalance-ask", "editing one chemical asks before saving", await visibleText(page, "Are you sure?"));
       const afterTotal = await total.inputValue();
       const afterB = await chemB.inputValue();
@@ -980,19 +1026,25 @@ async function run() {
         "ui.home.edit.rebalance-total",
         "editing one chemical keeps the total",
         afterTotal === beforeTotal,
+        `before ${JSON.stringify(beforeTotal)} after ${JSON.stringify(afterTotal)}`,
       );
       check(
         "ui.home.edit.rebalance-others",
         "editing one chemical changes the other kilograms",
         afterB !== beforeB && afterC.length > 0,
       );
-      await page.getByRole("button", { name: "Yes, save it" }).click();
+      await page.getByRole("button", { name: "Save correction" }).click();
       await page.getByText("Saved the new kilograms on Home.").waitFor();
 
-      const solidField = page.locator("#tank-solid-pct");
-      const solidBeforeScale = await solidField.inputValue();
+      await page.getByRole("button", { name: "Correct tank readings" }).click();
+      await page.waitForFunction(() => {
+        const field = document.querySelector("#tank-solid-pct");
+        return field instanceof HTMLInputElement && field.value.trim().length > 0;
+      });
+      const solidBeforeScale = await page.locator("#tank-solid-pct").inputValue();
       await total.fill("2000");
       await total.blur();
+      await page.getByRole("button", { name: "Review correction" }).click();
       check("ui.home.edit.scale-ask", "editing the total asks before saving", await visibleText(page, "Are you sure?"));
       check(
         "ui.home.edit.scale-copy",
@@ -1007,18 +1059,26 @@ async function run() {
         "editing the total scales every chemical",
         scaledA.length > 0 && scaledB.length > 0 && scaledC.length > 0 && scaledA !== "1 200",
       );
-      await page.getByRole("button", { name: "Yes, save it" }).click();
+      await page.getByRole("button", { name: "Save correction" }).click();
       await page.getByText("Saved the new kilograms on Home.").waitFor();
-      const solidAfterScale = await solidField.inputValue();
+      await page.getByRole("button", { name: "Correct tank readings" }).click();
+      await page.waitForFunction(() => {
+        const field = document.querySelector("#tank-total-kg");
+        return field instanceof HTMLInputElement && field.value.trim().length > 0;
+      });
+      const solidAfterScale = await page.locator("#tank-solid-pct").inputValue();
       check(
         "ui.home.edit.scale-pct",
         "scaling the total keeps the solid content",
         solidAfterScale === solidBeforeScale,
+        `before ${JSON.stringify(solidBeforeScale)} after ${JSON.stringify(solidAfterScale)}`,
       );
+      const scaledTotal = await total.inputValue();
       check(
         "ui.home.edit.scale-total",
         "scaled total shows 2 000 kg",
-        /2.?000/.test(await total.inputValue()),
+        /2.?000/.test(scaledTotal),
+        JSON.stringify(scaledTotal),
       );
 
       await gotoTank(page, "/tank/composition/");
@@ -1027,108 +1087,10 @@ async function run() {
         "composition sees the saved kilograms",
         await visibleText(page, /polymer polyol 3125/i),
       );
-      await page.getByRole("button", { name: "More" }).click();
-      await page.getByRole("link", { name: "Log" }).click();
+      await page.getByRole("link", { name: "Activity" }).click();
       await page.waitForURL("**/tank/log/**");
-      await page.getByRole("heading", { name: "Last production" }).waitFor();
+      await page.getByRole("heading", { name: "Latest production activity" }).waitFor();
       check("ui.home.edit.log", "log shows the Correction row", await visibleText(page, /correction/i, 8000));
-      await context.close();
-    }
-
-    {
-      const chemicals = [
-        chemical("c45", "polymer polyol 3125", 45),
-        chemical("c25", "polymer polyol 2045", 25),
-        chemical("c0", "Conventional Polyol", 0),
-      ];
-      const { context, page } = await openPage(
-        browser,
-        tankState({
-          chemicals,
-          settings: { capacity: 8000, heel: 0 },
-          entries: [
-            logEntry("1", "opening_balance", 1982.2, { chemicalId: "c45", solidContentPct: 45 }),
-            logEntry("2", "opening_balance", 165.6, { chemicalId: "c25", solidContentPct: 25 }),
-            logEntry("3", "opening_balance", 52.2, { chemicalId: "c0", solidContentPct: 0 }),
-          ],
-        }),
-      );
-      await gotoTank(page, "/tank/");
-      const total = page.locator("#tank-total-kg");
-      const solid = page.locator("#tank-solid-pct");
-      const chemA = page.locator("#tank-chem-c45");
-      const chemB = page.locator("#tank-chem-c25");
-      const chemC = page.locator("#tank-chem-c0");
-      const beforeTotal = await total.inputValue();
-      const beforeA = await chemA.inputValue();
-      const beforeB = await chemB.inputValue();
-      const beforeC = await chemC.inputValue();
-
-      await solid.fill("28");
-      await solid.blur();
-      check("ui.home.solid.ask", "editing solid content asks before saving", await visibleText(page, "Are you sure?"));
-      check(
-        "ui.home.solid.copy-pct",
-        "confirm names the new solid content",
-        await visibleText(page, /Overall solid content becomes 28%/),
-      );
-      check(
-        "ui.home.solid.copy-total",
-        "confirm keeps the total kilograms",
-        await visibleText(page, /stays at 2.?200 kg/),
-      );
-      check(
-        "ui.home.solid.copy-chem",
-        "confirm shows chemical kg changing",
-        await visibleText(page, /polymer polyol 3125:.*→/i),
-      );
-      const afterTotal = await total.inputValue();
-      const afterA = await chemA.inputValue();
-      const afterB = await chemB.inputValue();
-      const afterC = await chemC.inputValue();
-      check("ui.home.solid.total-same", "solid edit keeps the total kg", afterTotal === beforeTotal);
-      check(
-        "ui.home.solid.chems-move",
-        "solid edit changes chemical kilograms",
-        afterA !== beforeA || afterB !== beforeB || afterC !== beforeC,
-      );
-      await page.getByRole("button", { name: "Yes, save it" }).click();
-      await page.getByText("Saved the new kilograms on Home.").waitFor();
-      check("ui.home.solid.saved-pct", "home shows 28% after save", /28/.test(await solid.inputValue()));
-
-      await gotoTank(page, "/tank/composition/");
-      check(
-        "ui.home.solid.composition",
-        "composition lists the redistributed kilograms",
-        await visibleText(page, /polymer polyol 3125/i) && await visibleText(page, /kg/),
-      );
-
-      await gotoTank(page, "/tank/");
-      await page.getByRole("button", { name: "I used some" }).click();
-      check(
-        "ui.home.solid.consume-pct",
-        "consume preview keeps the new solid content",
-        await visibleText(page, /28%/),
-      );
-      await page.getByRole("button", { name: "Back" }).click();
-
-      await solid.fill("50");
-      await solid.blur();
-      check(
-        "ui.home.solid.refuse",
-        "impossible solid content is refused in plain language",
-        await visibleText(page, /must stay between/i),
-      );
-      await page.getByRole("button", { name: "More" }).click();
-      await page.getByRole("link", { name: "Log" }).click();
-      await page.waitForURL("**/tank/log/**");
-      await page.getByRole("heading", { name: "Last production" }).waitFor();
-      const correctionCount = await page.getByText(/correction/i).count();
-      check(
-        "ui.home.solid.refuse-no-log",
-        "refused solid edit does not write another log row",
-        correctionCount === 1,
-      );
       await context.close();
     }
 
@@ -1185,9 +1147,9 @@ async function run() {
       check(
         "ui.inventory.pos.receive-primary",
         "Drums arrived is the primary stock action",
-        (await page.getByRole("button", { name: "Drums arrived for POP 10" }).count()) === 1,
+        (await page.getByRole("button", { name: "Receive POP 10" }).count()) === 1,
       );
-      await page.getByRole("button", { name: "Drums arrived for POP 10" }).click();
+      await page.getByRole("button", { name: "Receive POP 10" }).click();
       const receiveDialog = page.getByRole("dialog");
       await receiveDialog.waitFor();
       check(
@@ -1204,25 +1166,25 @@ async function run() {
       await page.getByRole("button", { name: "Save" }).click();
       await receiveDialog.waitFor({ state: "hidden" });
       check("ui.inventory.pos.receive", "a receive sets on-hand kilograms", await visibleText(page, "250 kg"));
-      await page.getByRole("button", { name: "Other change for POP 10" }).click();
-      await page.getByRole("button", { name: "Used somewhere else" }).click();
+      await page.getByRole("button", { name: "Actions for POP 10" }).click();
+      await page.getByRole("button", { name: "Issue" }).click();
       const issueDialog = page.getByRole("dialog");
       await issueDialog.waitFor();
       await page.locator("#stock-qty").fill("50");
       await page.getByRole("button", { name: "Save" }).click();
       await issueDialog.waitFor({ state: "hidden" });
       check("ui.inventory.pos.issue", "an issue reduces on-hand kilograms", await visibleText(page, "200 kg"));
-      await page.getByRole("button", { name: "Other change for POP 10" }).click();
-      await page.getByRole("button", { name: "I counted the shelf" }).click();
+      await page.getByRole("button", { name: "Actions for POP 10" }).click();
+      await page.getByRole("button", { name: "Set count" }).click();
       const countDialog = page.getByRole("dialog");
       await countDialog.waitFor();
       await page.locator("#stock-qty").fill("180");
       await page.getByRole("button", { name: "Save" }).click();
       await countDialog.waitFor({ state: "hidden" });
       check("ui.inventory.pos.count", "a physical count replaces on-hand kilograms", await visibleText(page, "180 kg"));
-      await page.getByRole("button", { name: "Other change for POP 10" }).click();
-      await page.getByRole("button", { name: "What changed" }).click();
-      await page.getByRole("heading", { name: "What changed for POP 10" }).waitFor();
+      await page.getByRole("button", { name: "Actions for POP 10" }).click();
+      await page.getByRole("button", { name: "History" }).click();
+      await page.getByRole("heading", { name: "History for POP 10" }).waitFor();
       check("ui.inventory.pos.history", "history lists the count and what is left", await visibleText(page, /left on the shelf/i));
       await context.close();
     }
@@ -1244,14 +1206,16 @@ async function run() {
       await page.getByRole("button", { name: "Add to the tank" }).click();
       await page.getByRole("button", { name: "One polyol" }).click();
       await page.locator("#target-pct").fill("10");
+      await primaryButton(page, "Next").click();
       await page.getByRole("button", { name: /POP 20/ }).click();
-      await page.getByRole("button", { name: "Add this to the tank" }).click();
+      await page.getByRole("button", { name: "Review addition" }).click();
+      await page.getByRole("button", { name: "Confirm addition" }).click();
       check(
         "ui.inventory.pos.pour-saved",
         "the pour is saved on Home",
         await visibleText(page, /The tank is now/),
       );
-      await page.getByRole("link", { name: "Shelf stock" }).click();
+      await page.getByRole("link", { name: "Inventory" }).click();
       await page.waitForURL("**/tank/inventory/**");
       const poured = await page.locator("li").filter({ hasText: "POP 20" }).innerText();
       const untouched = await page.locator("li").filter({ hasText: "Conventional polyol" }).innerText();

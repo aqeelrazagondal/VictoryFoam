@@ -38,7 +38,7 @@ const emptyDraft = (): ChemicalDraft => ({
 });
 
 export function ChemicalsPage() {
-  const { chemicals, entries, refresh, loading } = useTank();
+  const { chemicals, loggedChemicalIds, refresh, loading } = useTank();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Chemical | null>(null);
   const [draft, setDraft] = useState<ChemicalDraft>(emptyDraft());
@@ -53,10 +53,7 @@ export function ChemicalsPage() {
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
 
-  const usedIds = useMemo(
-    () => new Set(entries.map((entry) => entry.chemicalId).filter(Boolean)),
-    [entries],
-  );
+  const usedIds = useMemo(() => new Set(loggedChemicalIds), [loggedChemicalIds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,7 +150,7 @@ export function ChemicalsPage() {
     const used = usedIds.has(chemical.id);
     try {
       if (used) await archiveChemical(chemical.id);
-      else await deleteChemical(chemical.id, entries);
+      else await deleteChemical(chemical.id);
       await refresh();
       setConfirmId(null);
     } catch (caught) {
@@ -166,13 +163,11 @@ export function ChemicalsPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1>Chemicals</h1>
-          <p className="mt-1 text-muted-foreground">
-            Name and solid content live here. Kilograms still in the drums are on Shelf stock.
-          </p>
+          <p className="mt-1 text-muted-foreground">Manage chemicals and their solid content.</p>
         </div>
         {!loading && !listLoading && pageTotal > 0 ? (
           <Button size="touch" onClick={startAdd}>
-            Add a chemical
+            Add chemical
           </Button>
         ) : null}
       </div>
@@ -188,7 +183,7 @@ export function ChemicalsPage() {
         <EmptyState
           title="Add your first chemical"
           description="A name and a solid content are enough. Kilograms go on Shelf stock after that."
-          actionLabel="Add a chemical"
+          actionLabel="Add chemical"
           onAction={startAdd}
         />
       ) : (
@@ -203,7 +198,7 @@ export function ChemicalsPage() {
                       {formatPct(chemical.solidContentPct)} solid content
                       {" · "}
                       {chemical.qtyAvailable === null
-                        ? "Not tracked yet. No kilograms on the shelf yet."
+                        ? "Stock not tracked. No kilograms on the shelf yet."
                         : `${formatQty(chemical.qtyAvailable)} ${chemical.unit} on the shelf`}
                     </p>
                     <Button asChild variant="link" size="touch" className="h-auto min-h-0 px-0">
@@ -211,12 +206,13 @@ export function ChemicalsPage() {
                     </Button>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="touch" onClick={() => startEdit(chemical)}>
+                    <Button variant="outline" size="touch" aria-label={`Edit ${chemical.name}`} onClick={() => startEdit(chemical)}>
                       Edit
                     </Button>
                     <Button
                       variant="destructive"
                       size="touch"
+                      aria-label={`${usedIds.has(chemical.id) ? "Archive" : "Delete"} ${chemical.name}`}
                       onClick={() => setConfirmId(chemical.id)}
                     >
                       {usedIds.has(chemical.id) ? "Archive" : "Delete"}
@@ -273,7 +269,7 @@ export function ChemicalsPage() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom">
           <SheetHeader>
-            <SheetTitle>{editing ? "Edit chemical" : "Add a chemical"}</SheetTitle>
+            <SheetTitle>{editing ? "Edit chemical" : "Add chemical"}</SheetTitle>
           </SheetHeader>
           <div className="mt-6 space-y-4">
             {!editing ? (

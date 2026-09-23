@@ -2,25 +2,45 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
-import { CircleHelp, LogOut } from "lucide-react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { CircleHelp, Droplets, Ellipsis, History, LogOut, Warehouse } from "lucide-react";
 
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { TankSwitcher } from "@/components/tank/tank-switcher";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/tank/client";
 import { useTank } from "@/lib/tank/context";
 import { cn } from "@/lib/utils";
 
-const HOME_LINK = { href: "/tank/", label: "Home", hint: "What is already in the tank" } as const;
-const SHELF_LINK = { href: "/tank/inventory/", label: "Shelf stock", hint: "Drums you have not poured" } as const;
+const WorkflowContext = createContext<(open: boolean) => void>(() => {});
 
-const MORE_LINKS = [
-  { href: "/tank/chemicals/", label: "Chemicals", hint: "Names and solid content" },
-  { href: "/tank/blend/", label: "Blend", hint: "A fresh mix, not the tank" },
-  { href: "/tank/fill/", label: "Fill", hint: "Older way to top the tank up" },
-  { href: "/tank/log/", label: "Log", hint: "History of what went in and out" },
-  { href: "/tank/composition/", label: "Composition", hint: "How many kg of each chemical" },
-  { href: "/tank/planner/", label: "Planner", hint: "Try one chemical. Nothing is saved" },
+export function useWorkflowChrome() {
+  return useContext(WorkflowContext);
+}
+
+const PRIMARY = [
+  { href: "/tank/", label: "Tank", icon: Droplets },
+  { href: "/tank/inventory/", label: "Inventory", icon: Warehouse },
+  { href: "/tank/log/", label: "Activity", icon: History },
+] as const;
+
+const MORE_GROUPS = [
+  {
+    label: "Calculate",
+    links: [
+      { href: "/tank/blend/", label: "Blend" },
+      { href: "/tank/fill/", label: "Fill" },
+      { href: "/tank/planner/", label: "Planner" },
+    ],
+  },
+  {
+    label: "Manage",
+    links: [
+      { href: "/tank/chemicals/", label: "Chemicals" },
+      { href: "/tank/composition/", label: "Composition" },
+    ],
+  },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -28,151 +48,190 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname === href.replace(/\/$/, "");
 }
 
-function NavChip({
-  href,
-  label,
-  hint,
-  current,
-}: {
-  href: string;
-  label: string;
-  hint: string;
-  current: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "inline-flex min-h-8 flex-col justify-center rounded-2xl px-3 py-1.5 text-sm",
-        current ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
-      )}
-      aria-current={current ? "page" : undefined}
-    >
-      <span className="font-medium leading-tight">{label}</span>
-      <span
-        className={cn(
-          "text-xs leading-tight",
-          current ? "text-primary-foreground/80" : "text-muted-foreground",
-        )}
-      >
-        {hint}
-      </span>
-    </Link>
-  );
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { tankReady, loading } = useTank();
   const configured = isSupabaseConfigured();
-  const moreLinks = [
-    ...MORE_LINKS,
-    ...(loading || tankReady
-      ? []
-      : [{ href: "/tank/setup/", label: "Set up tank", hint: "First time only" }]),
-  ];
-  const moreActive = moreLinks.some((link) => isActive(pathname, link.href));
   const [moreOpen, setMoreOpen] = useState(false);
-  const showMore = moreOpen || moreActive;
+  const [workflowOpen, setWorkflowOpen] = useState(false);
+
+  const setupLink =
+    loading || tankReady ? null : { href: "/tank/setup/", label: "Set up tank" };
+  const moreHrefs = [
+    ...MORE_GROUPS.flatMap((group) => group.links.map((link) => link.href)),
+    "/tank/guide/",
+    ...(setupLink ? [setupLink.href] : []),
+  ];
+  const moreCurrent = moreHrefs.some((href) => isActive(pathname, href));
+
+  useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
 
   async function signOut() {
     const supabase = getSupabaseBrowser();
     await supabase?.auth.signOut();
+    setMoreOpen(false);
   }
 
   return (
-    <div className="flex min-h-full flex-col">
-      <a
-        href="#tank-main"
-        className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground transition-transform focus-visible:translate-y-0"
-      >
-        Skip to calculator
-      </a>
-      <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-2 px-4 py-1.5 md:max-w-3xl md:px-6 lg:max-w-[48rem]">
-          <Link href="/tank/" className="font-heading text-base font-semibold">
-            Tank calculator
-          </Link>
-          <div className="flex items-center">
-            <Button asChild variant="ghost" className="h-9 min-h-9 gap-1.5 px-2">
+    <WorkflowContext.Provider value={setWorkflowOpen}>
+      <div className="tank-app flex min-h-dvh flex-col">
+        <a
+          href="#tank-main"
+          className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground transition-transform focus-visible:translate-y-0"
+        >
+          Skip to calculator
+        </a>
+        <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-xl items-center justify-between gap-2 px-4 py-2 md:max-w-3xl md:px-6 lg:max-w-[48rem]">
+            <div className="min-w-0">
+              <Link href="/tank/" className="font-heading text-base font-semibold">
+                Tank calculator
+              </Link>
+              <TankSwitcher />
+            </div>
+            <Button asChild variant="ghost" className="h-11 min-h-11 gap-1.5 px-3">
               <Link href="/tank/guide/">
                 <CircleHelp className="size-4" />
                 Help
               </Link>
             </Button>
-            <ThemeToggle className="size-9 min-h-9 min-w-9" />
-            {configured ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-9 min-h-9 min-w-9"
-                aria-label="Sign out"
-                onClick={() => void signOut()}
-              >
-                <LogOut className="size-4" />
-              </Button>
-            ) : null}
           </div>
-        </div>
-        <nav
-          aria-label="Calculator"
-          data-tank-state={loading ? "loading" : tankReady ? "ready" : "empty"}
-          className="mx-auto w-full max-w-xl overflow-x-auto px-4 pb-2 md:max-w-3xl md:px-6 lg:max-w-[48rem]"
-        >
-          <ul id="calculator-more" className="flex flex-wrap items-stretch gap-1.5">
-            <li>
-              <NavChip
-                href={HOME_LINK.href}
-                label={HOME_LINK.label}
-                hint={HOME_LINK.hint}
-                current={isActive(pathname, HOME_LINK.href)}
-              />
-            </li>
-            <li>
-              <NavChip
-                href={SHELF_LINK.href}
-                label={SHELF_LINK.label}
-                hint={SHELF_LINK.hint}
-                current={isActive(pathname, SHELF_LINK.href)}
-              />
-            </li>
-            <li>
-              <button
-                type="button"
-                className={cn(
-                  "inline-flex h-full min-h-8 items-center rounded-2xl px-3 text-sm font-medium",
-                  showMore ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
-                )}
-                aria-expanded={showMore}
-                aria-controls="calculator-more"
-                onClick={() => setMoreOpen((open) => !open)}
-              >
-                More screens
-              </button>
-            </li>
-            {showMore
-              ? moreLinks.map((link) => (
-                  <li key={link.href}>
-                    <NavChip
-                      href={link.href}
-                      label={link.label}
-                      hint={link.hint}
-                      current={isActive(pathname, link.href)}
-                    />
+        </header>
+        <main id="tank-main" className="container-tank flex-1">
+          {configured ? null : (
+            <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+              Data is stored on this device until Supabase keys are added.
+            </p>
+          )}
+          {children}
+        </main>
+        {workflowOpen ? null : (
+          <nav
+            aria-label="Calculator"
+            data-tank-state={loading ? "loading" : tankReady ? "ready" : "empty"}
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background pb-[env(safe-area-inset-bottom,0px)]"
+          >
+            <ul className="mx-auto grid w-full max-w-xl grid-cols-4 md:max-w-3xl lg:max-w-[48rem]">
+              {PRIMARY.map((item) => {
+                const current = isActive(pathname, item.href);
+                const Icon = item.icon;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      aria-current={current ? "page" : undefined}
+                      className={cn(
+                        "flex min-h-14 flex-col items-center justify-center gap-0.5 px-1 text-xs font-medium",
+                        current ? "text-primary" : "text-muted-foreground",
+                      )}
+                    >
+                      <Icon className="size-5" aria-hidden="true" />
+                      {item.label}
+                    </Link>
                   </li>
-                ))
-              : null}
-          </ul>
-        </nav>
-      </header>
-      <main id="tank-main" className="container-tank flex-1">
-        {configured ? null : (
-          <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
-            Data is stored on this device until Supabase keys are added.
-          </p>
+                );
+              })}
+              <li>
+                <button
+                  type="button"
+                  className={cn(
+                    "flex min-h-14 w-full flex-col items-center justify-center gap-0.5 px-1 text-xs font-medium",
+                    moreCurrent ? "text-primary" : "text-muted-foreground",
+                  )}
+                  aria-expanded={moreOpen}
+                  aria-controls="tank-more"
+                  aria-current={moreCurrent ? "page" : undefined}
+                  onClick={() => setMoreOpen(true)}
+                >
+                  <Ellipsis className="size-5" aria-hidden="true" />
+                  More
+                </button>
+              </li>
+            </ul>
+          </nav>
         )}
-        {children}
-      </main>
-    </div>
+        <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+          <SheetContent side="bottom" id="tank-more" aria-describedby={undefined}>
+            <SheetHeader>
+              <SheetTitle>More</SheetTitle>
+            </SheetHeader>
+            <div className="mt-4 space-y-5 pb-[env(safe-area-inset-bottom,0px)]">
+              {MORE_GROUPS.map((group) => (
+                <section key={group.label}>
+                  <h2 className="text-sm font-medium text-muted-foreground">{group.label}</h2>
+                  <ul className="mt-2 space-y-1">
+                    {group.links.map((link) => {
+                      const current = isActive(pathname, link.href);
+                      return (
+                        <li key={link.href}>
+                          <Link
+                            href={link.href}
+                            aria-current={current ? "page" : undefined}
+                            className={cn(
+                              "flex min-h-11 items-center rounded-xl px-3 text-base font-medium",
+                              current ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+                            )}
+                            onClick={() => setMoreOpen(false)}
+                          >
+                            {link.label}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+              <section>
+                <h2 className="text-sm font-medium text-muted-foreground">Help and preferences</h2>
+                <ul className="mt-2 space-y-1">
+                  {setupLink ? (
+                    <li>
+                      <Link
+                        href={setupLink.href}
+                        className="flex min-h-11 items-center rounded-xl px-3 text-base font-medium hover:bg-muted"
+                        onClick={() => setMoreOpen(false)}
+                      >
+                        {setupLink.label}
+                      </Link>
+                    </li>
+                  ) : null}
+                  <li>
+                    <Link
+                      href="/tank/guide/"
+                      aria-current={isActive(pathname, "/tank/guide/") ? "page" : undefined}
+                      className="flex min-h-11 items-center rounded-xl px-3 text-base font-medium hover:bg-muted"
+                      onClick={() => setMoreOpen(false)}
+                    >
+                      Guide
+                    </Link>
+                  </li>
+                  <li className="flex min-h-11 items-center justify-between px-3">
+                    <span className="text-base font-medium">Theme</span>
+                    <ThemeToggle />
+                  </li>
+                  {configured ? (
+                    <li>
+                      <button
+                        type="button"
+                        className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-base font-medium hover:bg-muted"
+                        onClick={() => void signOut()}
+                      >
+                        <LogOut className="size-4" aria-hidden="true" />
+                        Sign out
+                      </button>
+                    </li>
+                  ) : null}
+                </ul>
+              </section>
+              <Button type="button" variant="outline" size="touch" className="w-full" onClick={() => setMoreOpen(false)}>
+                Close
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </WorkflowContext.Provider>
   );
 }

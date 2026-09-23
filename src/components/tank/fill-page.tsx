@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -37,7 +37,7 @@ import { getLastCalculation, insertLogEntries, saveLastCalculation } from "@/lib
 
 export function FillPage() {
   const router = useRouter();
-  const { tankReady, snapshot, settings, activeChemicals, refresh } = useTank();
+  const { tankReady, snapshot, settings, activeChemicals, activeTank, refresh } = useTank();
   const [step, setStep] = useState(0);
   const [targetVolume, setTargetVolume] = useState("");
   const [targetPct, setTargetPct] = useState("");
@@ -49,6 +49,8 @@ export function FillPage() {
   const [logging, setLogging] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const [last, setLast] = useState<FillLastCalculation | null>(null);
+  const tankId = activeTank?.id ?? null;
+  const tankAtCalc = useRef(tankId);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -56,7 +58,7 @@ export function FillPage() {
     const pctParam = params.get("pct");
     if (volumeParam) setTargetVolume(volumeParam);
     if (pctParam) setTargetPct(pctParam);
-    if (pctParam && volumeParam) setStep(2);
+    if (pctParam && volumeParam) setStep(1);
   }, []);
 
   const volume = parseNumber(targetVolume);
@@ -148,18 +150,44 @@ export function FillPage() {
     setShowThird(false);
     setChemC(null);
     setThirdQty("");
-    setStep(5);
+    setStep(2);
   }
 
   useEffect(() => {
-    getLastCalculation("fill")
-      .then((payload) => setLast(payload as FillLastCalculation | null))
+    if (!tankId) {
+      setLast(null);
+      return;
+    }
+    let cancelled = false;
+    getLastCalculation(tankId, "fill")
+      .then((payload) => {
+        if (!cancelled) setLast(payload as FillLastCalculation | null);
+      })
       .catch(() => undefined);
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [tankId]);
 
   useEffect(() => {
-    if (!result?.ok || !selectedA || !selectedB || volume === null || pct === null) return;
-    void saveLastCalculation("fill", {
+    if (tankAtCalc.current !== tankId) {
+      const previous = tankAtCalc.current;
+      tankAtCalc.current = tankId;
+      if (previous !== null) {
+        setStep(0);
+        setTargetVolume("");
+        setTargetPct("");
+        setChemA(null);
+        setChemB(null);
+        setShowThird(false);
+        setChemC(null);
+        setThirdQty("");
+        setLogError(null);
+        return;
+      }
+    }
+    if (!tankId || !result?.ok || !selectedA || !selectedB || volume === null || pct === null) return;
+    void saveLastCalculation(tankId, "fill", {
       targetVolume: volume,
       targetPct: pct,
       chemicalAId: selectedA.id,
@@ -167,7 +195,7 @@ export function FillPage() {
       chemicalCId: usingThird && chemC ? chemC.id : null,
       thirdQty: usingThird && lockedThird !== null ? lockedThird : null,
     });
-  }, [chemC, lockedThird, pct, result, selectedA, selectedB, usingThird, volume]);
+  }, [tankId, chemC, lockedThird, pct, result, selectedA, selectedB, usingThird, volume]);
 
   if (!tankReady) {
     return (
@@ -208,10 +236,15 @@ export function FillPage() {
       setLogError(overflow);
       return;
     }
+    if (!activeTank) {
+      setLogError("Choose a tank first.");
+      return;
+    }
     setLogging(true);
     setLogError(null);
     try {
       await insertLogEntries(
+        activeTank.id,
         lines
           .filter((line) => line.quantity > 1e-9)
           .map((line) => ({
@@ -232,13 +265,11 @@ export function FillPage() {
   }
 
   const steps = [
-    { id: "vol", label: "Target volume" },
-    { id: "pct", label: "Target %" },
-    { id: "pair", label: "Suggested pair" },
-    { id: "a", label: selectedA?.name ?? "Chemical A" },
-    { id: "b", label: selectedB?.name ?? "Chemical B" },
-    { id: "result", label: "Result" },
+    { id: "target", label: "Target" },
+    { id: "chemicals", label: "Chemicals" },
+    { id: "review", label: "Review" },
   ];
+  const amountToAdd = volume != null ? volume - snapshot.volume : null;
 
   return (
     <div className="space-y-5 pb-10">
@@ -264,7 +295,7 @@ export function FillPage() {
             setChemC(third);
             setShowThird(Boolean(third));
             setThirdQty(last.thirdQty != null ? String(last.thirdQty) : "");
-            setStep(5);
+            setStep(2);
             setLast(null);
           }}
         >
@@ -274,67 +305,64 @@ export function FillPage() {
 
       <StepWizard steps={steps} currentIndex={step} onJump={setStep}>
         {step === 0 ? (
-          <Field
-            id="fill-vol"
-            label="Target volume (kg)"
-            hint={
-              capacity != null
-                ? `The tank holds ${formatQty(capacity)} kg. You can add at most ${formatQty(roomToCapacity(capacity, snapshot.volume))} kg, or type a smaller fill.`
-                : pct !== null
-                  ? `Target ${formatPct(pct)} is already set. Enter how full the tank should be, for example 8000 kg.`
-                  : `Must be more than the current ${formatQty(snapshot.volume)} kg.`
-            }
-          >
-            <Input
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Enter the total quantity you want in the tank after adding chemicals. Current quantity{" "}
+              {formatQty(snapshot.volume)} kg.
+            </p>
+            <Field
               id="fill-vol"
-              inputMode="decimal"
-              value={targetVolume}
-              onChange={(event) => {
-                setTargetVolume(event.target.value);
-                setChemA(null);
-                setChemB(null);
-              }}
-              placeholder="8000"
-            />
+              label="Final tank quantity (kg)"
+              hint={
+                capacity != null
+                  ? `The tank holds ${formatQty(capacity)} kg. You can add at most ${formatQty(roomToCapacity(capacity, snapshot.volume))} kg.`
+                  : `Must be more than the current ${formatQty(snapshot.volume)} kg.`
+              }
+            >
+              <Input
+                id="fill-vol"
+                inputMode="decimal"
+                value={targetVolume}
+                onChange={(event) => {
+                  setTargetVolume(event.target.value);
+                  setChemA(null);
+                  setChemB(null);
+                }}
+                placeholder="8000"
+              />
+            </Field>
+            {amountToAdd != null ? (
+              <p className="text-sm">Amount to add: {formatQty(amountToAdd)} kg</p>
+            ) : null}
             {overCapacity && capacity != null ? (
-              <p className="mt-3 text-sm text-destructive" role="alert">
+              <p className="text-sm text-destructive" role="alert">
                 The tank holds {formatQty(capacity)} kg. You can add at most{" "}
                 {formatQty(roomToCapacity(capacity, snapshot.volume))} kg.
               </p>
             ) : null}
+            <Field id="fill-pct" label="Target solid content (%)">
+              <Input
+                id="fill-pct"
+                inputMode="decimal"
+                value={targetPct}
+                onChange={(event) => {
+                  setTargetPct(event.target.value);
+                  setChemA(null);
+                  setChemB(null);
+                }}
+              />
+            </Field>
             <Button
-              className="mt-4 w-full"
+              className="w-full"
               size="touch"
-              disabled={volume === null || overCapacity}
-              onClick={() => setStep(pct !== null ? 2 : 1)}
+              disabled={volume === null || pct === null || overCapacity}
+              onClick={() => setStep(1)}
             >
               Next
             </Button>
-          </Field>
+          </div>
         ) : null}
         {step === 1 ? (
-          <Field id="fill-pct" label="Target Solid Content %">
-            <Input
-              id="fill-pct"
-              inputMode="decimal"
-              value={targetPct}
-              onChange={(event) => {
-                setTargetPct(event.target.value);
-                setChemA(null);
-                setChemB(null);
-              }}
-            />
-            <Button
-              className="mt-4 w-full"
-              size="touch"
-              disabled={pct === null}
-              onClick={() => setStep(2)}
-            >
-              Next
-            </Button>
-          </Field>
-        ) : null}
-        {step === 2 ? (
           <div className="space-y-4">
             {volume === null || pct === null ? (
               <p className="text-sm text-muted-foreground">
@@ -411,41 +439,35 @@ export function FillPage() {
                     Add a third chemical
                   </Button>
                 )}
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">First chemical</p>
+                  <ChemicalPicker
+                    chemicals={activeChemicals}
+                    selectedId={selectedA?.id}
+                    excludedIds={[selectedB?.id, chemC?.id].filter((id): id is string => Boolean(id))}
+                    onSelect={setChemA}
+                  />
+                  <p className="text-sm font-medium">Second chemical</p>
+                  <ChemicalPicker
+                    chemicals={activeChemicals}
+                    selectedId={selectedB?.id}
+                    excludedIds={[selectedA?.id, chemC?.id].filter((id): id is string => Boolean(id))}
+                    onSelect={setChemB}
+                  />
+                </div>
                 <Button
                   size="touch"
                   className="w-full"
-                  disabled={showThird && (!chemC || lockedThird === null || lockedThird < 0)}
-                  onClick={() => setStep(3)}
+                  disabled={!selectedA || !selectedB || (showThird && (!chemC || lockedThird === null || lockedThird < 0))}
+                  onClick={() => setStep(2)}
                 >
-                  Confirm or change chemicals
+                  Review addition
                 </Button>
               </>
             ) : null}
           </div>
         ) : null}
-        {step === 3 ? (
-          <ChemicalPicker
-            chemicals={activeChemicals}
-            selectedId={selectedA?.id}
-            excludedIds={[selectedB?.id, chemC?.id].filter((id): id is string => Boolean(id))}
-            onSelect={(chemical) => {
-              setChemA(chemical);
-              setStep(4);
-            }}
-          />
-        ) : null}
-        {step === 4 ? (
-          <ChemicalPicker
-            chemicals={activeChemicals}
-            selectedId={selectedB?.id}
-            excludedIds={[selectedA?.id, chemC?.id].filter((id): id is string => Boolean(id))}
-            onSelect={(chemical) => {
-              setChemB(chemical);
-              setStep(5);
-            }}
-          />
-        ) : null}
-        {step === 5 ? (
+        {step === 2 ? (
           <div className="space-y-4">
             {result && selectedA && selectedB && result.ok && result.amounts ? (
               <>
@@ -461,6 +483,7 @@ export function FillPage() {
                   currentQty={snapshot.volume}
                   currentPct={snapshot.solidPct}
                   capacity={capacity}
+                  tankName={activeTank?.name ?? "Tank"}
                   suggestions={fillSuggestions({
                     chemicalA: selectedA,
                     amountA: result.amounts.xA,
@@ -471,7 +494,7 @@ export function FillPage() {
                     chemicalC: usingThird ? chemC : null,
                     amountC: usingThird ? lockedThird : null,
                   })}
-                  confirmLabel={(lines) => logFillLabel(lines.map((line) => line.quantity))}
+                  confirmLabel="Confirm addition"
                   confirming={logging}
                   onConfirm={(lines) => void logFill(lines)}
                 />
@@ -558,9 +581,3 @@ function stockNote(stock: StockCheck, unit: string) {
   return undefined;
 }
 
-function logFillLabel(amounts: number[]) {
-  const count = amounts.filter((amount) => amount > 1e-9).length;
-  if (count === 2) return "Log this (two Add Batch entries)";
-  if (count === 1) return "Log this (one Add Batch entry)";
-  return `Log this (${count} Add Batch entries)`;
-}

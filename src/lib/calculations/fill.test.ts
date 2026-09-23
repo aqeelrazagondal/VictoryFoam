@@ -9,6 +9,7 @@ import {
   solveFillWithStock,
   suggestFillPair,
 } from "./fill.ts";
+import { roomToCapacity } from "./tank-log.ts";
 import type { ChemicalRef } from "./types.ts";
 
 function chem(
@@ -413,5 +414,17 @@ describe("three-chemical fill", () => {
     assert.equal(result.status, "warning");
     assert.equal(result.stock.chemicalC.status, "insufficient");
     assert.ok(result.amounts);
+  });
+
+  test("M05: 2045 kg in an 8000 kg tank leaves 5955 kg and blocks 8001", () => {
+    assert.equal(roomToCapacity(8000, 2045), 5955);
+    const blocked = computeRequiredBlend({
+      existingQty: 2045,
+      existingPct: 28.65,
+      targetVolume: 8001,
+      targetPct: 30,
+      capacity: 8000,
+    });
+    assert.equal(blocked.ok, false);
   });
 });

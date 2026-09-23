@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 const STATUS = {
   feasible: {
-    label: "Feasible",
+    label: "Target achievable",
     icon: CheckCircle2,
     className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   },

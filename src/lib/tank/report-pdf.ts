@@ -8,6 +8,7 @@ export type TankReportLine = {
 };
 
 export type TankReport = {
+  tankName: string;
   date: string;
   currentQty: number;
   currentPct: number;
@@ -35,8 +36,10 @@ const ALERT_INK = rgb(0.55, 0.2, 0.08);
 export function tankReportLines(report: TankReport) {
   const lines = [
     "Victory Foam tank report",
+    report.tankName,
     report.date,
     "",
+    "Quantities are mass in kg.",
     `Already in the tank: ${formatQty(report.currentQty)} kg at ${formatPct(report.currentPct)}`,
     "",
     "Polyols poured",
@@ -85,6 +88,7 @@ function paintReport(report: TankReport) {
   fill(ops, 0, PAGE_H - headerH, PAGE_W, headerH, PINE);
   text(ops, MARGIN, PAGE_H - 40, 10, "F1", MIST, "UMAR");
   text(ops, MARGIN, PAGE_H - 74, 28, "F2", WHITE, "Tank report");
+  text(ops, MARGIN, PAGE_H - 92, 11, "F1", MIST, report.tankName);
   const date = prettyDate(report.date);
   text(ops, PAGE_W - MARGIN - textWidth(date, 11), PAGE_H - 42, 11, "F1", MIST, date);
 

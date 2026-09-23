@@ -136,6 +136,17 @@ export function PlannerPage() {
   }
 
   const heel = settings?.heel ?? 0;
+  const capacity = settings?.capacity ?? null;
+  const projectedVolume =
+    mode === "preview" && preview
+      ? preview.volume
+      : mode === "reverse" && reverse?.ok && reverse.quantity !== null
+        ? tankQty + reverse.quantity
+        : null;
+  const capacityWarning =
+    capacity != null && capacity > 0 && projectedVolume != null && projectedVolume > capacity + 0.05
+      ? `That would be ${formatQty(projectedVolume)} kg. The tank holds ${formatQty(capacity)} kg. This size warning is separate from whether the target can be reached.`
+      : null;
 
   return (
     <div className="space-y-5 pb-10">
@@ -159,14 +170,14 @@ export function PlannerPage() {
           variant={mode === "preview" ? "default" : "outline"}
           onClick={() => setMode("preview")}
         >
-          Preview add
+          Preview addition
         </Button>
         <Button
           size="touch"
           variant={mode === "reverse" ? "default" : "outline"}
           onClick={() => setMode("reverse")}
         >
-          Reverse calc
+          Reach target %
         </Button>
       </div>
 
@@ -199,7 +210,7 @@ export function PlannerPage() {
               statusLabel="Preview only"
               message="This does not write to the tank log."
               lines={[
-                { eyebrow: "Resulting volume", value: `${formatQty(preview.volume)} kg` },
+                { eyebrow: "Resulting tank mass", value: `${formatQty(preview.volume)} kg` },
                 { eyebrow: "Resulting solid %", value: formatPct(preview.solidPct) },
               ]}
             />
@@ -213,11 +224,11 @@ export function PlannerPage() {
             logged tank is used unless you edit the volume or % below.
           </p>
           <p className="text-sm">
-            Last logged tank: {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
+            Last recorded tank quantity: {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
             {usingLastTank ? "" : " · using your edited values for this what-if"}
           </p>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field id="tank-qty" label="Tank quantity (kg)" hint="Leave blank to use the last logged volume.">
+            <Field id="tank-qty" label="Tank quantity (kg)" hint="Leave blank to use the last recorded tank quantity. Overrides are only a simulation.">
               <Input
                 id="tank-qty"
                 inputMode="decimal"
@@ -292,7 +303,6 @@ export function PlannerPage() {
                 reverse.ok ? null : (
                   <div className="space-y-4">
                     <SuggestionList alternatives={alternatives} onSelect={applyPlannerAlternative} />
-                    {missingChemical ? <NeedChemicalHint advice={missingChemical} /> : null}
                   </div>
                 )
               }
@@ -300,6 +310,11 @@ export function PlannerPage() {
           ) : null}
         </div>
       )}
+      {capacityWarning ? (
+        <p className="text-sm" role="status">
+          {capacityWarning}
+        </p>
+      ) : null}
     </div>
   );
 }

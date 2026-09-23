@@ -83,7 +83,7 @@ describe("which log rows change warehouse stock", () => {
 
 describe("stockLabel", () => {
   test("short wins over a low-stock line, and the line is strictly below", () => {
-    assert.equal(stockLabel(null, 10), "Not tracked");
+    assert.equal(stockLabel(null, 10), "Stock not tracked");
     assert.equal(stockLabel(-1, 10), "Short");
     assert.equal(stockLabel(4, 10), "Low");
     assert.equal(stockLabel(10, 10), null);

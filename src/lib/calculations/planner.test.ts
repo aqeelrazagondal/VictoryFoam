@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
+import { plannerMissingChemical } from "./alternatives.ts";
 import { previewAddBatch, reverseAdd } from "./planner.ts";
+import type { ChemicalRef } from "./types.ts";
 
 describe("planner preview (never writes)", () => {
   test("positive: adding a batch mixes the weighted %", () => {
@@ -130,5 +132,80 @@ describe("planner reverse calc", () => {
     });
     assert.equal(result.ok, false);
     assert.equal(result.quantity, null);
+  });
+
+  test("M02: 2000 kg at 25% plus 500 kg at 45% is 2500 kg at 29%", () => {
+    const preview = previewAddBatch({
+      currentQty: 2000,
+      currentPct: 25,
+      addQty: 500,
+      addPct: 45,
+    });
+    assert.equal(preview.volume, 2500);
+    assert.ok(Math.abs(preview.solidPct - 29) < 1e-9);
+  });
+
+  test("M03: reaching 30% from 2000 kg at 25% with a 45% chemical adds 666.666… kg", () => {
+    const result = reverseAdd({
+      currentQty: 2000,
+      currentPct: 25,
+      chemicalPct: 45,
+      targetPct: 30,
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.ok(Math.abs(result.quantity - 2000 / 3) < 1e-9);
+  });
+
+  test("M06: 53% with a strongest chemical of 45% is one unreachable warning", () => {
+    const chemicals: ChemicalRef[] = [
+      { id: "a", name: "A", solidContentPct: 0, qtyAvailable: null, unit: "kg", archivedAt: null },
+      { id: "b", name: "B", solidContentPct: 45, qtyAvailable: null, unit: "kg", archivedAt: null },
+    ];
+    const advice = plannerMissingChemical({
+      currentQty: 2000,
+      currentPct: 28,
+      targetPct: 53,
+      chemicals,
+    });
+    assert.ok(advice);
+    assert.equal(advice?.direction, "higher");
+    assert.equal(advice?.edgePct, 45);
+  });
+
+  test("M08: an empty tank does not divide by zero", () => {
+    const result = reverseAdd({
+      currentQty: 0,
+      currentPct: 0,
+      chemicalPct: 45,
+      targetPct: 30,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.quantity, null);
+    assert.match(result.reason, /empty/i);
+  });
+
+  test("M09: a target equal to the tank solid content adds nothing", () => {
+    const result = reverseAdd({
+      currentQty: 2000,
+      currentPct: 25,
+      chemicalPct: 45,
+      targetPct: 25,
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.quantity, 0);
+  });
+
+  test("equal strength does not produce Infinity", () => {
+    const result = reverseAdd({
+      currentQty: 2000,
+      currentPct: 25,
+      chemicalPct: 25,
+      targetPct: 30,
+    });
+    assert.equal(result.ok, false);
+    assert.equal(Number.isFinite(result.quantity), false);
+    assert.match(result.reason, /same Solid Content/i);
   });
 });

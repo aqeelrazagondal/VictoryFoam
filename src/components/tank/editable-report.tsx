@@ -37,6 +37,7 @@ export function EditableReport({
   currentQty,
   currentPct,
   capacity,
+  tankName,
   suggestions,
   confirmLabel,
   confirming = false,
@@ -47,6 +48,7 @@ export function EditableReport({
   currentQty: number;
   currentPct: number;
   capacity: number | null;
+  tankName: string;
   suggestions: ReportSuggestion[];
   confirmLabel: string | ((lines: EditedPour[]) => string);
   confirming?: boolean;
@@ -114,6 +116,7 @@ export function EditableReport({
     try {
       const { downloadTankReport } = await import("@/lib/tank/report-pdf");
       downloadTankReport({
+        tankName,
         date: new Date().toISOString().slice(0, 10),
         currentQty,
         currentPct,
@@ -136,6 +139,7 @@ export function EditableReport({
           <div>
             <p className="text-[0.7rem] font-semibold tracking-[0.22em] text-[#b7d0c6]">UMAR</p>
             <p className="mt-1 font-heading text-2xl font-semibold tracking-tight">Tank report</p>
+            <p className="text-sm text-[#d5e4de]">{tankName}</p>
           </div>
           <StatusBadge status={status} />
         </div>

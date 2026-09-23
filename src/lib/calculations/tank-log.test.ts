@@ -405,4 +405,59 @@ describe("composition and reconciliation", () => {
     assert.ok(Math.abs((snapshot.remainingByChemical.b ?? 0) - (edited.next.remainingByChemical.b ?? 0)) < 0.05);
     assert.ok(Math.abs((snapshot.remainingByChemical.c ?? 0) - (edited.next.remainingByChemical.c ?? 0)) < 0.05);
   });
+
+  test("M04: using 100 kg of a 600/400 mix leaves 540 and 360 at the same concentration", () => {
+    const breakdown = consumeBreakdown({
+      volume: 1000,
+      solidPct: 25,
+      remainingByChemical: { a: 600, b: 400 },
+      unattributed: 0,
+      consumeQty: 100,
+    });
+    assert.equal(breakdown.ok, true);
+    if (!breakdown.ok) return;
+    const a = breakdown.rows.find((row) => row.id === "a");
+    const b = breakdown.rows.find((row) => row.id === "b");
+    assert.ok(a && Math.abs(a.remaining - 540) < 1e-9);
+    assert.ok(b && Math.abs(b.remaining - 360) < 1e-9);
+    assert.ok(Math.abs(breakdown.leftoverPct - 25) < 1e-9);
+  });
+
+  test("M08: composition of an empty tank does not divide by zero", () => {
+    const rows = compositionRows(
+      {
+        volume: 0,
+        solidPct: 0,
+        remainingByChemical: {},
+        unattributed: 0,
+        trackedTotal: 0,
+        entries: [],
+        errors: [],
+        hasOpeningBalance: false,
+      },
+      {},
+    );
+    assert.equal(rows.length, 0);
+  });
+
+  test("M10: drawable use is allowed at the limit and rejected above it", () => {
+    assert.equal(drawableNow(1000, 200), 800);
+    assert.equal(canConsume(1000, 800), true);
+    const atLimit = consumeBreakdown({
+      volume: 1000,
+      solidPct: 20,
+      remainingByChemical: { a: 1000 },
+      unattributed: 0,
+      consumeQty: 800,
+    });
+    assert.equal(atLimit.ok, true);
+    const over = consumeBreakdown({
+      volume: 1000,
+      solidPct: 20,
+      remainingByChemical: { a: 1000 },
+      unattributed: 0,
+      consumeQty: 1000.1,
+    });
+    assert.equal(over.ok, false);
+  });
 });

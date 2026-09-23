@@ -15,7 +15,7 @@ import { insertLogEntry, saveTankSettings, TankError } from "@/lib/tank/reposito
 
 export function SetupPage() {
   const router = useRouter();
-  const { tankReady, activeChemicals, refresh } = useTank();
+  const { tankReady, activeTank, activeChemicals, refresh } = useTank();
   const [step, setStep] = useState(0);
   const [quantity, setQuantity] = useState("");
   const [pct, setPct] = useState("");
@@ -28,6 +28,22 @@ export function SetupPage() {
 
   const qty = parseNumber(quantity);
   const solidPct = parseNumber(pct);
+
+  if (!activeTank) {
+    return (
+      <div className="space-y-4">
+        <h1>Set up your tank</h1>
+        <EmptyState
+          title="Name a tank first"
+          description="Choose a name on Home. Then say what is already in that tank."
+          actionLabel="Name a tank"
+          actionHref="/tank/"
+        />
+      </div>
+    );
+  }
+
+  const tank = activeTank;
 
   if (tankReady) {
     return (
@@ -51,11 +67,11 @@ export function SetupPage() {
     setSaving(true);
     setError(null);
     try {
-      await saveTankSettings({
+      await saveTankSettings(tank.id, {
         capacity: parseNumber(capacity),
         heel: parseNumber(heel) ?? 0,
       });
-      await insertLogEntry({
+      await insertLogEntry(tank.id, {
         type: "opening_balance",
         quantity: qty,
         solidContentPct: solidPct,

@@ -14,6 +14,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!configured) return;
@@ -81,16 +82,33 @@ export function AuthGate({ children }: { children: ReactNode }) {
             <label htmlFor="password" className="text-sm font-medium">
               Password
             </label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="min-w-0 flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="touch"
+                aria-pressed={showPassword}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                onClick={() => setShowPassword((current) => !current)}
+              >
+                {showPassword ? "Hide" : "Show"}
+              </Button>
+            </div>
           </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
           <Button type="submit" size="touch" className="w-full" disabled={submitting}>
             {submitting ? "Signing in…" : "Sign in"}
           </Button>

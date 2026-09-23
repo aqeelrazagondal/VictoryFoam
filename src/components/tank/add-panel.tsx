@@ -46,7 +46,7 @@ const MODES: { id: PolyolMode; label: string }[] = [
 ];
 
 export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => void; onCancel: () => void }) {
-  const { snapshot, settings, activeChemicals, refresh } = useTank();
+  const { snapshot, settings, activeChemicals, activeTank, refresh } = useTank();
   const [mode, setMode] = useState<PolyolMode>("two");
   const [capacityText, setCapacityText] = useState(
     settings?.capacity != null ? String(settings.capacity) : "8000",
@@ -60,6 +60,7 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
   const [lockedText, setLockedText] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
 
   const capacity = settings?.capacity ?? parseNumber(capacityText);
   const room = capacity != null ? roomToCapacity(capacity, snapshot.volume) : null;
@@ -112,10 +113,12 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
     setSaving(true);
     setError(null);
     try {
+      if (!activeTank) throw new TankError("Choose a tank first.");
       if (settings?.capacity == null && capacity != null) {
-        await saveTankSettings({ capacity, heel: settings?.heel ?? 0 });
+        await saveTankSettings(activeTank.id, { capacity, heel: settings?.heel ?? 0 });
       }
       await insertLogEntries(
+        activeTank.id,
         lines
           .filter((line) => line.quantity > 1e-6)
           .map((line) => ({
@@ -164,15 +167,33 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
       <div>
         <h1>Add to the tank</h1>
         <p className="mt-2 text-muted-foreground">
-          Type how full the tank should be this time (at or below the tank size), the solid content
-          you need, and which polyols to use. Every fill asks for the kg again. Confirming the pour
-          takes those kilograms off Shelf stock.
+          Enter the total quantity you want in the tank after adding chemicals. Confirming the pour
+          takes those kilograms off the shelf.
         </p>
       </div>
 
-      <TankSummary volume={snapshot.volume} solidPct={snapshot.solidPct} room={room} />
+      <ol className="flex gap-2 text-sm" aria-label="Addition steps">
+        {["Target", "Chemicals", "Review"].map((label, index) => (
+          <li key={label}>
+            <button
+              type="button"
+              className={cn(
+                "min-h-11 rounded-full px-3 font-medium",
+                index === step ? "bg-primary text-primary-foreground" : "bg-muted",
+              )}
+              aria-current={index === step ? "step" : undefined}
+              disabled={index > step}
+              onClick={() => setStep(index)}
+            >
+              {label}
+            </button>
+          </li>
+        ))}
+      </ol>
 
-      {settings?.capacity == null ? (
+      <TankSummary volume={snapshot.volume} solidPct={snapshot.solidPct} room={room} capacity={capacity} />
+
+      {step === 0 && settings?.capacity == null ? (
         <Field id="add-capacity" label="Tank size (kg)" hint="You can fill up to this, or less.">
           <Input
             id="add-capacity"
@@ -183,6 +204,7 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
         </Field>
       ) : null}
 
+      {step === 0 ? (
       <div className="grid gap-2 md:grid-cols-3" role="group" aria-label="Which polyols will you add?">
         {MODES.map((option) => (
           <button
@@ -199,14 +221,15 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
           </button>
         ))}
       </div>
+      ) : null}
 
-      {mode !== "one" ? (
+      {step === 0 && mode !== "one" ? (
         <Field
           id="target-kg"
-          label="How full should the tank be (kg)"
+          label="Final tank quantity (kg)"
           hint={
             room != null
-              ? `You can add at most ${formatQty(room)} kg. Type less if this job does not need a full tank.`
+              ? `You can add at most ${formatQty(room)} kg. Current quantity is ${formatQty(snapshot.volume)} kg.`
               : "Enter the tank size above first."
           }
         >
@@ -217,13 +240,19 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
             onChange={(event) => setTargetVolume(event.target.value)}
             placeholder="8000"
           />
+          {parseNumber(targetVolume) != null ? (
+            <p className="mt-2 text-sm">
+              Amount to add: {formatQty((parseNumber(targetVolume) ?? 0) - snapshot.volume)} kg
+            </p>
+          ) : null}
         </Field>
-      ) : (
+      ) : step === 0 ? (
         <p className="text-sm text-muted-foreground">
-          One polyol sets how many kg to add. The tank size still limits that amount.
+          One chemical sets how many kg to add. The tank size still limits that amount.
         </p>
-      )}
+      ) : null}
 
+      {step === 0 ? (
       <div className="grid gap-4 md:grid-cols-2">
         <Field id="use-about" label="I will use about (kg, optional)" hint={useHint}>
           <Input
@@ -235,17 +264,30 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
           />
         </Field>
 
-        <Field id="target-pct" label="Solid content you need (%)">
+        <Field id="target-pct" label="Target solid content (%)">
           <Input
             id="target-pct"
             inputMode="decimal"
             value={targetPctText}
             onChange={(event) => setTargetPctText(event.target.value)}
-            placeholder="28.7"
+            placeholder="28,65"
           />
         </Field>
       </div>
+      ) : null}
+      {step === 0 ? (
+        <Button
+          type="button"
+          size="touch"
+          className="w-full"
+          onClick={() => setStep(1)}
+          disabled={parseNumber(targetPctText) == null || (mode !== "one" && parseNumber(targetVolume) == null)}
+        >
+          Next
+        </Button>
+      ) : null}
 
+      {step === 1 ? (
       <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-medium">{mode === "one" ? "Polyol" : "First polyol"}</p>
@@ -295,6 +337,7 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
             </div>
           ) : null}
         </div>
+      ) : null}
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">
@@ -302,18 +345,24 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
         </p>
       ) : null}
 
-      {plan.state === "blocked" ? (
+      {step >= 1 && plan.state === "blocked" ? (
         <ResultCard status="infeasible" message={plan.reason} lines={[]} />
       ) : null}
-      {plan.state === "ready" ? (
+      {step === 1 && plan.state === "ready" ? (
+        <Button type="button" size="touch" className="w-full" onClick={() => setStep(2)}>
+          Review addition
+        </Button>
+      ) : null}
+      {step === 2 && plan.state === "ready" ? (
         <EditableReport
           key={plan.suggestions.map((line) => `${line.id}:${line.suggestedKg}`).join("|")}
           message={`${plan.message}${shortOfUse}`}
           currentQty={snapshot.volume}
           currentPct={snapshot.solidPct}
           capacity={capacity}
+          tankName={activeTank?.name ?? "Tank"}
           suggestions={plan.suggestions}
-          confirmLabel="Add this to the tank"
+          confirmLabel="Confirm addition"
           confirming={saving}
           onConfirm={(lines) => void confirm(lines)}
         />

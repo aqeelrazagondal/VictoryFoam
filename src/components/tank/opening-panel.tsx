@@ -43,7 +43,7 @@ function isBlank(line: OpeningLine) {
 }
 
 export function OpeningPanel() {
-  const { activeChemicals, settings, refresh } = useTank();
+  const { activeChemicals, settings, activeTank, refresh } = useTank();
   const [lines, setLines] = useState<OpeningLine[]>([blankLine("line-1")]);
   const [nextKey, setNextKey] = useState(2);
   const [capacityText, setCapacityText] = useState(
@@ -171,8 +171,10 @@ export function OpeningPanel() {
         });
       }
 
-      await saveTankSettings({ capacity, heel: settings?.heel ?? 0 });
+      if (!activeTank) throw new TankError("Choose a tank first.");
+      await saveTankSettings(activeTank.id, { capacity, heel: settings?.heel ?? 0 });
       await insertLogEntries(
+        activeTank.id,
         rows.map((row) => ({
           type: "opening_balance" as const,
           chemicalId: row.chemicalId,
@@ -194,6 +196,7 @@ export function OpeningPanel() {
       <div>
         <h1>What&apos;s in the tank</h1>
         <p className="mt-2 text-muted-foreground">
+          {activeTank ? `${activeTank.name}. ` : ""}
           Choose the chemical already in the tank, or type one such as Conventional polyol. Then
           enter the solid content and the kg. The overall solid content is calculated for you. This
           does not change Shelf stock.

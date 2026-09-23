@@ -97,19 +97,30 @@ export type Database = {
         Row: {
           calculator: string;
           payload: Json;
+          tank_id: string;
           updated_at: string;
         };
         Insert: {
           calculator: string;
           payload?: Json;
+          tank_id: string;
           updated_at?: string;
         };
         Update: {
           calculator?: string;
           payload?: Json;
+          tank_id?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "last_calculation_tank_id_fkey";
+            columns: ["tank_id"];
+            isOneToOne: false;
+            referencedRelation: "tanks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       tank_log_entries: {
         Row: {
@@ -120,6 +131,7 @@ export type Database = {
           note: string | null;
           quantity: number;
           solid_content_pct: number | null;
+          tank_id: string;
           type: "opening_balance" | "add_batch" | "consume_usage" | "adjust_composition";
         };
         Insert: {
@@ -130,6 +142,7 @@ export type Database = {
           note?: string | null;
           quantity: number;
           solid_content_pct?: number | null;
+          tank_id: string;
           type: "opening_balance" | "add_batch" | "consume_usage" | "adjust_composition";
         };
         Update: {
@@ -140,6 +153,7 @@ export type Database = {
           note?: string | null;
           quantity?: number;
           solid_content_pct?: number | null;
+          tank_id?: string;
           type?: "opening_balance" | "add_batch" | "consume_usage" | "adjust_composition";
         };
         Relationships: [
@@ -150,25 +164,41 @@ export type Database = {
             referencedRelation: "chemicals";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "tank_log_entries_tank_id_fkey";
+            columns: ["tank_id"];
+            isOneToOne: false;
+            referencedRelation: "tanks";
+            referencedColumns: ["id"];
+          },
         ];
       };
-      tank_settings: {
+      tanks: {
         Row: {
+          archived_at: string | null;
           capacity: number | null;
+          created_at: string;
           heel: number;
-          id: boolean;
+          id: string;
+          name: string;
           updated_at: string;
         };
         Insert: {
+          archived_at?: string | null;
           capacity?: number | null;
+          created_at?: string;
           heel?: number;
-          id?: boolean;
+          id?: string;
+          name: string;
           updated_at?: string;
         };
         Update: {
+          archived_at?: string | null;
           capacity?: number | null;
+          created_at?: string;
           heel?: number;
-          id?: boolean;
+          id?: string;
+          name?: string;
           updated_at?: string;
         };
         Relationships: [];

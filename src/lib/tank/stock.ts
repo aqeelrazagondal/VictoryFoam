@@ -56,8 +56,8 @@ export function reversedBalance(current: number, signedQuantity: number) {
 export function stockLabel(
   qtyAvailable: number | null,
   reorderKg: number | null,
-): "Not tracked" | "Short" | "Low" | null {
-  if (qtyAvailable === null) return "Not tracked";
+): "Stock not tracked" | "Short" | "Low" | null {
+  if (qtyAvailable === null) return "Stock not tracked";
   if (qtyAvailable < -EPS) return "Short";
   if (reorderKg !== null && qtyAvailable + EPS < reorderKg) return "Low";
   return null;

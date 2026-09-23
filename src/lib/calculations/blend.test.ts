@@ -271,4 +271,28 @@ describe("three-chemical blend", () => {
     assert.equal(result.stock.chemical3.status, "insufficient");
     assert.ok(result.amounts);
   });
+
+  test("M01: 0% and 45% at 22.5% of 100 kg is 50 kg each", () => {
+    const result = solveBlend({ q1: 0, q2: 45, targetPct: 22.5, targetQty: 100 });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.ok(Math.abs(result.amounts.x1 - 50) < 1e-9);
+    assert.ok(Math.abs(result.amounts.x2 - 50) < 1e-9);
+  });
+
+  test("M07: locked 20 kg at 25% leaves 45% and 0% for the rest of 100 kg at 22.5%", () => {
+    const result = solveBlendThree({
+      q1: 45,
+      q2: 0,
+      q3: 25,
+      x3: 20,
+      targetPct: 22.5,
+      targetQty: 100,
+    });
+    assert.equal(result.ok, true);
+    if (!result.ok || !result.amounts) return;
+    assert.ok(Math.abs(result.amounts.x1 - (1750 / 45)) < 1e-6);
+    assert.ok(Math.abs(result.amounts.x2 - (80 - 1750 / 45)) < 1e-6);
+    assert.ok(Math.abs(result.amounts.x3 - 20) < 1e-9);
+  });
 });

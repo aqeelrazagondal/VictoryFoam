@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { EmptyState, Field } from "@/components/tank/empty-state";
@@ -30,7 +30,7 @@ import { parseNumber } from "@/lib/tank/parse";
 import { getLastCalculation, applyStockMovement, saveLastCalculation, TankError } from "@/lib/tank/repository";
 
 export function BlendPage() {
-  const { activeChemicals, refresh } = useTank();
+  const { activeChemicals, activeTank, refresh } = useTank();
   const [step, setStep] = useState(0);
   const [chem1, setChem1] = useState<Chemical | null>(null);
   const [chem2, setChem2] = useState<Chemical | null>(null);
@@ -45,12 +45,24 @@ export function BlendPage() {
   const [recordedKey, setRecordedKey] = useState<string | null>(null);
   const [usedMessage, setUsedMessage] = useState<string | null>(null);
   const [usedError, setUsedError] = useState<string | null>(null);
+  const tankId = activeTank?.id ?? null;
+  const tankAtCalc = useRef(tankId);
 
   useEffect(() => {
-    getLastCalculation("blend")
-      .then((payload) => setLast(payload as BlendLastCalculation | null))
+    if (!tankId) {
+      setLast(null);
+      return;
+    }
+    let cancelled = false;
+    getLastCalculation(tankId, "blend")
+      .then((payload) => {
+        if (!cancelled) setLast(payload as BlendLastCalculation | null);
+      })
       .catch(() => undefined);
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [tankId]);
 
   const qty = parseNumber(targetQty);
   const pct = parseNumber(targetPct);
@@ -109,8 +121,23 @@ export function BlendPage() {
   }
 
   useEffect(() => {
-    if (!result?.ok || !chem1 || !chem2 || pct === null || qty === null) return;
-    void saveLastCalculation("blend", {
+    if (tankAtCalc.current !== tankId) {
+      const previous = tankAtCalc.current;
+      tankAtCalc.current = tankId;
+      if (previous !== null) {
+        setChem1(null);
+        setChem2(null);
+        setChem3(null);
+        setShowThird(false);
+        setThirdQty("");
+        setTargetPct("");
+        setTargetQty("");
+        setStep(0);
+        return;
+      }
+    }
+    if (!tankId || !result?.ok || !chem1 || !chem2 || pct === null || qty === null) return;
+    void saveLastCalculation(tankId, "blend", {
       chemical1Id: chem1.id,
       chemical2Id: chem2.id,
       chemical3Id: usingThird && chem3 ? chem3.id : null,
@@ -118,7 +145,7 @@ export function BlendPage() {
       targetPct: pct,
       targetQty: qty,
     });
-  }, [chem1, chem2, chem3, lockedThird, pct, qty, result, usingThird]);
+  }, [tankId, chem1, chem2, chem3, lockedThird, pct, qty, result, usingThird]);
 
   function continueLast() {
     if (!last) return;
@@ -350,7 +377,7 @@ export function BlendPage() {
                       </p>
                     ) : null}
                     <p className="text-sm text-muted-foreground">
-                      This takes the kilograms off the shelf. It does not fill the tank.
+                      Reduces shelf stock. Does not change the tank.
                     </p>
                     <Button
                       size="touch"
@@ -358,7 +385,7 @@ export function BlendPage() {
                       disabled={recording || recordedKey === useKey}
                       onClick={() => void recordUsed()}
                     >
-                      {recording ? "Saving…" : recordedKey === useKey ? "Taken off the shelf" : "Take this off the shelf"}
+                      {recording ? "Saving…" : recordedKey === useKey ? "Recorded" : "Record inventory use"}
                     </Button>
                   </div>
                 ) : (

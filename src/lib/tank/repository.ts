@@ -8,6 +8,7 @@ import type {
   StockMovement,
   StockMovementInput,
   StockMovementType,
+  Tank,
   TankLogDraft,
   TankLogEntry,
   TankSettings,
@@ -16,6 +17,14 @@ import { isDuplicateName, STOCK_MOVEMENT_TYPES } from "@/lib/tank/models";
 import { pageOf, pageRange, TANK_LIST_PAGE_SIZE, type PageResult } from "@/lib/tank/pagination";
 import { nextStockBalance, reversedBalance, shouldDeductStock } from "@/lib/tank/stock";
 import type { Database, Json } from "@/lib/tank/database.types";
+import {
+  isDuplicateTankName,
+  migrateStoredTankState,
+  readActiveTankId,
+  resolveActiveTankId,
+  writeActiveTankId,
+  type TankCalculationMemory,
+} from "@/lib/tank/tanks";
 
 const LOCAL_KEY = "victory-foam-tank-v1";
 
@@ -31,18 +40,15 @@ export class TankError extends Error {
 
 type LocalState = {
   chemicals: Chemical[];
-  settings: TankSettings | null;
+  tanks: Tank[];
   entries: TankLogEntry[];
   movements: StockMovement[];
-  lastCalculation: {
-    blend?: BlendLastCalculation;
-    fill?: FillLastCalculation;
-  };
+  lastCalculation: Record<string, TankCalculationMemory>;
 };
 
 const emptyLocal = (): LocalState => ({
   chemicals: [],
-  settings: null,
+  tanks: [],
   entries: [],
   movements: [],
   lastCalculation: {},
@@ -61,14 +67,25 @@ function readLocal(): LocalState {
   try {
     const raw = window.localStorage.getItem(LOCAL_KEY);
     if (!raw) return emptyLocal();
-    const parsed = JSON.parse(raw) as Partial<LocalState>;
-    return {
-      chemicals: (parsed.chemicals ?? []).map(normalizeStoredChemical),
-      settings: parsed.settings ?? null,
-      entries: parsed.entries ?? [],
-      movements: parsed.movements ?? [],
-      lastCalculation: parsed.lastCalculation ?? {},
+    const parsed = JSON.parse(raw) as {
+      chemicals?: Chemical[];
+      movements?: StockMovement[];
+      tanks?: Tank[];
     };
+    const hadTanks = Array.isArray(parsed.tanks);
+    const migrated = migrateStoredTankState(parsed, crypto.randomUUID());
+    const state: LocalState = {
+      chemicals: (parsed.chemicals ?? []).map(normalizeStoredChemical),
+      tanks: migrated.tanks,
+      entries: migrated.entries,
+      movements: parsed.movements ?? [],
+      lastCalculation: migrated.lastCalculation,
+    };
+    if (!hadTanks) {
+      writeLocal(state);
+      if (state.tanks[0] && !readActiveTankId()) writeActiveTankId(state.tanks[0].id);
+    }
+    return state;
   } catch {
     return emptyLocal();
   }
@@ -150,9 +167,22 @@ function mapMovementJson(value: Json): StockMovement {
   };
 }
 
+function mapTank(row: Database["public"]["Tables"]["tanks"]["Row"]): Tank {
+  return {
+    id: row.id,
+    name: row.name,
+    capacity: row.capacity === null ? null : Number(row.capacity),
+    heel: Number(row.heel),
+    archivedAt: row.archived_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function mapEntry(row: Database["public"]["Tables"]["tank_log_entries"]["Row"]): TankLogEntry {
   return {
     id: row.id,
+    tankId: row.tank_id,
     entryDate: row.entry_date,
     type: row.type,
     chemicalId: row.chemical_id,
@@ -162,6 +192,34 @@ function mapEntry(row: Database["public"]["Tables"]["tank_log_entries"]["Row"]):
     note: row.note,
     createdAt: row.created_at,
   };
+}
+
+function assertTankName(name: string, tanks: Tank[], exceptId?: string) {
+  const trimmed = name.trim();
+  if (!trimmed) throw new TankError("Tank name is required.");
+  if (isDuplicateTankName(trimmed, tanks, exceptId)) {
+    throw new TankError("A tank with this name already exists.");
+  }
+  return trimmed;
+}
+
+function assertCapacity(capacity: number | null) {
+  if (capacity === null) return null;
+  if (!Number.isFinite(capacity) || capacity <= 0) {
+    throw new TankError("Tank size must be greater than zero.");
+  }
+  return capacity;
+}
+
+function activeLocalTank(local: LocalState, tankId: string) {
+  const tank = local.tanks.find((item) => item.id === tankId && item.archivedAt === null);
+  if (!tank) throw new TankError("Choose a tank first.");
+  return tank;
+}
+
+function duplicateTankError(error: { code?: string; message: string }) {
+  if (error.code === "23505") throw new TankError("A tank with this name already exists.");
+  throw new TankError(error.message);
 }
 
 function assertUniqueName(name: string, chemicals: Chemical[], exceptId?: string) {
@@ -244,42 +302,79 @@ function deductLocalPours(local: LocalState, entries: TankLogEntry[]) {
   }
 }
 
-export type TankSnapshotData = {
+export type FactoryData = {
   chemicals: Chemical[];
-  settings: TankSettings | null;
+  tanks: Tank[];
+  activeTankId: string | null;
   entries: TankLogEntry[];
+  loggedChemicalIds: string[];
 };
 
-export async function loadTankData(): Promise<TankSnapshotData> {
+function loggedChemicalIdsFrom(entries: { chemicalId: string | null }[]) {
+  return [...new Set(entries.map((entry) => entry.chemicalId).filter((id): id is string => Boolean(id)))];
+}
+
+function rememberActiveTank(id: string | null) {
+  writeActiveTankId(id);
+  return id;
+}
+
+export async function loadFactory(preferredTankId: string | null): Promise<FactoryData> {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
     const local = readLocal();
+    const activeTankId = rememberActiveTank(
+      resolveActiveTankId(local.tanks, preferredTankId ?? readActiveTankId()),
+    );
     return {
       chemicals: local.chemicals,
-      settings: local.settings,
-      entries: [...local.entries].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+      tanks: local.tanks,
+      activeTankId,
+      entries: local.entries
+        .filter((entry) => entry.tankId === activeTankId)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
+      loggedChemicalIds: loggedChemicalIdsFrom(local.entries),
     };
   }
 
-  const [chemicalsRes, settingsRes, entriesRes] = await Promise.all([
+  const [chemicalsRes, tanksRes, usedRes] = await Promise.all([
     supabase.from("chemicals").select("*").order("name"),
-    supabase.from("tank_settings").select("*").maybeSingle(),
-    supabase.from("tank_log_entries").select("*").order("created_at").order("id"),
+    supabase.from("tanks").select("*").order("created_at").order("id"),
+    supabase.from("tank_log_entries").select("chemical_id").not("chemical_id", "is", null).limit(10000),
   ]);
 
   if (chemicalsRes.error) throw new TankError(chemicalsRes.error.message);
-  if (settingsRes.error) throw new TankError(settingsRes.error.message);
-  if (entriesRes.error) throw new TankError(entriesRes.error.message);
+  if (tanksRes.error) throw new TankError(tanksRes.error.message);
+  if (usedRes.error) throw new TankError(usedRes.error.message);
+
+  const tanks = (tanksRes.data ?? []).map(mapTank);
+  const activeTankId = rememberActiveTank(
+    resolveActiveTankId(tanks, preferredTankId ?? readActiveTankId()),
+  );
+  let entries: TankLogEntry[] = [];
+  if (activeTankId) {
+    const entriesRes = await supabase
+      .from("tank_log_entries")
+      .select("*")
+      .eq("tank_id", activeTankId)
+      .order("created_at")
+      .order("id");
+    if (entriesRes.error) throw new TankError(entriesRes.error.message);
+    entries = (entriesRes.data ?? []).map(mapEntry);
+  }
 
   return {
     chemicals: (chemicalsRes.data ?? []).map(mapChemical),
-    settings: settingsRes.data
-      ? {
-          capacity: settingsRes.data.capacity === null ? null : Number(settingsRes.data.capacity),
-          heel: Number(settingsRes.data.heel),
-        }
-      : null,
-    entries: (entriesRes.data ?? []).map(mapEntry),
+    tanks,
+    activeTankId,
+    entries,
+    loggedChemicalIds: [
+      ...new Set(
+        (usedRes.data ?? [])
+          .map((row) => row.chemical_id)
+          .filter((id): id is string => typeof id === "string"),
+      ),
+    ],
   };
 }
 
@@ -287,26 +382,32 @@ export async function loadTankData(): Promise<TankSnapshotData> {
  * One page of tank log rows, newest first. Local storage pages the array here;
  * Supabase uses `.range()` with an exact count — the UI must not slice a full list.
  */
-export async function listLogEntriesPage(options?: {
-  page?: number;
-  pageSize?: number;
-}): Promise<PageResult<TankLogEntry>> {
+export async function listLogEntriesPage(
+  tankId: string,
+  options?: {
+    page?: number;
+    pageSize?: number;
+  },
+): Promise<PageResult<TankLogEntry>> {
   const { from, to, pageSize, page } = pageRange(
     options?.page ?? 1,
     options?.pageSize ?? TANK_LIST_PAGE_SIZE,
   );
   const supabase = getSupabaseBrowser();
   if (!supabase) {
-    const newestFirst = [...readLocal().entries].sort((a, b) => {
-      const byTime = b.createdAt.localeCompare(a.createdAt);
-      return byTime !== 0 ? byTime : b.id.localeCompare(a.id);
-    });
+    const newestFirst = readLocal()
+      .entries.filter((entry) => entry.tankId === tankId)
+      .sort((a, b) => {
+        const byTime = b.createdAt.localeCompare(a.createdAt);
+        return byTime !== 0 ? byTime : b.id.localeCompare(a.id);
+      });
     return pageOf(newestFirst, page, pageSize);
   }
 
   const { data, error, count } = await supabase
     .from("tank_log_entries")
     .select("*", { count: "exact" })
+    .eq("tank_id", tankId)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .range(from, to);
@@ -479,21 +580,28 @@ export async function archiveChemical(id: string) {
   if (error) throw new TankError(error.message);
 }
 
-export async function deleteChemical(id: string, entries: TankLogEntry[]) {
-  const used = entries.some((entry) => entry.chemicalId === id);
-  if (used) {
-    throw new TankError("This chemical appears in the tank log. Archive it instead.");
-  }
-
+export async function deleteChemical(id: string) {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
     const local = readLocal();
+    if (local.entries.some((entry) => entry.chemicalId === id)) {
+      throw new TankError("This chemical appears in the tank log. Archive it instead.");
+    }
     if (local.movements.some((movement) => movement.chemicalId === id)) {
       throw new TankError("This chemical has stock history. Archive it instead.");
     }
     local.chemicals = local.chemicals.filter((chemical) => chemical.id !== id);
     writeLocal(local);
     return;
+  }
+
+  const { count: logCount, error: logCountError } = await supabase
+    .from("tank_log_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("chemical_id", id);
+  if (logCountError) throw new TankError(logCountError.message);
+  if ((logCount ?? 0) > 0) {
+    throw new TankError("This chemical appears in the tank log. Archive it instead.");
   }
 
   const { count, error: countError } = await supabase
@@ -514,31 +622,137 @@ export async function deleteChemical(id: string, entries: TankLogEntry[]) {
   }
 }
 
-export async function saveTankSettings(settings: TankSettings) {
+export async function createTank(input: { name: string; capacity: number | null }) {
+  const capacity = assertCapacity(input.capacity);
   const supabase = getSupabaseBrowser();
   if (!supabase) {
     const local = readLocal();
-    local.settings = settings;
+    const name = assertTankName(input.name, local.tanks);
+    const now = nowIso();
+    const tank: Tank = {
+      id: crypto.randomUUID(),
+      name,
+      capacity,
+      heel: 0,
+      archivedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    local.tanks = [...local.tanks, tank];
+    writeLocal(local);
+    return tank;
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("tanks")
+    .select("*")
+    .is("archived_at", null);
+  if (existingError) throw new TankError(existingError.message);
+  const name = assertTankName(input.name, (existing ?? []).map(mapTank));
+
+  const { data, error } = await supabase
+    .from("tanks")
+    .insert({ name, capacity, heel: 0 })
+    .select("*")
+    .single();
+  if (error) duplicateTankError(error);
+  if (!data) throw new TankError("Could not create the tank.");
+  return mapTank(data);
+}
+
+export async function renameTank(id: string, name: string) {
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const local = readLocal();
+    const trimmed = assertTankName(name, local.tanks, id);
+    const tank = activeLocalTank(local, id);
+    tank.name = trimmed;
+    tank.updatedAt = nowIso();
     writeLocal(local);
     return;
   }
 
-  const { error } = await supabase.from("tank_settings").upsert({
-    id: true,
-    capacity: settings.capacity,
-    heel: settings.heel,
-  });
+  const { data: existing, error: existingError } = await supabase
+    .from("tanks")
+    .select("*")
+    .is("archived_at", null);
+  if (existingError) throw new TankError(existingError.message);
+  const trimmed = assertTankName(name, (existing ?? []).map(mapTank), id);
+  const { error } = await supabase.from("tanks").update({ name: trimmed }).eq("id", id);
+  if (error) duplicateTankError(error);
+}
+
+export async function removeTank(id: string) {
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const local = readLocal();
+    const tank = local.tanks.find((item) => item.id === id);
+    if (!tank || tank.archivedAt) return;
+    const hasLog = local.entries.some((entry) => entry.tankId === id);
+    if (hasLog) {
+      tank.archivedAt = nowIso();
+      tank.updatedAt = tank.archivedAt;
+    } else {
+      local.tanks = local.tanks.filter((item) => item.id !== id);
+      delete local.lastCalculation[id];
+    }
+    writeLocal(local);
+    return;
+  }
+
+  const { count, error: countError } = await supabase
+    .from("tank_log_entries")
+    .select("id", { count: "exact", head: true })
+    .eq("tank_id", id);
+  if (countError) throw new TankError(countError.message);
+  if ((count ?? 0) > 0) {
+    const { error } = await supabase
+      .from("tanks")
+      .update({ archived_at: nowIso() })
+      .eq("id", id)
+      .is("archived_at", null);
+    if (error) throw new TankError(error.message);
+    return;
+  }
+
+  const { error: calcError } = await supabase.from("last_calculation").delete().eq("tank_id", id);
+  if (calcError) throw new TankError(calcError.message);
+  const { error } = await supabase.from("tanks").delete().eq("id", id);
   if (error) throw new TankError(error.message);
 }
 
-export async function insertLogEntries(drafts: TankLogDraft[]) {
+export async function saveTankSettings(tankId: string, settings: TankSettings) {
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const local = readLocal();
+    const tank = activeLocalTank(local, tankId);
+    tank.capacity = settings.capacity;
+    tank.heel = settings.heel;
+    tank.updatedAt = nowIso();
+    writeLocal(local);
+    return;
+  }
+
+  const { error } = await supabase
+    .from("tanks")
+    .update({
+      capacity: settings.capacity,
+      heel: settings.heel,
+    })
+    .eq("id", tankId);
+  if (error) throw new TankError(error.message);
+}
+
+export async function insertLogEntries(tankId: string, drafts: TankLogDraft[]) {
   if (drafts.length === 0) return [];
   const base = Date.now();
   const supabase = getSupabaseBrowser();
   if (!supabase) {
     const local = readLocal();
+    activeLocalTank(local, tankId);
     const created: TankLogEntry[] = drafts.map((draft, index) => ({
       id: crypto.randomUUID(),
+      tankId,
       entryDate: draft.entryDate ?? todayIsoDate(),
       type: draft.type,
       chemicalId: draft.chemicalId,
@@ -557,6 +771,7 @@ export async function insertLogEntries(drafts: TankLogDraft[]) {
     .from("tank_log_entries")
     .insert(
       drafts.map((draft, index) => ({
+        tank_id: tankId,
         entry_date: draft.entryDate ?? todayIsoDate(),
         type: draft.type,
         chemical_id: draft.chemicalId,
@@ -573,12 +788,20 @@ export async function insertLogEntries(drafts: TankLogDraft[]) {
   return created;
 }
 
-export async function insertLogEntry(draft: TankLogDraft) {
+/**
+ * Writes one log row, then deducts shelf stock for pours in a separate call.
+ * There is no idempotency key and no tank version check. A disabled button
+ * does not make a repeated submit safe. Do not retry automatically after a
+ * timeout; reload history and match the intended row first.
+ */
+export async function insertLogEntry(tankId: string, draft: TankLogDraft) {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
     const local = readLocal();
+    activeLocalTank(local, tankId);
     const created: TankLogEntry = {
       id: crypto.randomUUID(),
+      tankId,
       entryDate: draft.entryDate ?? todayIsoDate(),
       type: draft.type,
       chemicalId: draft.chemicalId,
@@ -596,6 +819,7 @@ export async function insertLogEntry(draft: TankLogDraft) {
   const { data, error } = await supabase
     .from("tank_log_entries")
     .insert({
+      tank_id: tankId,
       entry_date: draft.entryDate ?? todayIsoDate(),
       type: draft.type,
       chemical_id: draft.chemicalId,
@@ -767,15 +991,16 @@ export async function setReorderKg(id: string, reorderKg: number | null) {
   if (error) throw new TankError(error.message);
 }
 
-export async function getLastCalculation(calculator: LastCalculator) {
+export async function getLastCalculation(tankId: string, calculator: LastCalculator) {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
-    return readLocal().lastCalculation[calculator] ?? null;
+    return readLocal().lastCalculation[tankId]?.[calculator] ?? null;
   }
 
   const { data, error } = await supabase
     .from("last_calculation")
     .select("payload")
+    .eq("tank_id", tankId)
     .eq("calculator", calculator)
     .maybeSingle();
   if (error) throw new TankError(error.message);
@@ -783,19 +1008,24 @@ export async function getLastCalculation(calculator: LastCalculator) {
 }
 
 export async function saveLastCalculation(
+  tankId: string,
   calculator: LastCalculator,
   payload: BlendLastCalculation | FillLastCalculation,
 ) {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
     const local = readLocal();
-    if (calculator === "blend") local.lastCalculation.blend = payload as BlendLastCalculation;
-    else local.lastCalculation.fill = payload as FillLastCalculation;
+    activeLocalTank(local, tankId);
+    const memory = local.lastCalculation[tankId] ?? {};
+    if (calculator === "blend") memory.blend = payload as BlendLastCalculation;
+    else memory.fill = payload as FillLastCalculation;
+    local.lastCalculation[tankId] = memory;
     writeLocal(local);
     return;
   }
 
   const { error } = await supabase.from("last_calculation").upsert({
+    tank_id: tankId,
     calculator,
     payload: payload as Json,
   });

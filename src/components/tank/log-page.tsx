@@ -102,7 +102,7 @@ function lastProductionHeadline(
 }
 
 export function LogPage() {
-  const { tankReady, snapshot, settings, entries, activeChemicals, chemicals, refresh } = useTank();
+  const { tankReady, snapshot, settings, entries, activeChemicals, chemicals, activeTank, refresh } = useTank();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TankLogEntry | null>(null);
   const [type, setType] = useState<LogEntryType>("add_batch");
@@ -135,10 +135,17 @@ export function LogPage() {
   const lastProduction = useMemo(() => findLastProduction(entries), [entries]);
 
   useEffect(() => {
+    if (!activeTank) {
+      setPageRows([]);
+      setPageTotal(0);
+      setListLoading(false);
+      return;
+    }
+    const tankId = activeTank.id;
     let cancelled = false;
     setListLoading(true);
     setListError(null);
-    void listLogEntriesPage({ page, pageSize: TANK_LIST_PAGE_SIZE })
+    void listLogEntriesPage(tankId, { page, pageSize: TANK_LIST_PAGE_SIZE })
       .then((result) => {
         if (cancelled) return;
         setPageRows(result.rows);
@@ -157,7 +164,7 @@ export function LogPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, entries]);
+  }, [activeTank, page, entries]);
   const consumeQty = parseNumber(quantity);
   const consumePreview =
     type === "consume_usage" && consumeQty !== null
@@ -241,7 +248,9 @@ export function LogPage() {
         return;
       }
       try {
+        if (!activeTank) throw new TankError("Choose a tank first.");
         await insertLogEntries(
+          activeTank.id,
           parsed.rows.map((row, index) => ({
             type,
             chemicalId: row.chemicalId,
@@ -323,9 +332,10 @@ export function LogPage() {
     }
 
     try {
+      if (!activeTank) throw new TankError("Choose a tank first.");
       if (editing) await updateLogEntry(editing.id, draft);
       else {
-        await insertLogEntry(draft);
+        await insertLogEntry(activeTank.id, draft);
         setPage(1);
       }
       await refresh();
@@ -374,10 +384,10 @@ export function LogPage() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1>Tank log</h1>
+          <h1>Activity</h1>
           <p className="text-muted-foreground">
-            History of what went into the tank and what was used. Deleting a pour puts those
-            kilograms back on the shelf.
+            History of what went into {activeTank?.name ?? "this tank"} and what was used. Deleting a
+            pour puts those kilograms back on the shelf.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
@@ -401,7 +411,7 @@ export function LogPage() {
         aria-labelledby="last-production-heading"
       >
         <h2 id="last-production-heading" className="text-xl font-heading font-semibold">
-          Last production
+          {lastProduction?.type === "consume_usage" ? "Latest usage" : "Latest production activity"}
         </h2>
         {lastProduction && lastProductionName ? (
           <div className="mt-3 space-y-2">
@@ -444,7 +454,7 @@ export function LogPage() {
       <section className="space-y-3" aria-labelledby="tank-log-heading">
         <div>
           <h2 id="tank-log-heading" className="text-lg text-muted-foreground">
-            {lastProduction ? "Earlier log" : "Log"}
+            All activity
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             {lastProduction

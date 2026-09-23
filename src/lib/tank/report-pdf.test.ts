@@ -5,6 +5,7 @@ import { tankReportLines, tankReportPdfBytes } from "./report-pdf.ts";
 
 test("tank report names the typed pour and the suggested kg when they differ", () => {
   const lines = tankReportLines({
+    tankName: "Blend tank",
     date: "2026-09-23",
     currentQty: 2070,
     currentPct: 57250 / 2070,
@@ -17,6 +18,7 @@ test("tank report names the typed pour and the suggested kg when they differ", (
     capacityNote: "The tank holds 8 000 kg. You can add at most 5 930 kg.",
   });
   const text = lines.join("\n");
+  assert.match(text, /Blend tank/);
   assert.match(text, /2026-09-23/);
   assert.match(text, /POP 45: 1\D?050 kg/);
   assert.match(text, /suggested 925 kg/);
@@ -27,6 +29,7 @@ test("tank report names the typed pour and the suggested kg when they differ", (
 
 test("the pour sheet draws the solid content, the pours, and the capacity note", () => {
   const bytes = tankReportPdfBytes({
+    tankName: "Blend tank",
     date: "2026-09-23",
     currentQty: 2220,
     currentPct: 27.93,
@@ -45,6 +48,7 @@ test("the pour sheet draws the solid content, the pours, and the capacity note",
   assert.match(pdf, /UMAR/);
   assert.doesNotMatch(pdf, /Victory Foam|VICTORY FOAM/);
   assert.match(pdf, /Tank report/);
+  assert.match(pdf, /Blend tank/);
   assert.match(pdf, /23 September 2026/);
   assert.match(pdf, /YOUR SOLID CONTENT|OVER THE TANK SIZE/);
   assert.match(pdf, /Polymer polyol 45/);

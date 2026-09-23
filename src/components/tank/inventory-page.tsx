@@ -26,25 +26,25 @@ import { nextStockBalance, stockLabel } from "@/lib/tank/stock";
 const ACTIONS = [
   {
     type: "receive",
-    label: "Drums arrived",
+    label: "Receive",
     quantityLabel: "How many kilograms arrived?",
     hint: "These kilograms stay on the shelf. This does not pour them into the tank.",
   },
   {
     type: "issue",
-    label: "Used somewhere else",
+    label: "Issue",
     quantityLabel: "How many kilograms left the shelf?",
     hint: "A sample or another machine. The tank stays the same.",
   },
   {
     type: "waste",
-    label: "Spilled or thrown away",
+    label: "Waste",
     quantityLabel: "How many kilograms were lost?",
     hint: "Spill or scrap on the shelf. The tank stays the same.",
   },
   {
     type: "count",
-    label: "I counted the shelf",
+    label: "Set count",
     quantityLabel: "How many kilograms are on the shelf now?",
     hint: "This replaces the number with what you just counted.",
   },
@@ -68,7 +68,7 @@ function onHandText(chemical: Chemical) {
 
 function shelfSentence(chemical: Chemical) {
   const tone = stockLabel(chemical.qtyAvailable, chemical.reorderKg);
-  if (tone === "Not tracked" || chemical.qtyAvailable === null) {
+  if (tone === "Stock not tracked" || chemical.qtyAvailable === null) {
     return "No kilograms on the shelf yet. When drums arrive, enter how many came in.";
   }
   if (tone === "Short") {
@@ -283,9 +283,9 @@ export function InventoryPage() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1>Shelf stock</h1>
+          <h1>Inventory</h1>
           <p className="mt-1 text-muted-foreground">
-            Drums you still have. Home is what is already mixed in the tank.
+            On the shelf. Drums you still have. The tank is what is already mixed.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             When you confirm a pour on Home, the number here goes down on its own.
@@ -325,30 +325,36 @@ export function InventoryPage() {
                   <p className="text-sm text-muted-foreground">{formatPct(chemical.solidContentPct)} solid content</p>
                   <p className="font-heading text-lg font-semibold">{chemical.name}</p>
                   <p className="mt-1 font-heading text-3xl font-semibold tabular-nums tracking-tight">
-                    {chemical.qtyAvailable === null ? "—" : formatQty(chemical.qtyAvailable)}
-                    <span className="ml-2 text-base font-medium text-muted-foreground">
-                      {" "}
-                      {chemical.unit} on the shelf
-                    </span>
+                    {chemical.qtyAvailable === null ? (
+                      "Stock not tracked"
+                    ) : (
+                      <>
+                        {formatQty(chemical.qtyAvailable)}
+                        <span className="ml-2 text-base font-medium text-muted-foreground">
+                          {" "}
+                          {chemical.unit} on the shelf
+                        </span>
+                      </>
+                    )}
                   </p>
                   <p className="mt-2 text-sm text-muted-foreground">{shelfSentence(chemical)}</p>
                   <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                     <Button
                       size="touch"
                       className="w-full sm:w-auto"
-                      aria-label={`Drums arrived for ${chemical.name}`}
+                      aria-label={`Receive ${chemical.name}`}
                       onClick={() => openAction(chemical, "receive")}
                     >
-                      Drums arrived
+                      Receive
                     </Button>
                     <Button
                       variant="outline"
                       size="touch"
                       className="w-full sm:w-auto"
-                      aria-label={`Other change for ${chemical.name}`}
+                      aria-label={`Actions for ${chemical.name}`}
                       onClick={() => setMenuFor(chemical)}
                     >
-                      Other change
+                      Actions
                     </Button>
                   </div>
                 </li>
@@ -462,7 +468,7 @@ export function InventoryPage() {
                   void openHistory(chemical);
                 }}
               >
-                <span className="block font-medium">What changed</span>
+                <span className="block font-medium">History</span>
                 <span className="mt-1 block text-sm text-muted-foreground">
                   Deliveries, uses, spills, counts, and pours into the tank.
                 </span>
@@ -535,7 +541,7 @@ export function InventoryPage() {
       <Sheet open={historyFor !== null} onOpenChange={(open) => !open && setHistoryFor(null)}>
         <SheetContent side="bottom">
           <SheetHeader>
-            <SheetTitle>{historyFor ? `What changed for ${historyFor.name}` : "What changed"}</SheetTitle>
+            <SheetTitle>{historyFor ? `History for ${historyFor.name}` : "History"}</SheetTitle>
           </SheetHeader>
           {historyFor ? (
             <div className="mt-6 space-y-5">
