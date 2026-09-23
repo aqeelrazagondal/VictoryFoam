@@ -42,7 +42,7 @@ export function TankSummary({
             <Input
               id="tank-total-kg"
               inputMode="decimal"
-              className="hero-number h-auto min-h-12 max-w-[12rem] border-border bg-background px-3 py-2 text-3xl font-semibold tracking-tight"
+              className="h-auto min-h-14 max-w-[14rem] border-border bg-background px-3 py-2 font-heading text-3xl font-bold tracking-tight tabular-nums"
               value={volumeText ?? ""}
               onChange={(event) => onVolumeChange?.(event.target.value)}
               onBlur={() => onVolumeBlur?.()}

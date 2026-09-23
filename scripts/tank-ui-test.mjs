@@ -354,7 +354,11 @@ async function run() {
       check("ui.nav.pos.fill", "Fill appears under More after Opening Balance", (await nav.getByRole("link", { name: "Fill" }).count()) === 1);
       check("ui.nav.pos.log", "Log appears under More after Opening Balance", (await nav.getByRole("link", { name: "Log" }).count()) === 1);
       check("ui.nav.neg.setup", "Set up tank leaves the nav once the tank exists", (await nav.getByRole("link", { name: /Set up tank/i }).count()) === 0);
-      check("ui.hub.pos.volume", "hub shows opening volume", await visibleText(page, /1.?500 kg/));
+      const volumeField = page.locator("#tank-total-kg");
+      const volumeShown =
+        ((await volumeField.count()) > 0 && /1[\s\u00a0\u202f]?500/.test(await volumeField.inputValue())) ||
+        (await visibleText(page, /1.?500 kg/));
+      check("ui.hub.pos.volume", "hub shows opening volume", volumeShown);
       check("ui.hub.pos.add", "hub offers Add to the tank", (await page.getByRole("button", { name: "Add to the tank" }).count()) === 1);
       check("ui.hub.pos.use", "hub offers I used some", (await page.getByRole("button", { name: "I used some" }).count()) === 1);
       check("ui.hub.pos.pct", "hub shows opening solid %", await visibleText(page, "25%"));
@@ -405,6 +409,7 @@ async function run() {
       check("ui.fill.pos.log-cta", "Log this is offered and not auto-written", await visibleText(page, "Log this (two Add Batch entries)"));
       await page.getByRole("button", { name: "Log this (two Add Batch entries)" }).click();
       await page.waitForURL("**/tank/log/**");
+      await page.getByText("Add Batch").first().waitFor({ state: "visible" });
       check(
         "ui.fill.pos.logged",
         "confirming Log this writes two add-batch rows",
