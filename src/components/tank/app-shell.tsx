@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { CircleHelp, LogOut } from "lucide-react";
 
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -11,13 +11,11 @@ import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/tank/client";
 import { useTank } from "@/lib/tank/context";
 import { cn } from "@/lib/utils";
 
-const ALWAYS_LINKS = [
-  { href: "/tank/", label: "Home" },
+const HOME_LINK = { href: "/tank/", label: "Home" } as const;
+
+const MORE_LINKS = [
   { href: "/tank/chemicals/", label: "Chemicals" },
   { href: "/tank/blend/", label: "Blend" },
-] as const;
-
-const TANK_LINKS = [
   { href: "/tank/fill/", label: "Fill" },
   { href: "/tank/log/", label: "Log" },
   { href: "/tank/composition/", label: "Composition" },
@@ -33,11 +31,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { tankReady, loading } = useTank();
   const configured = isSupabaseConfigured();
-
-  const links = [
-    ...ALWAYS_LINKS,
-    ...(loading ? [] : tankReady ? TANK_LINKS : [{ href: "/tank/setup/", label: "Set up tank" }]),
+  const moreLinks = [
+    ...MORE_LINKS,
+    ...(loading || tankReady ? [] : [{ href: "/tank/setup/", label: "Set up tank" }]),
   ];
+  const moreActive = moreLinks.some((link) => isActive(pathname, link.href));
+  const [moreOpen, setMoreOpen] = useState(false);
+  const showMore = moreOpen || moreActive;
 
   async function signOut() {
     const supabase = getSupabaseBrowser();
@@ -77,25 +77,61 @@ export function AppShell({ children }: { children: ReactNode }) {
             ) : null}
           </div>
         </div>
-        <nav aria-label="Calculator" className="container-tank overflow-x-auto pb-3">
+        <nav
+          aria-label="Calculator"
+          data-tank-state={loading ? "loading" : tankReady ? "ready" : "empty"}
+          className="container-tank overflow-x-auto pb-3"
+        >
           <ul className="flex gap-2">
-            {links.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className={cn(
-                    "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium",
-                    isActive(pathname, link.href)
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground",
-                  )}
-                  aria-current={isActive(pathname, link.href) ? "page" : undefined}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
+            <li>
+              <Link
+                href={HOME_LINK.href}
+                className={cn(
+                  "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium",
+                  isActive(pathname, HOME_LINK.href)
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground",
+                )}
+                aria-current={isActive(pathname, HOME_LINK.href) ? "page" : undefined}
+              >
+                {HOME_LINK.label}
+              </Link>
+            </li>
+            <li>
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium",
+                  showMore ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                )}
+                aria-expanded={showMore}
+                aria-controls="calculator-more"
+                onClick={() => setMoreOpen((open) => !open)}
+              >
+                More
+              </button>
+            </li>
           </ul>
+          {showMore ? (
+            <ul id="calculator-more" className="mt-2 flex gap-2">
+              {moreLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className={cn(
+                      "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium",
+                      isActive(pathname, link.href)
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-foreground",
+                    )}
+                    aria-current={isActive(pathname, link.href) ? "page" : undefined}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </nav>
       </header>
       <main id="tank-main" className="container-tank flex-1">

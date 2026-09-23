@@ -56,6 +56,9 @@ export {
   hasReconciliationGap,
   isHeelBreach,
   replayLog,
+  roomToCapacity,
+  capacityOverflowMessage,
+  summarizeMix,
 } from "./tank-log.ts";
 export type {
   ConsumeBreakdown,

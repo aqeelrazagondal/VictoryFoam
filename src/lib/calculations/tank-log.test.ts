@@ -9,6 +9,9 @@ import {
   hasReconciliationGap,
   isHeelBreach,
   replayLog,
+  roomToCapacity,
+  capacityOverflowMessage,
+  summarizeMix,
   type LogEntryInput,
 } from "./tank-log.ts";
 
@@ -151,14 +154,100 @@ describe("tank log replay", () => {
     assert.equal(snapshot.volume, 100);
   });
 
-  test("negative: a second Opening Balance is an error but later math still replays", () => {
+  test("positive: consecutive opening lines stay named and mix", () => {
+    const snapshot = replayLog([
+      entry({ id: "1", type: "opening_balance", chemicalId: "conv", quantity: 700, solidContentPct: 0 }),
+      entry({ id: "2", type: "opening_balance", chemicalId: "pop25", quantity: 220, solidContentPct: 25 }),
+      entry({ id: "3", type: "opening_balance", chemicalId: "pop45", quantity: 1150, solidContentPct: 45 }),
+    ]);
+    assert.equal(snapshot.errors.length, 0);
+    assert.equal(snapshot.volume, 2070);
+    assert.ok(Math.abs(snapshot.solidPct - 57250 / 2070) < 1e-9);
+    assert.equal(snapshot.remainingByChemical.conv, 700);
+    assert.equal(snapshot.remainingByChemical.pop25, 220);
+    assert.equal(snapshot.remainingByChemical.pop45, 1150);
+    assert.equal(snapshot.unattributed, 0);
+    assert.equal(roomToCapacity(8000, snapshot.volume), 5930);
+  });
+
+  test("positive: 57 kg/min for 77 min uses each polyol in proportion", () => {
+    const usedQty = 57 * 77;
+    assert.equal(usedQty, 4389);
+    const before = replayLog([
+      entry({ id: "1", type: "opening_balance", chemicalId: "conv", quantity: 700, solidContentPct: 0 }),
+      entry({ id: "2", type: "opening_balance", chemicalId: "pop25", quantity: 4420, solidContentPct: 25 }),
+      entry({ id: "3", type: "opening_balance", chemicalId: "pop45", quantity: 2200, solidContentPct: 45 }),
+    ]);
+    assert.equal(before.volume, 7320);
+    const breakdown = consumeBreakdown({
+      volume: before.volume,
+      solidPct: before.solidPct,
+      remainingByChemical: before.remainingByChemical,
+      unattributed: before.unattributed,
+      consumeQty: usedQty,
+    });
+    assert.equal(breakdown.ok, true);
+    if (!breakdown.ok) return;
+    assert.equal(breakdown.leftoverVolume, 2931);
+    assert.ok(Math.abs(breakdown.leftoverPct - before.solidPct) < 1e-9);
+    const fraction = usedQty / before.volume;
+    for (const row of breakdown.rows) {
+      assert.ok(Math.abs(row.used - row.before * fraction) < 1e-6);
+      assert.ok(Math.abs(row.remaining - row.before * (1 - fraction)) < 1e-6);
+    }
+  });
+
+  test("positive: summarizeMix matches the weighted opening", () => {
+    const mix = summarizeMix([
+      { quantity: 700, solidContentPct: 0 },
+      { quantity: 220, solidContentPct: 25 },
+      { quantity: 1150, solidContentPct: 45 },
+    ]);
+    assert.equal(mix.volume, 2070);
+    assert.ok(Math.abs(mix.solidPct - 57250 / 2070) < 1e-9);
+  });
+
+  test("positive: capacityOverflowMessage allows fills within room", () => {
+    assert.equal(
+      capacityOverflowMessage({ volume: 2070, addQty: 5930, capacity: 8000 }),
+      null,
+    );
+  });
+
+  test("negative: capacityOverflowMessage refuses over capacity", () => {
+    const message = capacityOverflowMessage({
+      volume: 2070,
+      addQty: 6000,
+      capacity: 8000,
+    });
+    assert.ok(message);
+    assert.match(message!, /8.?000/);
+    assert.match(message!, /5.?930/);
+  });
+
+  test("positive: multi-chemical add then consume keeps named remainings", () => {
+    const snapshot = replayLog([
+      entry({ id: "1", type: "opening_balance", chemicalId: "conv", quantity: 700, solidContentPct: 0 }),
+      entry({ id: "2", type: "opening_balance", chemicalId: "pop25", quantity: 220, solidContentPct: 25 }),
+      entry({ id: "3", type: "opening_balance", chemicalId: "pop45", quantity: 1150, solidContentPct: 45 }),
+      entry({ id: "4", type: "add_batch", chemicalId: "pop25", quantity: 4200, solidContentPct: 25 }),
+      entry({ id: "5", type: "add_batch", chemicalId: "pop45", quantity: 1050, solidContentPct: 45 }),
+    ]);
+    assert.equal(snapshot.errors.length, 0);
+    assert.equal(snapshot.volume, 7320);
+    assert.equal(capacityOverflowMessage({ volume: 7320, addQty: 1, capacity: 8000 }), null);
+    assert.ok(capacityOverflowMessage({ volume: 7320, addQty: 700, capacity: 8000 }));
+  });
+
+  test("negative: an Opening Balance after an add is an error but later math still replays", () => {
     const snapshot = replayLog([
       entry({ id: "1", type: "opening_balance", chemicalId: "a", quantity: 100, solidContentPct: 20 }),
-      entry({ id: "2", type: "opening_balance", chemicalId: "b", quantity: 50, solidContentPct: 40 }),
+      entry({ id: "2", type: "add_batch", chemicalId: "b", quantity: 50, solidContentPct: 40 }),
+      entry({ id: "3", type: "opening_balance", chemicalId: "c", quantity: 25, solidContentPct: 10 }),
     ]);
     assert.equal(snapshot.errors.length, 1);
-    assert.match(snapshot.errors[0]!.reason, /only be the first entry/i);
-    assert.equal(snapshot.volume, 150);
+    assert.match(snapshot.errors[0]!.reason, /only be at the start/i);
+    assert.equal(snapshot.volume, 175);
   });
 
   test("positive: empty log is an empty tank", () => {

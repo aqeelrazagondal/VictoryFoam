@@ -87,6 +87,72 @@ describe("fill required blend %", () => {
     });
     assert.equal(required.ok, false);
   });
+
+  test("positive: filling exactly to 8000 kg from 2070 kg adds 5930 kg", () => {
+    const required = computeRequiredBlend({
+      existingQty: 2070,
+      existingPct: 28,
+      targetVolume: 8000,
+      targetPct: 28,
+      capacity: 8000,
+    });
+    assert.equal(required.ok, true);
+    if (!required.ok) return;
+    assert.equal(required.fillAmount, 5930);
+  });
+
+  test("negative: a target above tank capacity is refused", () => {
+    const required = computeRequiredBlend({
+      existingQty: 2070,
+      existingPct: 28,
+      targetVolume: 9000,
+      targetPct: 28,
+      capacity: 8000,
+    });
+    assert.equal(required.ok, false);
+    if (required.ok) return;
+    assert.match(required.reason, /8.?000/);
+    assert.match(required.reason, /5.?930/);
+  });
+
+  test("negative: a target below the current tank is refused even when capacity is set", () => {
+    const required = computeRequiredBlend({
+      existingQty: 2070,
+      existingPct: 28,
+      targetVolume: 1000,
+      targetPct: 28,
+      capacity: 8000,
+    });
+    assert.equal(required.ok, false);
+    if (required.ok) return;
+    assert.match(required.reason, /fill up, not down/i);
+  });
+
+  test("positive: 25% and 45% reach 28.7% at 7320 kg from the 2070 kg mix", () => {
+    const existingPct = (220 * 25 + 1150 * 45) / 2070;
+    const required = computeRequiredBlend({
+      existingQty: 2070,
+      existingPct,
+      targetVolume: 7320,
+      targetPct: 28.7,
+      capacity: 8000,
+    });
+    assert.equal(required.ok, true);
+    if (!required.ok) return;
+    const solved = solveFill({
+      fillAmount: required.fillAmount,
+      requiredActive: required.requiredActive,
+      qA: 25,
+      qB: 45,
+    });
+    assert.equal(solved.ok, true);
+    if (!solved.ok || !solved.amounts) return;
+    assert.ok(solved.amounts.xA > 0);
+    assert.ok(solved.amounts.xB > 0);
+    assert.ok(Math.abs(solved.amounts.xA + solved.amounts.xB - required.fillAmount) < 1e-6);
+    const solids = 2070 * existingPct + solved.amounts.xA * 25 + solved.amounts.xB * 45;
+    assert.ok(Math.abs(solids / 7320 - 28.7) < 1e-6);
+  });
 });
 
 describe("fill pair suggestion", () => {

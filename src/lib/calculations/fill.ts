@@ -1,4 +1,4 @@
-import { clampNonNegative, isInClosedRange, nearlyEqual } from "./format.ts";
+import { CALC_EPS, clampNonNegative, formatQty, isInClosedRange, nearlyEqual } from "./format.ts";
 import { checkStock, combineStockStatus, type StockCheck } from "./stock.ts";
 import type { ChemicalRef, FeasibilityStatus } from "./types.ts";
 
@@ -18,7 +18,16 @@ export function computeRequiredBlend(input: {
   existingPct: number;
   targetVolume: number;
   targetPct: number;
+  capacity?: number | null;
 }): RequiredBlendResult {
+  if (input.capacity != null && input.targetVolume > input.capacity + CALC_EPS) {
+    const room = Math.max(0, input.capacity - input.existingQty);
+    return {
+      ok: false,
+      reason: `The tank holds ${formatQty(input.capacity)} kg. You can add at most ${formatQty(room)} kg.`,
+    };
+  }
+
   const fillAmount = input.targetVolume - input.existingQty;
   if (fillAmount <= 0) {
     return {
