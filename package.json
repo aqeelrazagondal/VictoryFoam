@@ -7,7 +7,8 @@
     "build": "next build",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test src/lib/*.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/*.test.ts src/lib/calculations/*.test.ts src/lib/tank/*.test.ts",
+    "test:ui": "node scripts/tank-ui-test.mjs",
     "e2e": "node scripts/e2e-test.mjs"
   },
   "dependencies": {
@@ -18,6 +19,7 @@
     "@radix-ui/react-tabs": "^1.1.21",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
+    "@supabase/supabase-js": "^2.116.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^13.2.0",
@@ -39,6 +41,7 @@
     "@types/three": "^0.185.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "playwright-core": "^1.63.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
