@@ -4,6 +4,7 @@ import { Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
+import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { Field } from "@/components/tank/empty-state";
 import { TankSummary } from "@/components/tank/tank-summary";
 import { Button } from "@/components/ui/button";
@@ -21,17 +22,24 @@ import {
 
 type OpeningLine = {
   key: string;
+  chemicalId: string | null;
   name: string;
   pct: string;
   kg: string;
+  typingNew: boolean;
 };
 
 function blankLine(key: string): OpeningLine {
-  return { key, name: "", pct: "", kg: "" };
+  return { key, chemicalId: null, name: "", pct: "", kg: "", typingNew: false };
 }
 
 function isBlank(line: OpeningLine) {
-  return line.name.trim() === "" && line.pct.trim() === "" && line.kg.trim() === "";
+  return (
+    line.chemicalId == null &&
+    line.name.trim() === "" &&
+    line.pct.trim() === "" &&
+    line.kg.trim() === ""
+  );
 }
 
 export function OpeningPanel() {
@@ -47,10 +55,15 @@ export function OpeningPanel() {
   const capacity = parseNumber(capacityText);
   const parsedLines = lines
     .filter((line) => !isBlank(line))
-    .map((line) => ({
-      quantity: parseNumber(line.kg),
-      solidContentPct: parseNumber(line.pct),
-    }))
+    .map((line) => {
+      const picked = line.chemicalId
+        ? activeChemicals.find((chemical) => chemical.id === line.chemicalId)
+        : null;
+      return {
+        quantity: parseNumber(line.kg),
+        solidContentPct: picked ? picked.solidContentPct : parseNumber(line.pct),
+      };
+    })
     .filter(
       (line): line is { quantity: number; solidContentPct: number } =>
         line.quantity != null && line.quantity > 0 && line.solidContentPct != null,
@@ -75,27 +88,49 @@ export function OpeningPanel() {
       return;
     }
 
-    const ready: { name: string; solidContentPct: number; quantity: number }[] = [];
+    const ready: {
+      chemicalId: string | null;
+      name: string;
+      solidContentPct: number;
+      quantity: number;
+    }[] = [];
     const seen = new Set<string>();
     for (const line of filled) {
-      const name = line.name.trim();
-      const solidContentPct = parseNumber(line.pct);
       const quantity = parseNumber(line.kg);
-      if (!name || solidContentPct == null || quantity == null || !(quantity > 0)) {
-        setError("Each polyol needs a name, a solid content, and kg.");
+      if (quantity == null || !(quantity > 0)) {
+        setError("Enter the kg already in the tank for each polyol.");
+        return;
+      }
+      const picked = line.chemicalId
+        ? activeChemicals.find((chemical) => chemical.id === line.chemicalId)
+        : null;
+      if (line.chemicalId && !picked) {
+        setError("That polyol is no longer in the list. Pick it again, or type a new one.");
+        return;
+      }
+      const name = (picked?.name ?? line.name).trim();
+      const solidContentPct = picked ? picked.solidContentPct : parseNumber(line.pct);
+      if (!name || solidContentPct == null) {
+        setError("Choose a polyol you already use, or type a new name and solid content.");
         return;
       }
       if (solidContentPct < 0 || solidContentPct > 100) {
         setError("Solid content must be from 0 to 100.");
         return;
       }
-      const needle = name.toLowerCase();
-      if (seen.has(needle)) {
+      const needle = picked ? `id:${picked.id}` : name.toLowerCase();
+      if (seen.has(needle) || seen.has(name.toLowerCase())) {
         setError(`${name} is listed more than once. Combine those kg on one line.`);
         return;
       }
       seen.add(needle);
-      ready.push({ name, solidContentPct, quantity });
+      seen.add(name.toLowerCase());
+      ready.push({
+        chemicalId: picked?.id ?? null,
+        name,
+        solidContentPct,
+        quantity,
+      });
     }
 
     const total = ready.reduce((sum, line) => sum + line.quantity, 0);
@@ -115,9 +150,13 @@ export function OpeningPanel() {
         solidContentPct: number;
       }[] = [];
       for (const line of ready) {
-        const match = known.find(
-          (chemical) => chemical.name.trim().toLowerCase() === line.name.toLowerCase(),
-        );
+        const match =
+          (line.chemicalId
+            ? known.find((chemical) => chemical.id === line.chemicalId)
+            : null) ??
+          known.find(
+            (chemical) => chemical.name.trim().toLowerCase() === line.name.toLowerCase(),
+          );
         const chemical = match ?? (await createAndRemember(line, known));
         if (Math.abs(chemical.solidContentPct - line.solidContentPct) > 0.001) {
           throw new TankError(
@@ -155,8 +194,8 @@ export function OpeningPanel() {
       <div>
         <h1>What&apos;s in the tank</h1>
         <p className="mt-2 text-muted-foreground">
-          Add each polyol that is already in the tank. The overall solid content is calculated for
-          you.
+          Pick each polyol already in the tank, or type one that is not in the list yet. Enter the
+          kg. The overall solid content is calculated for you.
         </p>
       </div>
 
@@ -183,34 +222,14 @@ export function OpeningPanel() {
                 </Button>
               ) : null}
             </div>
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_7rem_7rem]">
-              <Field id={`${line.key}-name`} label="Name">
-                <Input
-                  id={`${line.key}-name`}
-                  value={line.name}
-                  onChange={(event) => updateLine(line.key, { name: event.target.value })}
-                  placeholder="Conventional polyol"
-                />
-              </Field>
-              <Field id={`${line.key}-pct`} label="Solid content %">
-                <Input
-                  id={`${line.key}-pct`}
-                  inputMode="decimal"
-                  value={line.pct}
-                  onChange={(event) => updateLine(line.key, { pct: event.target.value })}
-                  placeholder="0"
-                />
-              </Field>
-              <Field id={`${line.key}-kg`} label="kg in the tank">
-                <Input
-                  id={`${line.key}-kg`}
-                  inputMode="decimal"
-                  value={line.kg}
-                  onChange={(event) => updateLine(line.key, { kg: event.target.value })}
-                  placeholder="700"
-                />
-              </Field>
-            </div>
+            <OpeningLineFields
+              line={line}
+              chemicals={activeChemicals}
+              excludedIds={lines
+                .filter((item) => item.key !== line.key && item.chemicalId)
+                .map((item) => item.chemicalId!)}
+              onChange={(patch) => updateLine(line.key, patch)}
+            />
           </li>
         ))}
       </ul>
@@ -256,6 +275,107 @@ export function OpeningPanel() {
         </Link>
         .
       </p>
+    </div>
+  );
+}
+
+function OpeningLineFields({
+  line,
+  chemicals,
+  excludedIds,
+  onChange,
+}: {
+  line: OpeningLine;
+  chemicals: Chemical[];
+  excludedIds: string[];
+  onChange: (patch: Partial<OpeningLine>) => void;
+}) {
+  const selected = line.chemicalId
+    ? chemicals.find((chemical) => chemical.id === line.chemicalId) ?? null
+    : null;
+  const showName = chemicals.length === 0 || line.typingNew;
+  const showPct = showName || selected != null;
+
+  return (
+    <div className="space-y-3">
+      {!line.typingNew && chemicals.length > 0 ? (
+        <ChemicalPicker
+          chemicals={chemicals}
+          selectedId={line.chemicalId}
+          excludedIds={excludedIds}
+          onSelect={(chemical) =>
+            onChange({
+              chemicalId: chemical.id,
+              name: chemical.name,
+              pct: String(chemical.solidContentPct),
+              typingNew: false,
+            })
+          }
+        />
+      ) : null}
+
+      {chemicals.length > 0 ? (
+        <Button
+          type="button"
+          variant="ghost"
+          className="w-full"
+          onClick={() =>
+            onChange(
+              line.typingNew
+                ? { typingNew: false, chemicalId: null, name: "", pct: "" }
+                : { typingNew: true, chemicalId: null, name: "", pct: "" },
+            )
+          }
+        >
+          {line.typingNew ? "Pick an existing polyol" : "This polyol is not in the list"}
+        </Button>
+      ) : null}
+
+      <div
+        className={
+          showName
+            ? "grid gap-3 md:grid-cols-[minmax(0,1fr)_7rem_7rem]"
+            : "grid gap-3 sm:grid-cols-2"
+        }
+      >
+        {showName ? (
+          <Field id={`${line.key}-name`} label="Name">
+            <Input
+              id={`${line.key}-name`}
+              value={line.name}
+              onChange={(event) =>
+                onChange({ name: event.target.value, chemicalId: null, typingNew: true })
+              }
+              placeholder="Conventional polyol"
+            />
+          </Field>
+        ) : null}
+        {showPct ? (
+          <Field
+            id={`${line.key}-pct`}
+            label="Solid content %"
+            hint={selected ? "Taken from the chemical." : undefined}
+          >
+            <Input
+              id={`${line.key}-pct`}
+              inputMode="decimal"
+              value={selected ? String(selected.solidContentPct) : line.pct}
+              disabled={selected != null}
+              onChange={(event) => onChange({ pct: event.target.value })}
+              placeholder="0"
+            />
+          </Field>
+        ) : null}
+        <Field id={`${line.key}-kg`} label="kg in the tank">
+          <Input
+            id={`${line.key}-kg`}
+            inputMode="decimal"
+            value={line.kg}
+            onChange={(event) => onChange({ kg: event.target.value })}
+            placeholder="700"
+          />
+        </Field>
+      </div>
     </div>
   );
 }

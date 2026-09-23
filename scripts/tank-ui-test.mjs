@@ -76,6 +76,8 @@ async function launchBrowser() {
 async function openPage(browser, state) {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
+    locale: "en-GB",
+    timezoneId: "Europe/London",
   });
   if (state) {
     await context.addInitScript(
@@ -590,6 +592,117 @@ async function run() {
       await gotoTank(page, "/tank/blend/");
       await page.locator("ul.grid").getByRole("button", { name: /Only one/ }).click();
       check("ui.blend.neg.one-chemical", "cannot pick the same chemical twice when only one exists", await visibleText(page, "No chemicals match that search."));
+      await context.close();
+    }
+
+    {
+      const chemicals = [
+        chemical("c0", "Conventional polyol", 0),
+        chemical("c25", "Polymer polyol 25", 25),
+      ];
+      const { context, page } = await openPage(
+        browser,
+        tankState({ chemicals, settings: null, entries: [] }),
+      );
+      await gotoTank(page, "/tank/");
+      check(
+        "ui.opening.pos.pick",
+        "opening offers chemicals that already exist",
+        await visibleText(page, "Conventional polyol"),
+      );
+      check(
+        "ui.opening.neg.no-force-name",
+        "an existing chemical does not force a typed name",
+        (await page.locator("#line-1-name").count()) === 0,
+      );
+      await page.locator("ul.grid").getByRole("button", { name: /Conventional polyol/ }).click();
+      const pct = page.locator("#line-1-pct");
+      check(
+        "ui.opening.pos.locked-pct",
+        "a picked polyol keeps its solid content",
+        (await pct.inputValue()) === "0" && (await pct.isDisabled()),
+      );
+      await page.locator("#line-1-kg").fill("700");
+      check(
+        "ui.opening.pos.picked-kg",
+        "a picked polyol counts the kg already in the tank",
+        await visibleText(page, /700 kg/),
+      );
+      await page.getByRole("button", { name: "This polyol is not in the list" }).click();
+      check(
+        "ui.opening.pos.type-new",
+        "a polyol that is not in the list can still be typed",
+        await page.locator("#line-1-name").isVisible(),
+      );
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(browser);
+      await gotoTank(page, "/tank/");
+      await page.locator("#line-1-name").fill("Conventional polyol");
+      await page.locator("#line-1-pct").fill("0");
+      await page.locator("#line-1-kg").fill("9,000");
+      await page.locator("#tank-capacity").fill("8,000");
+      check(
+        "ui.opening.neg.uk-overcap",
+        "UK-grouped kg above the tank size is refused",
+        await visibleText(page, /The tank holds/),
+      );
+      await page.getByRole("button", { name: "Save what's in the tank" }).click();
+      check(
+        "ui.opening.neg.uk-stays",
+        "an over-capacity opening is not saved",
+        await visibleText(page, "What's in the tank"),
+      );
+      await context.close();
+    }
+
+    {
+      const chemicals = [
+        chemical("c0", "Conventional polyol", 0),
+        chemical("c25", "Polymer polyol 25", 25),
+        chemical("c45", "Polymer polyol 45", 45),
+      ];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: 8000, heel: 0 },
+          entries: [
+            logEntry("1", "opening_balance", 700, { chemicalId: "c0", solidContentPct: 0 }),
+            logEntry("2", "opening_balance", 220, { chemicalId: "c25", solidContentPct: 25 }),
+            logEntry("3", "opening_balance", 1150, { chemicalId: "c45", solidContentPct: 45 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/");
+      await page.getByRole("button", { name: "Add to the tank" }).click();
+      await page.locator("#target-kg").fill("9,000");
+      await page.locator("#target-pct").fill("28.7");
+      const pickers = page.locator("ul.grid");
+      await pickers.nth(0).getByRole("button", { name: /Polymer polyol 25/ }).click();
+      await pickers.nth(1).getByRole("button", { name: /Polymer polyol 45/ }).click();
+      check(
+        "ui.hub.neg.uk-overcap",
+        "a UK-grouped fill above 8,000 kg is refused",
+        await visibleText(page, /You can add at most/),
+      );
+      await page.locator("#target-kg").fill("1,000");
+      check(
+        "ui.hub.neg.down",
+        "a fill below what is already in the tank is refused",
+        await visibleText(page, /fill up, not down/i),
+      );
+      await page.getByRole("button", { name: "Back" }).click();
+      await page.getByRole("button", { name: "I used some" }).click();
+      await page.locator("#use-rate").fill("57");
+      await page.locator("#use-minutes").fill("77");
+      check(
+        "ui.hub.neg.overdraw",
+        "57 kg/min for 77 min is refused when the tank is only 2,070 kg",
+        await visibleText(page, "Cannot consume more than the current tank volume."),
+      );
       await context.close();
     }
 

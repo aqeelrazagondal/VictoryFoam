@@ -15,6 +15,19 @@ describe("parseNumber", () => {
 
   test("positive: comma decimal used in en-ZA typing", () => {
     assert.equal(parseNumber("25,5"), 25.5);
+    assert.equal(parseNumber("27,66"), 27.66);
+  });
+
+  test("positive: UK thousands separators still count as kilograms", () => {
+    assert.equal(parseNumber("8,000"), 8000);
+    assert.equal(parseNumber("1,150"), 1150);
+    assert.equal(parseNumber("9,000"), 9000);
+    assert.equal(parseNumber("5,930.5"), 5930.5);
+  });
+
+  test("positive: grouped spaces from the on-screen quantity", () => {
+    assert.equal(parseNumber("2 070"), 2070);
+    assert.equal(parseNumber("2\u00a0070"), 2070);
   });
 
   test("negative: empty or whitespace-only is null", () => {

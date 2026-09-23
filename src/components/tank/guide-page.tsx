@@ -78,7 +78,8 @@ export function GuidePage() {
             </li>
             <li>
               <strong className="text-foreground">On Home, enter each polyol already in the tank.</strong>{" "}
-              Name, solid content, and kg. Tap Add another polyol for the next drum. Tank size starts
+              Pick one you already use, or type a new name, solid content, and kg. Tap Add another
+              polyol for the next drum. Tank size starts
               at 8,000 kg. You can change it. Save.
               <Result>
                 Home shows the total kg, the overall solid content, and how many kg you can still add.
