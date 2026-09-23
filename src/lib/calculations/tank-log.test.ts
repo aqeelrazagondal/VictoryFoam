@@ -15,6 +15,7 @@ import {
   summarizeMix,
   type LogEntryInput,
 } from "./tank-log.ts";
+import { encodeAdjustNote } from "./composition-edit.ts";
 
 function entry(
   partial: Partial<LogEntryInput> & Pick<LogEntryInput, "id" | "type" | "quantity">,
@@ -22,6 +23,7 @@ function entry(
   return {
     chemicalId: partial.chemicalId ?? null,
     solidContentPct: partial.solidContentPct ?? null,
+    note: partial.note,
     ...partial,
   };
 }
@@ -343,5 +345,27 @@ describe("composition and reconciliation", () => {
     ]);
     assert.equal(hasReconciliationGap(snapshot), false);
     assert.equal(snapshot.unattributed, 0);
+  });
+
+  test("positive: adjust_composition replaces remainings without dropping history", () => {
+    const snapshot = replayLog([
+      entry({ id: "1", type: "opening_balance", chemicalId: "a", quantity: 1000, solidContentPct: 40 }),
+      entry({ id: "2", type: "add_batch", chemicalId: "b", quantity: 1000, solidContentPct: 20 }),
+      entry({
+        id: "3",
+        type: "adjust_composition",
+        quantity: 2000,
+        solidContentPct: 35,
+        note: encodeAdjustNote({
+          remainingByChemical: { a: 1500, b: 500 },
+          unattributed: 0,
+        }),
+      }),
+    ]);
+    assert.equal(snapshot.volume, 2000);
+    assert.equal(snapshot.solidPct, 35);
+    assert.equal(snapshot.remainingByChemical.a, 1500);
+    assert.equal(snapshot.remainingByChemical.b, 500);
+    assert.equal(snapshot.entries.length, 3);
   });
 });

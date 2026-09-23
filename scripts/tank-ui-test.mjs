@@ -926,6 +926,102 @@ async function run() {
     }
 
     {
+      const chemicals = [
+        chemical("c45", "polymer polyol 3125", 45),
+        chemical("c25", "polymer polyol 2045", 25),
+        chemical("c0", "Conventional Polyol", 0),
+      ];
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals,
+          settings: { capacity: 8000, heel: 0 },
+          entries: [
+            logEntry("1", "opening_balance", 1063.4, { chemicalId: "c45", solidContentPct: 45 }),
+            logEntry("2", "opening_balance", 527.5, { chemicalId: "c25", solidContentPct: 25 }),
+            logEntry("3", "opening_balance", 166.2, { chemicalId: "c0", solidContentPct: 0 }),
+          ],
+        }),
+      );
+      await gotoTank(page, "/tank/");
+      const total = page.locator("#tank-total-kg");
+      const chemA = page.locator("#tank-chem-c45");
+      const chemB = page.locator("#tank-chem-c25");
+      const chemC = page.locator("#tank-chem-c0");
+      check("ui.home.edit.fields", "home shows editable kg fields", (await total.count()) === 1 && (await chemA.count()) === 1);
+
+      const beforeTotal = await total.inputValue();
+      const beforeB = await chemB.inputValue();
+      await chemA.fill("1200");
+      await chemA.blur();
+      check("ui.home.edit.rebalance-ask", "editing one chemical asks before saving", await visibleText(page, "Are you sure?"));
+      const afterTotal = await total.inputValue();
+      const afterB = await chemB.inputValue();
+      const afterC = await chemC.inputValue();
+      check(
+        "ui.home.edit.rebalance-total",
+        "editing one chemical keeps the total",
+        afterTotal === beforeTotal,
+      );
+      check(
+        "ui.home.edit.rebalance-others",
+        "editing one chemical changes the other kilograms",
+        afterB !== beforeB && afterC.length > 0,
+      );
+      await page.getByRole("button", { name: "Yes, save it" }).click();
+      await page.getByText("Saved the new kilograms on Home.").waitFor();
+
+      const solidBeforeScale = await page
+        .locator("section")
+        .filter({ hasText: "Overall solid content" })
+        .locator(".hero-number")
+        .textContent();
+      await total.fill("2000");
+      await total.blur();
+      check("ui.home.edit.scale-ask", "editing the total asks before saving", await visibleText(page, "Are you sure?"));
+      check(
+        "ui.home.edit.scale-copy",
+        "scaling explains every chemical moves together",
+        await visibleText(page, /Every chemical is scaled/),
+      );
+      const scaledA = await chemA.inputValue();
+      const scaledB = await chemB.inputValue();
+      const scaledC = await chemC.inputValue();
+      check(
+        "ui.home.edit.scale-all",
+        "editing the total scales every chemical",
+        scaledA.length > 0 && scaledB.length > 0 && scaledC.length > 0 && scaledA !== "1 200",
+      );
+      await page.getByRole("button", { name: "Yes, save it" }).click();
+      await page.getByText("Saved the new kilograms on Home.").waitFor();
+      const solidAfterScale = await page
+        .locator("section")
+        .filter({ hasText: "Overall solid content" })
+        .locator(".hero-number")
+        .textContent();
+      check(
+        "ui.home.edit.scale-pct",
+        "scaling the total keeps the solid content",
+        solidAfterScale === solidBeforeScale,
+      );
+      check(
+        "ui.home.edit.scale-total",
+        "scaled total shows 2 000 kg",
+        /2.?000/.test(await total.inputValue()),
+      );
+
+      await gotoTank(page, "/tank/composition/");
+      check(
+        "ui.home.edit.composition",
+        "composition sees the saved kilograms",
+        await visibleText(page, /polymer polyol 3125/i),
+      );
+      await gotoTank(page, "/tank/log/");
+      check("ui.home.edit.log", "log shows the Home edit row", await visibleText(page, "Home edit"));
+      await context.close();
+    }
+
+    {
       const { context, page } = await openPage(browser);
       await gotoTank(page, "/about/");
       check("ui.brochure.header", "brochure chrome is still on marketing pages", (await page.locator("header").count()) > 0);

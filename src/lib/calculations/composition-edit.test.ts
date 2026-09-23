@@ -73,7 +73,7 @@ describe("editChemicalAmount", () => {
     assert.match(result.reason, new RegExp(formatQty(base.volume)));
   });
 
-  test("negative: nowhere to put the difference when others are zero", () => {
+  test("positive: the only chemical with kilograms may change the tank total", () => {
     const stuck: CompositionAmounts = {
       remainingByChemical: { a: 1000, b: 0 },
       unattributed: 0,
@@ -81,9 +81,11 @@ describe("editChemicalAmount", () => {
       solidPct: 40,
     };
     const result = editChemicalAmount(stuck, { a: 40, b: 10 }, "a", 800);
-    assert.equal(result.ok, false);
-    if (result.ok) return;
-    assert.match(result.reason, /already at 0 kg/);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.equal(result.next.volume, 800);
+    assert.equal(result.next.remainingByChemical.a, 800);
+    assert.equal(result.next.solidPct, 40);
   });
 });
 
