@@ -167,6 +167,7 @@ const tankRoutes = [
   "/tank/composition/",
   "/tank/planner/",
   "/tank/guide/",
+  "/tank/inventory/",
 ];
 check("tank.1", "tank export", fs.existsSync("out/tank/index.html"));
 check("tank.2", "robots disallow tank", /Disallow:\s*\/tank/.test(fs.readFileSync("out/robots.txt", "utf8")));

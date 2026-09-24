@@ -12,7 +12,8 @@ import {
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { ConsumptionTable } from "@/components/tank/consumption-table";
-import { EmptyState, Field } from "@/components/tank/empty-state";
+import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
+import { TankContextNav } from "@/components/tank/tank-context-nav";
 import { ListPagination } from "@/components/tank/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ import {
   toDatetimeLocalValue,
   type LogEntryType,
 } from "@/lib/calculations";
+import { trackEvent } from "@/lib/analytics";
 import { useTank } from "@/lib/tank/context";
 import type { Chemical, TankLogDraft, TankLogEntry } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
@@ -90,7 +92,7 @@ function lastProductionHeadline(
 
 export function LogPage() {
   const router = useRouter();
-  const { tankReady, snapshot, settings, entries, activeChemicals, chemicals, activeTank, tanks, selectTank, refresh } = useTank();
+  const { tankReady, snapshot, settings, entries, activeChemicals, chemicals, activeTank, tanks, selectTank, refresh, loading } = useTank();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TankLogEntry | null>(null);
   const [type, setType] = useState<LogEntryType>("add_batch");
@@ -113,6 +115,9 @@ export function LogPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [factoryJob, setFactoryJob] = useState<TankLogEntry | null>(null);
   const [repeating, setRepeating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [scope, setScope] = useState<"tank" | "factory">("tank");
 
   const heel = settings?.heel ?? 0;
   const capacity = settings?.capacity ?? null;
@@ -124,13 +129,15 @@ export function LogPage() {
   );
   const lastProduction = factoryJob;
 
+  const listTankId = scope === "tank" ? activeTank?.id ?? null : null;
+
   useEffect(() => {
     let cancelled = false;
     setListLoading(true);
     setListError(null);
     void Promise.all([
-      listLogEntriesPage(null, { page, pageSize: TANK_LIST_PAGE_SIZE }),
-      latestFactoryProduction(),
+      listLogEntriesPage(listTankId, { page, pageSize: TANK_LIST_PAGE_SIZE }),
+      latestFactoryProduction(listTankId),
     ])
       .then(([result, job]) => {
         if (cancelled) return;
@@ -151,7 +158,7 @@ export function LogPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, entries]);
+  }, [page, entries, listTankId]);
 
   function tankLabel(tankId: string) {
     return tanks.find((tank) => tank.id === tankId)?.name ?? "Tank";
@@ -213,6 +220,7 @@ export function LogPage() {
   }
 
   async function save() {
+    if (saving) return;
     setError(null);
     setHeelNote(null);
 
@@ -250,6 +258,7 @@ export function LogPage() {
         return;
       }
       try {
+        setSaving(true);
         if (!activeTank) throw new TankError("Choose a tank first.");
         await insertLogEntries(
           activeTank.id,
@@ -270,6 +279,10 @@ export function LogPage() {
         setOpen(false);
       } catch (caught) {
         setError(caught instanceof TankError ? caught.message : "Could not save the entry.");
+        trackEvent("tank_save_fail", { surface: "activity" });
+        trackEvent("tank_save_fail", { surface: "activity" });
+      } finally {
+        setSaving(false);
       }
       return;
     }
@@ -334,6 +347,7 @@ export function LogPage() {
     }
 
     try {
+      setSaving(true);
       if (!activeTank) throw new TankError("Choose a tank first.");
       if (editing) await updateLogEntry(editing.id, draft);
       else {
@@ -344,18 +358,29 @@ export function LogPage() {
       setOpen(false);
     } catch (caught) {
       setError(caught instanceof TankError ? caught.message : "Could not save the entry.");
+      trackEvent("tank_save_fail", { surface: "activity" });
+    } finally {
+      setSaving(false);
     }
   }
 
   async function remove(id: string) {
+    if (deleting) return;
     setDeleteError(null);
+    setDeleting(true);
     try {
       await deleteLogEntry(id);
       await refresh();
       setPendingDeleteId(null);
     } catch (caught) {
       setDeleteError(caught instanceof TankError ? caught.message : "Could not delete this entry.");
+    } finally {
+      setDeleting(false);
     }
+  }
+
+  if (loading) {
+    return <TankLoading title="Activity" />;
   }
 
   if (!activeTank || (!tankReady && !listLoading && pageTotal === 0 && factoryJob == null)) {
@@ -365,7 +390,7 @@ export function LogPage() {
         <EmptyState
           title="Set up your tank first"
           description="The log starts when you say what is already in the tank."
-          actionLabel="Set up tank"
+          actionLabel="Open tank"
           actionHref="/tank/"
         />
       </div>
@@ -387,8 +412,13 @@ export function LogPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1>Activity</h1>
+          <div className="mt-2">
+            <TankContextNav current="activity" />
+          </div>
           <p className="text-muted-foreground">
-            History of every tank. Deleting a pour puts those kilograms back on the shelf.
+            {scope === "tank"
+              ? "History for the open tank. Deleting a pour puts those kilograms back on the shelf."
+              : "History of every tank. Deleting a pour puts those kilograms back on the shelf."}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
@@ -397,6 +427,35 @@ export function LogPage() {
         </div>
         <Button size="touch" onClick={startAdd}>
           Add entry
+        </Button>
+      </div>
+
+      <div className="flex rounded-xl border border-border p-1" role="group" aria-label="Log scope">
+        <Button
+          type="button"
+          size="sm"
+          variant={scope === "tank" ? "default" : "ghost"}
+          className="flex-1"
+          aria-pressed={scope === "tank"}
+          onClick={() => {
+            setScope("tank");
+            setPage(1);
+          }}
+        >
+          This tank
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={scope === "factory" ? "default" : "ghost"}
+          className="flex-1"
+          aria-pressed={scope === "factory"}
+          onClick={() => {
+            setScope("factory");
+            setPage(1);
+          }}
+        >
+          All tanks
         </Button>
       </div>
 
@@ -780,8 +839,13 @@ export function LogPage() {
                 {heelNote ? (
                   <p className="text-sm text-amber-700 dark:text-amber-300">{heelNote}</p>
                 ) : null}
-                <Button size="touch" className="w-full" onClick={() => void save()}>
-                  Save entry
+                <Button
+                  size="touch"
+                  className="w-full"
+                  disabled={saving}
+                  onClick={() => void save()}
+                >
+                  {saving ? "Saving…" : "Save entry"}
                 </Button>
               </>
             )}

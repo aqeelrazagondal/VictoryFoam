@@ -22,7 +22,7 @@ export default function PrivacyPage() {
           title="Privacy Policy"
           subtitle="This policy explains how Victory Foam handles personal information submitted through this website."
         />
-        <p className="mt-4 text-sm text-muted-foreground">Last updated: 4 September 2026</p>
+        <p className="mt-4 text-sm text-muted-foreground">Last updated: 24 September 2026</p>
       </SectionWrapper>
       <SectionWrapper background="muted" className="prose-legal space-y-8 pt-10 text-muted-foreground">
         <section>
@@ -85,8 +85,8 @@ export default function PrivacyPage() {
           <p className="mt-3">
             Theme preference is stored in your browser and is not used for advertising. Analytics
             cookies are optional. The cookie banner appears only when a Google Analytics measurement
-            ID is configured. You can change your choice by clearing this site&apos;s stored data in
-            your browser and reloading the page.
+            ID is configured. You can change your choice from Cookie preferences in the site footer,
+            or by clearing this site&apos;s stored data in your browser and reloading the page.
           </p>
         </section>
         <section>

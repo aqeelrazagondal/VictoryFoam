@@ -15,37 +15,43 @@ export function StickyCtaBar({ triggerId = "mattress-cinema" }: { triggerId?: st
   const [footerVisible, setFooterVisible] = useState(false);
 
   useEffect(() => {
-    const update = () => {
-      const cinema = document.getElementById(triggerId);
-      const mobileHero = document.getElementById("mobile-mattress-hero");
+    const desktop = window.matchMedia("(min-width: 768px)");
+    let observer: IntersectionObserver | null = null;
 
-      if (window.matchMedia("(min-width: 768px)").matches) {
-        if (!cinema) {
-          setPastHero(false);
-          return;
-        }
-        const rect = cinema.getBoundingClientRect();
-        setPastHero(rect.bottom <= 0);
-        return;
+    function hero() {
+      return desktop.matches
+        ? document.getElementById(triggerId)
+        : document.getElementById("mobile-mattress-hero");
+    }
+
+    function connect() {
+      observer?.disconnect();
+      const element = hero();
+      if (!element) {
+        setPastHero(false);
+        return false;
       }
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          setPastHero(!entry.isIntersecting && entry.boundingClientRect.bottom <= 0);
+        },
+        { threshold: 0 },
+      );
+      observer.observe(element);
+      return true;
+    }
 
-      if (mobileHero) {
-        const rect = mobileHero.getBoundingClientRect();
-        setPastHero(rect.bottom <= 0);
-        return;
-      }
-
-      setPastHero(false);
-    };
-
-    update();
-    const poll = window.setInterval(update, 500);
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
+    connect();
+    const retry = window.setInterval(() => {
+      if (connect()) window.clearInterval(retry);
+    }, 250);
+    const stopRetry = window.setTimeout(() => window.clearInterval(retry), 4000);
+    desktop.addEventListener("change", connect);
     return () => {
-      window.clearInterval(poll);
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
+      observer?.disconnect();
+      desktop.removeEventListener("change", connect);
+      window.clearInterval(retry);
+      window.clearTimeout(stopRetry);
     };
   }, [triggerId]);
 

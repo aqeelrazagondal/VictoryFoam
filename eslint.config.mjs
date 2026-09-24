@@ -6,7 +6,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    files: ["src/components/3d/**/*.{ts,tsx}"],
+    files: ["src/components/3d/**/*.{ts,tsx}", "src/components/tank/**/*.{ts,tsx}", "src/lib/tank/context.tsx"],
     rules: {
       "react-hooks/purity": "off",
       "react-hooks/immutability": "off",

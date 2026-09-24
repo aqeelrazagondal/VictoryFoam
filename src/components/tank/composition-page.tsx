@@ -1,6 +1,7 @@
 "use client";
 
-import { EmptyState } from "@/components/tank/empty-state";
+import { EmptyState, TankLoading } from "@/components/tank/empty-state";
+import { TankContextNav } from "@/components/tank/tank-context-nav";
 import {
   compositionRows,
   formatPct,
@@ -8,19 +9,27 @@ import {
   hasReconciliationGap,
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
+import { compositionShareClass } from "@/lib/tank/composition-share";
 
 export function CompositionPage() {
-  const { tankReady, snapshot, chemicals } = useTank();
+  const { tankReady, snapshot, chemicals, loading } = useTank();
+
+  if (loading) {
+    return <TankLoading title="Tank composition" />;
+  }
 
   if (!tankReady) {
     return (
       <div className="space-y-4">
         <h1>Tank composition</h1>
+        <div className="mt-3">
+          <TankContextNav current="tank" />
+        </div>
         <EmptyState
           title="Set up your tank first"
           description="Kilograms of each chemical, taken from the tank log. Set the tank up first."
-          actionLabel="Set up tank"
-          actionHref="/tank/setup/"
+          actionLabel="Open tank"
+          actionHref="/tank/"
         />
       </div>
     );
@@ -37,6 +46,7 @@ export function CompositionPage() {
   return (
     <div className="space-y-5 pb-10">
       <h1>Tank composition</h1>
+      <TankContextNav current="tank" />
       <p className="text-muted-foreground">
         Kilograms of each chemical still in the tank. To change a number, use Correct tank readings
         on Tank.
@@ -47,8 +57,7 @@ export function CompositionPage() {
           {rows.map((row) => (
             <div
               key={row.id}
-              className="h-full bg-primary/80 odd:bg-primary/40"
-              style={{ width: `${row.pctOfTank}%` }}
+              className={`h-full bg-primary/80 odd:bg-primary/40 ${compositionShareClass(row.pctOfTank)}`}
             />
           ))}
         </div>

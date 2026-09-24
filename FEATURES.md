@@ -34,7 +34,7 @@ While Add, Record usage, or Correct readings is open, the bottom bar hides. Brow
 
 - Calculate: Blend, Fill, Planner.
 - Manage: Chemicals, Composition.
-- Help and preferences: Set up tank (only while the active tank has no opening balance), Guide, light/dark theme, Sign out (only when Supabase is configured).
+- Help and preferences: Set up tank / Tank settings, Guide, light/dark theme, Sign out (only when Supabase is configured).
 
 **Old paths**
 
@@ -54,8 +54,9 @@ Short tasks: add chemicals, record usage, correct readings, manage shelf stock, 
 **Supabase configured** (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
 
 - Email and password sign-in for a shared factory account. No public sign-up screen.
+- Forgot password sends a Supabase reset email. The link returns to `/tank/` and asks for a new password.
 - Show / hide password.
-- Session persists and refreshes in the browser.
+- Session persists and refreshes in the browser. If restore hangs or fails, the sign-in screen offers “Try restoring the session”. If the session ends, a short message asks the operator to sign in again.
 - Sign out is in More.
 - Authenticated users can read and write every tank table (row-level security policies are “authenticated, all”).
 
@@ -293,8 +294,8 @@ Optional third chemical: lock its kilograms. The other two are solved so the bat
 
 **After a result**
 
-- The last successful inputs are saved on this tank. “Continue last blend” restores them.
-- **Record inventory use** subtracts the solved kilograms from the shelf (`issue`-style stock movement). It does not pour into the tank and does not write a tank log row.
+- The last successful inputs are saved on this tank. “Continue last blend” restores them. If that save or load fails, the calculator still works and shows a short error.
+- **Record inventory use** subtracts the solved kilograms from the shelf in one stock write. It does not pour into the tank and does not write a tank log row.
 - Switching tanks clears the in-progress blend.
 
 Guide example: 0% and 45% to 22.5% of 100 kg is 50 kg of each.
@@ -358,7 +359,7 @@ Enter kilograms and a solid content percent. The planner shows the tank afterwar
 
 `/tank/log/`.
 
-Factory history across tanks, newest first, paged.
+Factory history, newest first, paged. Defaults to the open tank. An All tanks toggle shows the whole factory.
 
 **Latest production**
 
@@ -446,20 +447,20 @@ Usage removes a proportional slice. A pour adds that chemical’s mass and moves
 
 | Function | Effect |
 | --- | --- |
-| `loadFactory` | Chemicals, tanks, entries for the active tank, and which tank is open |
+| `loadFactory` | Chemicals, live tanks, the open tank’s log, one-row overviews for other live tanks, distinct chemicals used in the log, and which tank is open |
 | `listChemicalsPage` / `listLogEntriesPage` | Paged lists |
-| `latestFactoryProduction` | Newest pour or usage across tanks |
+| `latestFactoryProduction` | Newest pour or usage, optionally for one tank |
 | `createChemical` / `updateChemical` / `archiveChemical` / `deleteChemical` | Chemical catalogue |
 | `createTank` / `renameTank` / `removeTank` / `saveTankSettings` | Tanks |
-| `insertLogEntry` / `insertLogEntries` / `updateLogEntry` / `deleteLogEntry` | Tank log. An `add_batch` also writes a pour movement when that chemical’s stock is tracked |
-| `applyStockMovement` / `listStockMovements` / `setReorderKg` | Shelf |
-| `getLastCalculation` / `saveLastCalculation` | Last Blend or Fill inputs for one tank |
+| `insertLogEntry` / `insertLogEntries` / `updateLogEntry` / `deleteLogEntry` | Tank log. Remote writes go through one Postgres function so an `add_batch` pour and the log row commit together. Do not auto-retry after a timeout |
+| `applyStockMovement` / `applyStockMovements` / `listStockMovements` / `setReorderKg` | Shelf. Several Blend issues are one database call |
+| `getLastCalculation` / `saveLastCalculation` | Last Blend or Fill inputs for one tank. Payloads are schema-checked on read |
 
 Errors are `TankError` with a message the screen can show.
 
 `src/lib/tank/context.tsx` loads the factory once, holds the open tank, and exposes `refresh` after every save.
 
-`src/lib/tank/parse.ts` turns typed decimals into numbers. `src/lib/tank/pagination.ts` slices lists. `src/lib/tank/tanks.ts` resolves the active tank and migrates old on-device state.
+`src/lib/tank/parse.ts` turns typed decimals into numbers (`28,65` or `28.65`). Thousands may be grouped with spaces or commas (`8,000`). `src/lib/tank/pagination.ts` slices lists. `src/lib/tank/tanks.ts` resolves the active tank and migrates old on-device state.
 
 ---
 

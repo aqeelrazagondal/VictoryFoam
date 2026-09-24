@@ -3,6 +3,7 @@ import { test } from "node:test";
 
 import {
   isDuplicateTankName,
+  liveTankIds,
   migrateStoredTankState,
   resolveActiveTankId,
 } from "./tanks.ts";
@@ -93,4 +94,17 @@ test("active tank names are unique regardless of case", () => {
   assert.equal(isDuplicateTankName(" blend tank ", tanks), true);
   assert.equal(isDuplicateTankName("Old blend", tanks), false);
   assert.equal(isDuplicateTankName("Blend tank", tanks, "a"), false);
+});
+
+test("live tanks skip archived ids", () => {
+  const ids = liveTankIds([
+    tank({ id: "a", name: "A", createdAt: "2026-01-01T00:00:00.000Z" }),
+    tank({
+      id: "b",
+      name: "B",
+      createdAt: "2026-01-02T00:00:00.000Z",
+      archivedAt: "2026-02-01T00:00:00.000Z",
+    }),
+  ]);
+  assert.deepEqual(ids, ["a"]);
 });

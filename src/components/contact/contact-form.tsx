@@ -23,13 +23,14 @@ export function ContactForm({ formId }: { formId?: string }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [mailtoOpened, setMailtoOpened] = useState(false);
   const successRef = useRef<HTMLDivElement>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
-    const nextErrors = validateEnquiry(data, 20);
+    const nextErrors = validateEnquiry(data);
     setErrors(nextErrors);
     setSubmitError(null);
     if (Object.keys(nextErrors).length > 0) return;
@@ -47,6 +48,7 @@ export function ContactForm({ formId }: { formId?: string }) {
         volume: readFormField(data, "volume") || undefined,
         message: readFormField(data, "message"),
       });
+      setMailtoOpened(true);
       return;
     }
 
@@ -64,7 +66,7 @@ export function ContactForm({ formId }: { formId?: string }) {
     window.setTimeout(() => successRef.current?.focus(), 0);
   }
 
-  if (submitted) {
+  if (submitted || mailtoOpened) {
     return (
       <div className="glass-card gradient-border rounded-xl p-6 md:p-8">
         <div
@@ -73,10 +75,24 @@ export function ContactForm({ formId }: { formId?: string }) {
           className="outline-none"
           role="status"
         >
-          <h2 className="font-heading text-2xl font-semibold">Quote request sent</h2>
+          <h2 className="font-heading text-2xl font-semibold">
+            {mailtoOpened ? "Email app opened" : "Quote request sent"}
+          </h2>
           <p className="mt-4 text-muted-foreground">
-            Thank you. We will review your requirements and respond during working hours.
+            {mailtoOpened
+              ? "Finish sending the message in your email app. You can send another from this page if you need to."
+              : "Thank you. We will review your requirements and respond during working hours."}
           </p>
+          <Button
+            className="mt-6"
+            type="button"
+            onClick={() => {
+              setSubmitted(false);
+              setMailtoOpened(false);
+            }}
+          >
+            Send another
+          </Button>
         </div>
       </div>
     );
@@ -143,8 +159,15 @@ export function ContactForm({ formId }: { formId?: string }) {
             autoComplete="tel"
             pattern="[0-9+() -]{7,}"
             title="Enter at least seven digits using spaces, brackets, plus, or hyphens."
+            aria-invalid={errors.phone ? true : undefined}
+            aria-describedby={errors.phone ? "contact-phone-error" : undefined}
           />
         </label>
+        {errors.phone ? (
+          <p id="contact-phone-error" className="-mt-3 text-sm text-destructive">
+            {errors.phone}
+          </p>
+        ) : null}
         <label htmlFor="contact-subject" className="block text-sm font-medium text-foreground">
           Subject
           <ContactSubjectField className={fieldClass} />

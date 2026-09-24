@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
-import { EmptyState, Field } from "@/components/tank/empty-state";
+import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
+import { TankContextNav } from "@/components/tank/tank-context-nav";
 import { ListPagination } from "@/components/tank/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,7 +110,7 @@ function signedQty(movement: StockMovement, unit: string) {
 }
 
 export function InventoryPage() {
-  const { chemicals, refresh } = useTank();
+  const { chemicals, refresh, loading } = useTank();
   const [page, setPage] = useState(1);
   const [pageRows, setPageRows] = useState<Chemical[]>([]);
   const [pageTotal, setPageTotal] = useState(0);
@@ -161,6 +162,10 @@ export function InventoryPage() {
       cancelled = true;
     };
   }, [page, chemicals]);
+
+  if (loading) {
+    return <TankLoading title="Inventory" />;
+  }
 
   function startAddChemical() {
     setDraft(emptyDraft());
@@ -284,6 +289,9 @@ export function InventoryPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1>Inventory</h1>
+          <div className="mt-2">
+            <TankContextNav current="inventory" />
+          </div>
           <p className="mt-1 text-muted-foreground">
             On the shelf. Drums you still have. The tank is what is already mixed.
           </p>

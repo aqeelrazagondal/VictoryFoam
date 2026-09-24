@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { replayLog, type TankSnapshot } from "@/lib/calculations";
+import type { TankLogOverview } from "@/lib/tank/board";
 import type { Chemical, Tank, TankLogEntry, TankSettings } from "@/lib/tank/models";
 import {
   createTank as createTankRecord,
@@ -30,11 +31,13 @@ type TankContextValue = {
   activeTank: Tank | null;
   entries: TankLogEntry[];
   allEntries: TankLogEntry[];
+  overviews: TankLogOverview[];
   settings: TankSettings | null;
   snapshot: TankSnapshot;
   tankReady: boolean;
   loggedChemicalIds: string[];
   refresh: () => Promise<void>;
+  retry: () => Promise<void>;
   selectTank: (id: string) => Promise<void>;
   createTank: (input: { name: string; capacity: number | null }) => Promise<Tank>;
   renameTank: (id: string, name: string) => Promise<void>;
@@ -51,6 +54,7 @@ function applyData(
   setActiveTankId: (value: string | null) => void,
   setEntries: (value: TankLogEntry[]) => void,
   setAllEntries: (value: TankLogEntry[]) => void,
+  setOverviews: (value: TankLogOverview[]) => void,
   setLoggedChemicalIds: (value: string[]) => void,
   setError: (value: string | null) => void,
 ) {
@@ -59,6 +63,7 @@ function applyData(
   setActiveTankId(data.activeTankId);
   setEntries(data.entries);
   setAllEntries(data.allEntries);
+  setOverviews(data.overviews);
   setLoggedChemicalIds(data.loggedChemicalIds);
   setError(null);
 }
@@ -69,6 +74,7 @@ export function TankProvider({ children }: { children: ReactNode }) {
   const [activeTankId, setActiveTankId] = useState<string | null>(null);
   const [entries, setEntries] = useState<TankLogEntry[]>([]);
   const [allEntries, setAllEntries] = useState<TankLogEntry[]>([]);
+  const [overviews, setOverviews] = useState<TankLogOverview[]>([]);
   const [loggedChemicalIds, setLoggedChemicalIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,26 +82,41 @@ export function TankProvider({ children }: { children: ReactNode }) {
 
   const reload = useCallback(async (preferredTankId: string | null) => {
     const token = ++request.current;
-    const data = await loadFactory(preferredTankId);
-    if (token !== request.current) return;
-    applyData(
-      data,
-      setChemicals,
-      setTanks,
-      setActiveTankId,
-      setEntries,
-      setAllEntries,
-      setLoggedChemicalIds,
-      setError,
-    );
+    try {
+      const data = await loadFactory(preferredTankId);
+      if (token !== request.current) return;
+      applyData(
+        data,
+        setChemicals,
+        setTanks,
+        setActiveTankId,
+        setEntries,
+        setAllEntries,
+        setOverviews,
+        setLoggedChemicalIds,
+        setError,
+      );
+    } catch (caught: unknown) {
+      if (token !== request.current) return;
+      setError(caught instanceof Error ? caught.message : "Could not load tank data.");
+    } finally {
+      if (token === request.current) setLoading(false);
+    }
   }, []);
 
   const refresh = useCallback(async () => {
     await reload(readActiveTankId());
   }, [reload]);
 
+  const retry = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    await reload(readActiveTankId());
+  }, [reload]);
+
   const selectTank = useCallback(
     async (id: string) => {
+      setLoading(true);
       await reload(id);
     },
     [reload],
@@ -103,58 +124,50 @@ export function TankProvider({ children }: { children: ReactNode }) {
 
   const createTank = useCallback(
     async (input: { name: string; capacity: number | null }) => {
-      const tank = await createTankRecord(input);
-      await reload(tank.id);
-      return tank;
+      try {
+        const tank = await createTankRecord(input);
+        setLoading(true);
+        await reload(tank.id);
+        return tank;
+      } catch (caught: unknown) {
+        setError(caught instanceof Error ? caught.message : "Could not create the tank.");
+        throw caught;
+      }
     },
     [reload],
   );
 
   const renameTank = useCallback(
     async (id: string, name: string) => {
-      await renameTankRecord(id, name);
-      await reload(id);
+      try {
+        await renameTankRecord(id, name);
+        await reload(id);
+      } catch (caught: unknown) {
+        setError(caught instanceof Error ? caught.message : "Could not rename the tank.");
+        throw caught;
+      }
     },
     [reload],
   );
 
   const removeTank = useCallback(
     async (id: string) => {
-      await removeTankRecord(id);
-      const next = readActiveTankId() === id ? null : readActiveTankId();
-      await reload(next);
+      try {
+        await removeTankRecord(id);
+        const next = readActiveTankId() === id ? null : readActiveTankId();
+        setLoading(true);
+        await reload(next);
+      } catch (caught: unknown) {
+        setError(caught instanceof Error ? caught.message : "Could not archive the tank.");
+        throw caught;
+      }
     },
     [reload],
   );
 
   useEffect(() => {
-    let cancelled = false;
-    void loadFactory(readActiveTankId())
-      .then((data) => {
-        if (cancelled) return;
-        applyData(
-          data,
-          setChemicals,
-          setTanks,
-          setActiveTankId,
-          setEntries,
-          setAllEntries,
-          setLoggedChemicalIds,
-          setError,
-        );
-      })
-      .catch((caught: unknown) => {
-        if (!cancelled) {
-          setError(caught instanceof Error ? caught.message : "Could not load tank data.");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void reload(readActiveTankId());
+  }, [reload]);
 
   const activeTank = useMemo(
     () => tanks.find((tank) => tank.id === activeTankId && tank.archivedAt === null) ?? null,
@@ -191,11 +204,13 @@ export function TankProvider({ children }: { children: ReactNode }) {
       activeTank,
       entries,
       allEntries,
+      overviews,
       settings,
       snapshot,
       tankReady: snapshot.hasOpeningBalance,
       loggedChemicalIds,
       refresh,
+      retry,
       selectTank,
       createTank,
       renameTank,
@@ -211,7 +226,9 @@ export function TankProvider({ children }: { children: ReactNode }) {
       error,
       loading,
       loggedChemicalIds,
+      overviews,
       refresh,
+      retry,
       removeTank,
       renameTank,
       selectTank,

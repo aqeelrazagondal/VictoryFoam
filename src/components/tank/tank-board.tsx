@@ -13,6 +13,7 @@ import {
   replayLog,
   snapshotToAmounts,
 } from "@/lib/calculations";
+import { logSourceForTank, type TankLogOverview } from "@/lib/tank/board";
 import type { Tank, TankLogEntry } from "@/lib/tank/models";
 
 export type TankBoardItem = {
@@ -31,33 +32,47 @@ export function buildTankBoard(
   activeTankId: string | null,
   activeEntries: TankLogEntry[],
   names: Record<string, { name: string; unit: string }>,
+  overviews: TankLogOverview[] = [],
 ): TankBoardItem[] {
   return tanks.map((tank) => {
-    const source = tank.id === activeTankId ? activeEntries : allEntries.filter((entry) => entry.tankId === tank.id);
-    const snapshot = replayLog(
-      source.map((entry) => ({
-        id: entry.id,
-        type: entry.type,
-        chemicalId: entry.chemicalId,
-        quantity: entry.quantity,
-        solidContentPct: entry.solidContentPct,
-        note: entry.note,
-      })),
-    );
-    const amounts = snapshotToAmounts(snapshot);
-    const latest = [...source].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+    const source = logSourceForTank(tank.id, activeTankId, activeEntries, allEntries);
+    if (source.length > 0) {
+      const snapshot = replayLog(
+        source.map((entry) => ({
+          id: entry.id,
+          type: entry.type,
+          chemicalId: entry.chemicalId,
+          quantity: entry.quantity,
+          solidContentPct: entry.solidContentPct,
+          note: entry.note,
+        })),
+      );
+      const amounts = snapshotToAmounts(snapshot);
+      const latest = [...source].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+      return {
+        tank,
+        ready: snapshot.hasOpeningBalance,
+        volume: amounts.volume,
+        solidPct: amounts.solidPct,
+        rows: compositionRows(snapshot, names).map((row) => ({
+          id: row.id,
+          name: row.name,
+          amount: row.amount,
+        })),
+        updated: latest ? formatLogWhen(latest.entryDate, latest.createdAt) : null,
+        belowHeel: isHeelBreach(amounts.volume, tank.heel),
+      };
+    }
+
+    const overview = overviews.find((item) => item.tankId === tank.id);
     return {
       tank,
-      ready: snapshot.hasOpeningBalance,
-      volume: amounts.volume,
-      solidPct: amounts.solidPct,
-      rows: compositionRows(snapshot, names).map((row) => ({
-        id: row.id,
-        name: row.name,
-        amount: row.amount,
-      })),
-      updated: latest ? formatLogWhen(latest.entryDate, latest.createdAt) : null,
-      belowHeel: isHeelBreach(amounts.volume, tank.heel),
+      ready: overview?.ready ?? false,
+      volume: 0,
+      solidPct: 0,
+      rows: [],
+      updated: overview ? formatLogWhen(overview.lastEntryDate, overview.lastCreatedAt) : null,
+      belowHeel: false,
     };
   });
 }
@@ -112,13 +127,19 @@ export function TankBoard({
                 <span className="flex items-start justify-between gap-3">
                   <span className="font-heading text-lg font-semibold leading-tight">{item.tank.name}</span>
                   <span className="shrink-0 text-sm font-medium tabular-nums">
-                    {item.ready ? `${formatQty(item.volume)} kg` : "Not set up"}
+                    {item.ready
+                      ? item.rows.length > 0
+                        ? `${formatQty(item.volume)} kg`
+                        : "Set up"
+                      : "Not set up"}
                   </span>
                 </span>
                 {item.ready ? (
                   <span className="text-sm text-muted-foreground">
-                    {formatPct(item.solidPct)} solid
-                    {item.tank.capacity != null && item.tank.capacity > 0
+                    {item.rows.length > 0
+                      ? `${formatPct(item.solidPct)} solid`
+                      : "Open to see mix"}
+                    {item.rows.length > 0 && item.tank.capacity != null && item.tank.capacity > 0
                       ? ` · ${formatQty(item.volume)} of ${formatQty(item.tank.capacity)} kg`
                       : ""}
                     {item.updated ? ` · updated ${item.updated}` : ""}

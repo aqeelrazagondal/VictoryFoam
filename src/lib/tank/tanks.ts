@@ -47,6 +47,10 @@ export function isDuplicateTankName(name: string, tanks: Tank[], exceptId?: stri
   );
 }
 
+export function liveTankIds(tanks: { id: string; archivedAt: string | null }[]) {
+  return tanks.filter((tank) => tank.archivedAt === null).map((tank) => tank.id);
+}
+
 export function resolveActiveTankId(tanks: Tank[], preferredId: string | null) {
   const active = tanks
     .filter((tank) => tank.archivedAt === null)

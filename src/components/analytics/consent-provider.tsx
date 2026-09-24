@@ -11,7 +11,7 @@ import {
 
 import {
   getConsent,
-  getGaMeasurementId,
+  resolveGaMeasurementId,
   setConsent as persistConsent,
   clearConsent,
   type ConsentStatus,
@@ -50,7 +50,7 @@ export function ConsentProvider({
   children: ReactNode;
   measurementId?: string;
 }) {
-  const resolvedId = measurementId?.trim() || getGaMeasurementId();
+  const resolvedId = resolveGaMeasurementId(measurementId);
   const consent = useSyncExternalStore(subscribeConsent, getConsent, () => null);
 
   const accept = useCallback(() => {

@@ -1,64 +1,37 @@
-# Test Results — Pass 2
+# Test results
 
-## Summary
-- Total tests: 141
-- Passed: 140
-- Failed: 1
-- Pass rate: 99.3%
+Last verified: 24 September 2026.
 
-## Pass 1 — Initial Run
+The brochure is a static Next.js export. The factory calculator at `/tank` is a client-only app.
 
-Issues found and fixed:
-- **7.3** Dark mode default was `system` → changed to `dark` in `src/app/layout.tsx`
-- **7.5** Only `glow-sm` defined → added `glow-md`, `glow-lg`, `glow-text` utilities
-- **4.2** Contact form labels missing from static HTML → removed outer `Suspense`, split subject field with fallback SSR
-- **6.7** 3D viewer bundle optimization → split into `foam-layer-viewer.tsx` + `foam-layer-viewer-scene.tsx` with nested dynamic imports
-- **AnimateOnScroll** → replaced Framer Motion with CSS + Intersection Observer (removed `framer-motion` dependency)
-- Added `experimental.optimizePackageImports` for lucide-react and @react-three/drei
-
-## Pass 2 — Retest After Fixes
-
-All previously failed real issues resolved except one known limitation.
-
-## Failed Tests
-
-| Test ID | Description | Status | Notes |
-|---------|-------------|--------|-------|
-| 6.4 | Initial load JS chunk ≤200KB | KNOWN | React 19 framework chunk is 224KB — inherent to Next.js 16 + React 19. Three.js (885KB) is lazy-loaded and NOT in initial HTML. |
-
-## Verified Passing Highlights
-
-- Build: 15 static pages, sitemap, robots, favicon, llms.txt
-- Content: All pages render, 8 products, no placeholders
-- SEO: Unique metadata, JSON-LD, canonical URLs on all 13 routes
-- Accessibility: Alt text, form labels, skip link, reduced motion
-- Navigation: All internal links valid
-- Performance: No source maps, 3D lazy-loaded, no console.log
-- Styling: Dark default, glass/glow effects, CTA section
-- Data: 8 products, TypeScript + ESLint clean
-- Consistency: Header/footer/breadcrumbs/theme toggle on all pages
-
-## Fixes Applied
-
-| File | Change |
-|------|--------|
-| `src/app/layout.tsx` | `defaultTheme="dark"` |
-| `src/app/globals.css` | Added glow-md/lg/text, animate-on-scroll CSS |
-| `src/app/contact/page.tsx` | Removed Suspense wrapper blocking form SSR |
-| `src/components/contact/contact-form.tsx` | Added htmlFor labels |
-| `src/components/contact/contact-subject-field.tsx` | New — SSR fallback for subject field |
-| `src/components/3d/foam-layer-viewer.tsx` | Split — shell + dynamic scene import |
-| `src/components/3d/foam-layer-viewer-scene.tsx` | New — Three.js scene (lazy loaded) |
-| `src/components/ui/animate-on-scroll.tsx` | CSS + Intersection Observer |
-| `next.config.ts` | optimizePackageImports |
-| `package.json` | Removed unused framer-motion |
-
-## Re-run Tests
+## How to verify
 
 ```bash
-npm run build && node scripts/e2e-test.mjs
+pnpm lint
+pnpm typecheck
+pnpm typecheck:tests
+pnpm test
+pnpm build
+pnpm e2e
 ```
 
-## Status
+Optional factory UI (needs Chrome):
 
-**PRODUCTION READY** — 140/141 tests pass. The single remaining item is a React 19 framework bundle floor (~224KB) that cannot be reduced without changing frameworks.
+```bash
+pnpm test:ui
+```
+
+CI runs the same lint/typecheck/test/build/e2e set on pull requests (`.github/workflows/ci.yml`).
+
+## What the suites cover
+
+- Unit tests: blend/fill/planner math, tank helpers, enquiry validation, last-calculation payloads, wizard drafts.
+- `pnpm e2e`: built `out/` HTML, SEO, a11y smoke, robots/sitemap, tank `noindex`, including `/tank/inventory/`.
+- `pnpm test:ui`: Playwright against localStorage tank flows. If Supabase keys are set, it checks AuthGate instead and skips localStorage mutations unless `TANK_UI_EMAIL` and `TANK_UI_PASSWORD` are provided.
+
+## Known limits
+
+- Remote tank writes need the Supabase migrations `20260924120000_atomic_tank_log_writes.sql` and `20260924140000_tank_reliability_writes.sql` applied on the project.
+- Playwright UI tests stay on the localStorage path unless a factory session is provided (`TANK_UI_EMAIL` / `TANK_UI_PASSWORD`).
+- Home cinema JavaScript is lazy-loaded; reserved hero height avoids a first-paint collapse.
+- Tank `trackEvent` calls (`tank_sign_in_fail`, `tank_save_fail`, `tank_pour_confirm`) only fire when analytics cookies were accepted.

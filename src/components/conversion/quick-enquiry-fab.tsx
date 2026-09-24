@@ -18,6 +18,7 @@ import {
   buildEnquiryMailto,
   readFormField,
   submitFormspree,
+  ENQUIRY_MESSAGE_MIN,
   validateEnquiry,
   type EnquiryErrors,
 } from "@/lib/enquiry";
@@ -33,6 +34,7 @@ export function QuickEnquiryFab({ formId }: { formId?: string }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [mailtoOpened, setMailtoOpened] = useState(false);
   const successRef = useRef<HTMLParagraphElement>(null);
   const formspreeId = formId?.trim();
 
@@ -42,7 +44,7 @@ export function QuickEnquiryFab({ formId }: { formId?: string }) {
     event.preventDefault();
     const form = event.currentTarget;
     const data = new FormData(form);
-    const nextErrors = validateEnquiry(data, 10);
+    const nextErrors = validateEnquiry(data);
     setErrors(nextErrors);
     setSubmitError(null);
     if (Object.keys(nextErrors).length > 0) return;
@@ -55,6 +57,8 @@ export function QuickEnquiryFab({ formId }: { formId?: string }) {
         email: readFormField(data, "email"),
         message: readFormField(data, "message"),
       });
+      setMailtoOpened(true);
+      window.setTimeout(() => successRef.current?.focus(), 0);
       return;
     }
 
@@ -81,6 +85,7 @@ export function QuickEnquiryFab({ formId }: { formId?: string }) {
           setErrors({});
           setSubmitError(null);
           setSubmitted(false);
+          setMailtoOpened(false);
         }
       }}
     >
@@ -97,15 +102,30 @@ export function QuickEnquiryFab({ formId }: { formId?: string }) {
         <SheetHeader className="text-left">
           <SheetTitle className="font-heading">Quick enquiry</SheetTitle>
         </SheetHeader>
-        {submitted ? (
-          <p
-            ref={successRef}
-            tabIndex={-1}
-            role="status"
-            className="mt-6 text-sm text-muted-foreground outline-none"
-          >
-            Thank you. We will review your enquiry and respond during working hours.
-          </p>
+        {submitted || mailtoOpened ? (
+          <div className="mt-6 space-y-4">
+            <p
+              ref={successRef}
+              tabIndex={-1}
+              role="status"
+              className="text-sm text-muted-foreground outline-none"
+            >
+              {mailtoOpened
+                ? "Finish sending the message in your email app."
+                : "Thank you. We will review your enquiry and respond during working hours."}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="touch"
+              onClick={() => {
+                setSubmitted(false);
+                setMailtoOpened(false);
+              }}
+            >
+              Send another
+            </Button>
+          </div>
         ) : (
           <form className="mt-6 grid gap-3" onSubmit={handleSubmit} noValidate>
             <div className="hidden" aria-hidden="true">
@@ -158,7 +178,7 @@ export function QuickEnquiryFab({ formId }: { formId?: string }) {
                 className={cn(fieldClass, "min-h-24 resize-y")}
                 name="message"
                 required
-                minLength={10}
+                minLength={ENQUIRY_MESSAGE_MIN}
                 placeholder="Application, dimensions, or timing"
                 aria-required="true"
                 aria-invalid={errors.message ? true : undefined}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
-import { EmptyState, Field } from "@/components/tank/empty-state";
+import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
 import { ResultCard } from "@/components/tank/result-card";
 import { NeedChemicalHint } from "@/components/tank/need-chemical-hint";
 import { SuggestionList } from "@/components/tank/suggestion-list";
@@ -23,14 +23,22 @@ import {
   type BlendApply,
   type StockCheck,
 } from "@/lib/calculations";
+import { trackEvent } from "@/lib/analytics";
 import { useTank } from "@/lib/tank/context";
+import {
+  clearJsonDraft,
+  draftStorageKey,
+  parseBlendDraft,
+  readJsonDraft,
+  writeJsonDraft,
+} from "@/lib/tank/drafts";
 import type { BlendLastCalculation, Chemical } from "@/lib/tank/models";
 import { toChemicalRef } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
-import { getLastCalculation, applyStockMovement, saveLastCalculation, TankError } from "@/lib/tank/repository";
+import { applyStockMovements, getLastCalculation, saveLastCalculation, TankError } from "@/lib/tank/repository";
 
 export function BlendPage() {
-  const { activeChemicals, activeTank, refresh } = useTank();
+  const { activeChemicals, activeTank, refresh, loading } = useTank();
   const [step, setStep] = useState(0);
   const [chem1, setChem1] = useState<Chemical | null>(null);
   const [chem2, setChem2] = useState<Chemical | null>(null);
@@ -41,6 +49,7 @@ export function BlendPage() {
   const [chem3, setChem3] = useState<Chemical | null>(null);
   const [thirdQty, setThirdQty] = useState("");
   const [last, setLast] = useState<BlendLastCalculation | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [recordedKey, setRecordedKey] = useState<string | null>(null);
   const [usedMessage, setUsedMessage] = useState<string | null>(null);
@@ -56,9 +65,14 @@ export function BlendPage() {
     let cancelled = false;
     getLastCalculation(tankId, "blend")
       .then((payload) => {
-        if (!cancelled) setLast(payload as BlendLastCalculation | null);
+        if (!cancelled) {
+          setLast(payload && "chemical1Id" in payload ? payload : null);
+          setLastError(null);
+        }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setLastError("Could not load the last blend.");
+      });
     return () => {
       cancelled = true;
     };
@@ -125,15 +139,29 @@ export function BlendPage() {
       const previous = tankAtCalc.current;
       tankAtCalc.current = tankId;
       if (previous !== null) {
-        setChem1(null);
-        setChem2(null);
-        setChem3(null);
-        setShowThird(false);
-        setThirdQty("");
-        setTargetPct("");
-        setTargetQty("");
-        setStep(0);
+        const draft = tankId ? readJsonDraft(draftStorageKey("blend", tankId), parseBlendDraft) : null;
+        setChem1(draft ? activeChemicals.find((chemical) => chemical.id === draft.chem1Id) ?? null : null);
+        setChem2(draft ? activeChemicals.find((chemical) => chemical.id === draft.chem2Id) ?? null : null);
+        setChem3(draft ? activeChemicals.find((chemical) => chemical.id === draft.chem3Id) ?? null : null);
+        setShowThird(draft?.showThird ?? false);
+        setThirdQty(draft?.thirdQty ?? "");
+        setTargetPct(draft?.targetPct ?? "");
+        setTargetQty(draft?.targetQty ?? "");
+        setStep(draft?.step ?? 0);
         return;
+      }
+      if (tankId) {
+        const draft = readJsonDraft(draftStorageKey("blend", tankId), parseBlendDraft);
+        if (draft) {
+          setChem1(activeChemicals.find((chemical) => chemical.id === draft.chem1Id) ?? null);
+          setChem2(activeChemicals.find((chemical) => chemical.id === draft.chem2Id) ?? null);
+          setChem3(activeChemicals.find((chemical) => chemical.id === draft.chem3Id) ?? null);
+          setShowThird(draft.showThird);
+          setThirdQty(draft.thirdQty);
+          setTargetPct(draft.targetPct);
+          setTargetQty(draft.targetQty);
+          setStep(draft.step);
+        }
       }
     }
     if (!tankId || !result?.ok || !chem1 || !chem2 || pct === null || qty === null) return;
@@ -144,8 +172,24 @@ export function BlendPage() {
       thirdQty: usingThird && lockedThird !== null ? lockedThird : null,
       targetPct: pct,
       targetQty: qty,
+    }).catch(() => {
+      setLastError("Could not remember this blend.");
     });
-  }, [tankId, chem1, chem2, chem3, lockedThird, pct, qty, result, usingThird]);
+  }, [activeChemicals, tankId, chem1, chem2, chem3, lockedThird, pct, qty, result, usingThird]);
+
+  useEffect(() => {
+    if (!tankId) return;
+    writeJsonDraft(draftStorageKey("blend", tankId), {
+      step,
+      chem1Id: chem1?.id ?? null,
+      chem2Id: chem2?.id ?? null,
+      chem3Id: chem3?.id ?? null,
+      targetPct,
+      targetQty,
+      thirdQty,
+      showThird,
+    });
+  }, [chem1?.id, chem2?.id, chem3?.id, showThird, step, tankId, targetPct, targetQty, thirdQty]);
 
   function continueLast() {
     if (!last) return;
@@ -178,7 +222,7 @@ export function BlendPage() {
       : null;
 
   async function recordUsed() {
-    if (!result?.ok || !result.amounts || !chem1 || !chem2 || !useKey) return;
+    if (!result?.ok || !result.amounts || !chem1 || !chem2 || !useKey || recording) return;
     const lines = [
       { chemical: chem1, quantity: result.amounts.x1 },
       { chemical: chem2, quantity: result.amounts.x2 },
@@ -190,21 +234,31 @@ export function BlendPage() {
     setUsedError(null);
     setUsedMessage(null);
     try {
-      for (const line of lines) {
-        await applyStockMovement(line.chemical.id, {
-          type: "issue",
-          quantity: line.quantity,
-          note: "Blend",
-        });
-      }
+      await applyStockMovements(
+        lines.map((line) => ({
+          chemicalId: line.chemical.id,
+          input: {
+            type: "issue" as const,
+            quantity: line.quantity,
+            note: "Blend",
+          },
+        })),
+      );
       await refresh();
+      trackEvent("tank_pour_confirm", { surface: "blend" });
       setRecordedKey(useKey);
       setUsedMessage("Taken off the shelf. The tank was not filled.");
+      if (tankId) clearJsonDraft(draftStorageKey("blend", tankId));
     } catch (caught) {
       setUsedError(caught instanceof TankError ? caught.message : "Could not record this blend.");
+      trackEvent("tank_save_fail", { surface: "blend" });
     } finally {
       setRecording(false);
     }
+  }
+
+  if (loading) {
+    return <TankLoading title="Blend calculator" />;
   }
 
   const steps = [
@@ -227,6 +281,12 @@ export function BlendPage() {
         </Link>
         .
       </p>
+
+      {lastError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {lastError}
+        </p>
+      ) : null}
 
       {last && step === 0 ? (
         <Button variant="secondary" size="touch" onClick={continueLast}>

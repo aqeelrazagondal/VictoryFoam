@@ -7,6 +7,7 @@
     "build": "next build",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
+    "typecheck:tests": "tsc --noEmit -p tsconfig.tests.json",
     "test": "node --experimental-strip-types --test src/lib/*.test.ts src/lib/calculations/*.test.ts src/lib/tank/*.test.ts",
     "test:ui": "node scripts/tank-ui-test.mjs",
     "e2e": "node scripts/e2e-test.mjs"

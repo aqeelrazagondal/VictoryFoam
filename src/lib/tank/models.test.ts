@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { isDuplicateName, toChemicalRef, type Chemical } from "./models.ts";
+import {
+  isDuplicateName,
+  parseBlendLastCalculation,
+  parseFillLastCalculation,
+  toChemicalRef,
+  type Chemical,
+} from "./models.ts";
 
 function chemical(name: string, extra: Partial<Chemical> = {}): Chemical {
   return {
@@ -55,5 +61,45 @@ describe("toChemicalRef", () => {
       unit: "kg",
       archivedAt: null,
     });
+  });
+});
+
+describe("last calculation payload", () => {
+  test("positive: a blend payload is accepted", () => {
+    const parsed = parseBlendLastCalculation({
+      chemical1Id: "a",
+      chemical2Id: "b",
+      targetPct: 20,
+      targetQty: 100,
+    });
+    assert.equal(parsed?.chemical1Id, "a");
+    assert.equal(parsed?.targetQty, 100);
+  });
+
+  test("negative: a blend payload with a missing chemical is rejected", () => {
+    assert.equal(parseBlendLastCalculation({ chemical1Id: "a", targetPct: 20, targetQty: 100 }), null);
+  });
+
+  test("positive: a fill payload is accepted", () => {
+    const parsed = parseFillLastCalculation({
+      targetVolume: 8000,
+      targetPct: 18,
+      chemicalAId: "a",
+      chemicalBId: null,
+    });
+    assert.equal(parsed?.targetVolume, 8000);
+    assert.equal(parsed?.chemicalBId, null);
+  });
+
+  test("negative: a fill payload with a non-number volume is rejected", () => {
+    assert.equal(
+      parseFillLastCalculation({
+        targetVolume: "8000",
+        targetPct: 18,
+        chemicalAId: null,
+        chemicalBId: null,
+      }),
+      null,
+    );
   });
 });

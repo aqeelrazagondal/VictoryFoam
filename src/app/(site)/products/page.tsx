@@ -1,12 +1,9 @@
 import type { Metadata } from "next";
 
-import { ProductGrid } from "@/components/product/product-grid";
+import { ProductCatalogue } from "@/components/product/product-catalogue";
 import { SectionHeader } from "@/components/sections/section-header";
 import { SectionWrapper } from "@/components/sections/section-wrapper";
 import { AnimateOnScroll } from "@/components/ui/animate-on-scroll";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { categories } from "@/data/categories";
-import { products } from "@/data/products";
 import { buildMetadata } from "@/lib/seo";
 
 export function generateMetadata(): Metadata {
@@ -33,24 +30,7 @@ export default function ProductsPage() {
       <SectionWrapper background="muted" className="pt-10">
         <AnimateOnScroll delay={0.1}>
         <h2 className="sr-only">Product catalogue</h2>
-        <Tabs defaultValue="all">
-          <TabsList aria-label="Filter products by category">
-            <TabsTrigger value="all">All products</TabsTrigger>
-            {categories.map((category) => (
-              <TabsTrigger id={category.slug} key={category.slug} value={category.slug}>
-                {category.name}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-          <TabsContent value="all">
-            <ProductGrid products={products} />
-          </TabsContent>
-          {categories.map((category) => (
-            <TabsContent key={category.slug} value={category.slug}>
-              <ProductGrid products={products.filter((product) => product.category === category.slug)} />
-            </TabsContent>
-          ))}
-        </Tabs>
+        <ProductCatalogue />
         </AnimateOnScroll>
       </SectionWrapper>
     </>

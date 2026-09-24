@@ -96,7 +96,13 @@ export function MattressScrollDynamic() {
     };
   }, []);
 
-  if (!enabled) return null;
+  if (!enabled) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-[#0B1121]" aria-hidden="true">
+        <span className="sr-only">Loading experience</span>
+      </div>
+    );
+  }
 
   if (mode !== "interactive") {
     return (

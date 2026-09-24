@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
-import { EmptyState, Field } from "@/components/tank/empty-state";
+import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
 import { ListPagination } from "@/components/tank/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -158,6 +158,10 @@ export function ChemicalsPage() {
     }
   }
 
+  if (loading) {
+    return <TankLoading title="Chemicals" />;
+  }
+
   return (
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3">
@@ -165,21 +169,21 @@ export function ChemicalsPage() {
           <h1>Chemicals</h1>
           <p className="mt-1 text-muted-foreground">Manage chemicals and their solid content.</p>
         </div>
-        {!loading && !listLoading && pageTotal > 0 ? (
+        {!listLoading && pageTotal > 0 ? (
           <Button size="touch" onClick={startAdd}>
             Add chemical
           </Button>
         ) : null}
       </div>
 
-      {loading || listLoading ? <p className="text-muted-foreground">Loading…</p> : null}
+      {listLoading ? <p className="text-muted-foreground">Loading…</p> : null}
       {listError ? (
         <p className="text-sm text-destructive" role="alert">
           {listError}
         </p>
       ) : null}
 
-      {!loading && !listLoading && pageTotal === 0 ? (
+      {!listLoading && pageTotal === 0 ? (
         <EmptyState
           title="Add your first chemical"
           description="A name and a solid content are enough. Kilograms go on Shelf stock after that."

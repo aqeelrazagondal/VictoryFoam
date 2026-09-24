@@ -125,6 +125,29 @@ async function gotoTank(page, path = "/tank/") {
     .waitFor({ timeout: 10_000 });
 }
 
+async function factorySignInVisible(page) {
+  return (await page.getByRole("heading", { name: "Factory sign-in" }).count()) > 0;
+}
+
+async function runAuthGateChecks(page) {
+  check("ui.auth.h1", "AuthGate shows factory sign-in", await factorySignInVisible(page));
+  check(
+    "ui.auth.email",
+    "AuthGate asks for email",
+    (await page.locator("#email").count()) === 1,
+  );
+  check(
+    "ui.auth.restore",
+    "AuthGate offers session restore",
+    (await page.getByRole("button", { name: "Try restoring the session" }).count()) === 1,
+  );
+  check(
+    "ui.auth.reset",
+    "AuthGate offers password reset",
+    (await page.getByRole("button", { name: "Forgot password" }).count()) === 1,
+  );
+}
+
 async function jumpToStep(page, index) {
   await page.getByRole("navigation", { name: "Completed steps" }).getByRole("button").nth(index).click();
 }
@@ -164,6 +187,41 @@ async function run() {
   const browser = await launchBrowser();
 
   try {
+    {
+      const { context, page } = await openPage(browser);
+      await page.goto(`${BASE}/tank/`, { waitUntil: "domcontentloaded" });
+      await page.getByRole("heading", { level: 1 }).first().waitFor();
+      if (await factorySignInVisible(page)) {
+        await runAuthGateChecks(page);
+        const email = process.env.TANK_UI_EMAIL?.trim();
+        const password = process.env.TANK_UI_PASSWORD;
+        if (email && password) {
+          await page.locator("#email").fill(email);
+          await page.locator("#password").fill(password);
+          await page.getByRole("button", { name: "Sign in" }).click();
+          await page
+            .locator("nav[aria-label='Calculator']")
+            .waitFor({ timeout: 20_000 });
+          check("ui.auth.remote", "TANK_UI_EMAIL signed in to a remote factory", true);
+        } else {
+          check(
+            "ui.auth.local-only",
+            "factory mutations stay on localStorage unless TANK_UI_EMAIL is set",
+            true,
+          );
+        }
+        await gotoTank(page, "/about/");
+        check(
+          "ui.brochure.header",
+          "brochure chrome is still on marketing pages",
+          (await page.locator("header").count()) > 0,
+        );
+        await context.close();
+        return;
+      }
+      await context.close();
+    }
+
     {
       const { context, page } = await openPage(browser);
       await gotoTank(page, "/tank/");

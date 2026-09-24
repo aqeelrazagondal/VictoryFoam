@@ -7,8 +7,9 @@ import { AddPanel } from "@/components/tank/add-panel";
 import { useWorkflowChrome } from "@/components/tank/app-shell";
 import { CorrectionPanel } from "@/components/tank/correction-panel";
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
-import { EmptyState } from "@/components/tank/empty-state";
+import { EmptyState, TankLoading } from "@/components/tank/empty-state";
 import { OpeningPanel } from "@/components/tank/opening-panel";
+import { TankContextNav } from "@/components/tank/tank-context-nav";
 import { AddTankButton, NameTankPanel } from "@/components/tank/tank-switcher";
 import { buildTankBoard, TankBoard } from "@/components/tank/tank-board";
 import { TankSummary } from "@/components/tank/tank-summary";
@@ -27,6 +28,11 @@ import {
   type CompositionAmounts,
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
+import {
+  clearHubPanel,
+  readHubPanel,
+  writeHubPanel,
+} from "@/lib/tank/drafts";
 import { parseNumber } from "@/lib/tank/parse";
 import { insertLogEntry, TankError } from "@/lib/tank/repository";
 
@@ -35,7 +41,6 @@ type Panel = "home" | "add" | "use" | "correct";
 export function HubPage() {
   const {
     loading,
-    error,
     chemicals,
     activeChemicals,
     tankReady,
@@ -43,6 +48,7 @@ export function HubPage() {
     settings,
     entries,
     allEntries,
+    overviews,
     activeTank,
     tanks,
     refresh,
@@ -92,8 +98,8 @@ export function HubPage() {
   const massDirty = massDraft != null && !amountsEqual(massDraft, amounts);
   const heel = settings?.heel ?? 0;
   const board = useMemo(
-    () => buildTankBoard(tanks, allEntries, activeTank?.id ?? null, entries, names),
-    [activeTank?.id, allEntries, entries, names, tanks],
+    () => buildTankBoard(tanks, allEntries, activeTank?.id ?? null, entries, names, overviews),
+    [activeTank?.id, allEntries, entries, names, overviews, tanks],
   );
   useEffect(() => {
     if (massDraft) return;
@@ -169,17 +175,19 @@ export function HubPage() {
       repeatApplied.current = false;
       return;
     }
+    const restored = activeTank ? readHubPanel(activeTank.id) : null;
     setRepeatKg(null);
-    setPanel("home");
-  }, [activeTank?.id]);
+    setPanel(restored ?? "home");
+  }, [activeTank]);
 
   useEffect(() => {
     function onPop() {
+      if (activeTank) clearHubPanel(activeTank.id);
       setPanel("home");
     }
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, []);
+  }, [activeTank]);
 
   async function openTank(id: string) {
     if (!activeTank || id === activeTank.id || openingTankId) return;
@@ -196,11 +204,13 @@ export function HubPage() {
 
   function openPanel(next: Exclude<Panel, "home">) {
     window.history.pushState({ tankFlow: next }, "");
+    if (activeTank) writeHubPanel(activeTank.id, next);
     setNotice(null);
     setPanel(next);
   }
 
   function closePanel() {
+    if (activeTank) clearHubPanel(activeTank.id);
     const state = window.history.state as { tankFlow?: string } | null;
     if (state?.tankFlow) {
       window.history.back();
@@ -209,25 +219,13 @@ export function HubPage() {
     setPanel("home");
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <h1>Tank</h1>
-        <p className="text-muted-foreground">Loading…</p>
-        <div className="h-28 animate-pulse rounded-2xl border border-border bg-muted/40" aria-hidden="true" />
-      </div>
-    );
+  function goHome() {
+    if (activeTank) clearHubPanel(activeTank.id);
+    setPanel("home");
   }
 
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <h1>Tank</h1>
-        <p className="text-destructive" role="alert">
-          {error}
-        </p>
-      </div>
-    );
+  if (loading) {
+    return <TankLoading title="Tank" />;
   }
 
   if (!activeTank) return <NameTankPanel />;
@@ -237,7 +235,7 @@ export function HubPage() {
         onCancel={closePanel}
         onDone={(message) => {
           setNotice(message);
-          setPanel("home");
+          goHome();
         }}
       />
     );
@@ -253,7 +251,7 @@ export function HubPage() {
         onDone={(message) => {
           setRepeatKg(null);
           setNotice(message);
-          setPanel("home");
+          goHome();
         }}
       />
     );
@@ -264,7 +262,7 @@ export function HubPage() {
         onCancel={closePanel}
         onDone={(message) => {
           setNotice(message);
-          setPanel("home");
+          goHome();
         }}
       />
     );
@@ -277,6 +275,9 @@ export function HubPage() {
         <p className="mt-2 text-muted-foreground">
           Every tank is listed here. Open one to see its mix. Add, use, and correct apply only to that tank.
         </p>
+        <div className="mt-3">
+          <TankContextNav current="tank" />
+        </div>
       </div>
 
       {notice ? (

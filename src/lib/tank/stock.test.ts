@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { nextStockBalance, reversedBalance, shouldDeductStock, stockLabel } from "./stock.ts";
+import { applyMovementLines, nextStockBalance, reversedBalance, shouldDeductStock, stockLabel } from "./stock.ts";
 
 describe("nextStockBalance", () => {
   test("receive starts tracking an untracked chemical", () => {
@@ -78,6 +78,34 @@ describe("which log rows change warehouse stock", () => {
     assert.equal(shouldDeductStock("opening_balance"), false);
     assert.equal(shouldDeductStock("consume_usage"), false);
     assert.equal(shouldDeductStock("adjust_composition"), false);
+  });
+});
+
+describe("applyMovementLines", () => {
+  test("positive: several issues update every balance", () => {
+    assert.deepEqual(
+      applyMovementLines(
+        { a: 100, b: 40 },
+        [
+          { chemicalId: "a", type: "issue", quantity: 25 },
+          { chemicalId: "b", type: "issue", quantity: 10 },
+        ],
+      ),
+      { a: 75, b: 30 },
+    );
+  });
+
+  test("negative: a later invalid line leaves the original balances unchanged", () => {
+    const stock = { a: 100, b: 40 };
+    assert.throws(
+      () =>
+        applyMovementLines(stock, [
+          { chemicalId: "a", type: "issue", quantity: 25 },
+          { chemicalId: "b", type: "issue", quantity: 0 },
+        ]),
+      /greater than zero/,
+    );
+    assert.deepEqual(stock, { a: 100, b: 40 });
   });
 });
 

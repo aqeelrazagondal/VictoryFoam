@@ -108,6 +108,68 @@ export type FillLastCalculation = {
 
 export type LastCalculator = "blend" | "fill";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function optionalId(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  return typeof value === "string" ? value : undefined;
+}
+
+function optionalQty(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+export function parseBlendLastCalculation(value: unknown): BlendLastCalculation | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.chemical1Id !== "string" || typeof value.chemical2Id !== "string") return null;
+  if (typeof value.targetPct !== "number" || typeof value.targetQty !== "number") return null;
+  if (!Number.isFinite(value.targetPct) || !Number.isFinite(value.targetQty)) return null;
+  const chemical3Id = optionalId(value.chemical3Id);
+  const thirdQty = optionalQty(value.thirdQty);
+  if (value.chemical3Id !== undefined && chemical3Id === undefined) return null;
+  if (value.thirdQty !== undefined && thirdQty === undefined) return null;
+  return {
+    chemical1Id: value.chemical1Id,
+    chemical2Id: value.chemical2Id,
+    chemical3Id,
+    thirdQty,
+    targetPct: value.targetPct,
+    targetQty: value.targetQty,
+  };
+}
+
+export function parseFillLastCalculation(value: unknown): FillLastCalculation | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.targetVolume !== "number" || typeof value.targetPct !== "number") return null;
+  if (!Number.isFinite(value.targetVolume) || !Number.isFinite(value.targetPct)) return null;
+  if (value.chemicalAId !== null && typeof value.chemicalAId !== "string") return null;
+  if (value.chemicalBId !== null && typeof value.chemicalBId !== "string") return null;
+  const chemicalCId = optionalId(value.chemicalCId);
+  const thirdQty = optionalQty(value.thirdQty);
+  if (value.chemicalCId !== undefined && chemicalCId === undefined) return null;
+  if (value.thirdQty !== undefined && thirdQty === undefined) return null;
+  return {
+    targetVolume: value.targetVolume,
+    targetPct: value.targetPct,
+    chemicalAId: value.chemicalAId,
+    chemicalBId: value.chemicalBId,
+    chemicalCId,
+    thirdQty,
+  };
+}
+
+export function parseLastCalculation(
+  calculator: LastCalculator,
+  value: unknown,
+): BlendLastCalculation | FillLastCalculation | null {
+  return calculator === "blend" ? parseBlendLastCalculation(value) : parseFillLastCalculation(value);
+}
+
 export function isDuplicateName(
   name: string,
   chemicals: Chemical[],

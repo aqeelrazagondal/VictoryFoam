@@ -4,9 +4,13 @@ export type ConsentStatus = "accepted" | "declined" | null;
 
 const GA_ID_PATTERN = /^G-[A-Z0-9]+$/;
 
-export function getGaMeasurementId() {
-  const id = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim();
+export function resolveGaMeasurementId(raw?: string) {
+  const id = (raw ?? process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID)?.trim();
   return id && GA_ID_PATTERN.test(id) ? id : undefined;
+}
+
+export function getGaMeasurementId() {
+  return resolveGaMeasurementId();
 }
 
 export function getConsent(): ConsentStatus {

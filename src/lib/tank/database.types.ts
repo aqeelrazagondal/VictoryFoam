@@ -222,6 +222,42 @@ export type Database = {
         };
         Returns: undefined;
       };
+      logged_chemical_ids: {
+        Args: Record<string, never>;
+        Returns: string[];
+      };
+      apply_stock_movements: {
+        Args: {
+          p_moves: Json;
+        };
+        Returns: Json;
+      };
+      tank_log_overviews: {
+        Args: {
+          p_tank_ids: string[];
+        };
+        Returns: Json;
+      };
+      insert_tank_log_entries: {
+        Args: {
+          p_tank_id: string;
+          p_entries: Json;
+        };
+        Returns: Json;
+      };
+      replace_tank_log_entry: {
+        Args: {
+          p_id: string;
+          p_entry: Json;
+        };
+        Returns: Json;
+      };
+      delete_tank_log_entry: {
+        Args: {
+          p_id: string;
+        };
+        Returns: undefined;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

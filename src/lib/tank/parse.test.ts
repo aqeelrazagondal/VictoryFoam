@@ -18,10 +18,14 @@ describe("parseNumber", () => {
     assert.equal(parseNumber("27,66"), 27.66);
   });
 
-  test("positive: comma is a decimal mark, including three fraction digits", () => {
-    assert.equal(parseNumber("1,000"), 1);
-    assert.equal(parseNumber("8,000"), 8);
-    assert.equal(parseNumber("1,150"), 1.15);
+  test("positive: comma thousands groups", () => {
+    assert.equal(parseNumber("1,000"), 1000);
+    assert.equal(parseNumber("8,000"), 8000);
+    assert.equal(parseNumber("1,000,000"), 1000000);
+  });
+
+  test("positive: a comma with three digits is thousands, not 1.150", () => {
+    assert.equal(parseNumber("1,150"), 1150);
   });
 
   test("positive: spaces group thousands", () => {

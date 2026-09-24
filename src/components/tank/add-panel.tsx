@@ -21,6 +21,7 @@ import {
   solveFill,
   solveFillThree,
 } from "@/lib/calculations";
+import { trackEvent } from "@/lib/analytics";
 import { useTank } from "@/lib/tank/context";
 import type { Chemical } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
@@ -130,9 +131,11 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
           })),
       );
       await refresh();
+      trackEvent("tank_pour_confirm", { surface: "add" });
       onDone(`The tank is now ${formatQty(preview.volume)} kg at ${formatPct(preview.solidPct)}.`);
     } catch (caught) {
       setError(caught instanceof TankError ? caught.message : "Could not save this fill.");
+      trackEvent("tank_save_fail", { surface: "add" });
     } finally {
       setSaving(false);
     }

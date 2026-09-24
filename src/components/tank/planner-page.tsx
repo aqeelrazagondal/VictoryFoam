@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
-import { EmptyState, Field } from "@/components/tank/empty-state";
+import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
 import { NeedChemicalHint } from "@/components/tank/need-chemical-hint";
 import { ResultCard } from "@/components/tank/result-card";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import { toChemicalRef } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
 
 export function PlannerPage() {
-  const { tankReady, snapshot, settings, activeChemicals, entries } = useTank();
+  const { tankReady, snapshot, settings, activeChemicals, entries, loading } = useTank();
   const [mode, setMode] = useState<"preview" | "reverse">("reverse");
   const [addQty, setAddQty] = useState("");
   const [addPct, setAddPct] = useState("");
@@ -107,6 +107,10 @@ export function PlannerPage() {
     setOverridePct("");
   }
 
+  if (loading) {
+    return <TankLoading title="Tank planner" />;
+  }
+
   if (!tankReady) {
     return (
       <div className="space-y-4">
@@ -114,8 +118,8 @@ export function PlannerPage() {
         <EmptyState
           title="Set up your tank first"
           description="This tries one chemical against the tank you already have. Say what is in the tank on Home first. Nothing is saved here."
-          actionLabel="Set up tank"
-          actionHref="/tank/setup/"
+          actionLabel="Open tank"
+          actionHref="/tank/"
         />
       </div>
     );

@@ -4,7 +4,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 export function EmptyState({
   title,
@@ -69,16 +68,12 @@ export function Field({
   );
 }
 
-export function TankPanel({
-  className,
-  children,
-}: {
-  className?: string;
-  children: ReactNode;
-}) {
+export function TankLoading({ title }: { title: string }) {
   return (
-    <div className={cn("rounded-2xl border border-border bg-card p-5 shadow-sm", className)}>
-      {children}
+    <div className="space-y-4">
+      <h1>{title}</h1>
+      <p className="text-muted-foreground">Loading…</p>
+      <div className="h-28 animate-pulse rounded-2xl border border-border bg-muted/40" aria-hidden="true" />
     </div>
   );
 }

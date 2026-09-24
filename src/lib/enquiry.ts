@@ -1,25 +1,40 @@
 export type EnquiryErrors = {
   name?: string;
   email?: string;
+  phone?: string;
   message?: string;
 };
+
+export const ENQUIRY_MESSAGE_MIN = 20;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_PATTERN = /^[0-9+() -]{7,}$/;
 
 export function readFormField(data: FormData, name: string) {
   const value = data.get(name);
   return typeof value === "string" ? value.trim() : "";
 }
 
-export function validateEnquiry(data: FormData, messageMin = 20): EnquiryErrors {
+export function isValidPhone(value: string) {
+  if (!value) return true;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 7 && PHONE_PATTERN.test(value);
+}
+
+export function validateEnquiry(data: FormData, messageMin = ENQUIRY_MESSAGE_MIN): EnquiryErrors {
   const errors: EnquiryErrors = {};
   const name = readFormField(data, "name");
   const email = readFormField(data, "email");
+  const phone = readFormField(data, "phone");
   const message = readFormField(data, "message");
 
   if (!name) errors.name = "Enter your name.";
   if (!email) {
     errors.email = "Enter your email address.";
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  } else if (!EMAIL_PATTERN.test(email)) {
     errors.email = "Enter a valid email address.";
+  }
+  if (phone && !isValidPhone(phone)) {
+    errors.phone = "Enter at least seven digits using spaces, brackets, plus, or hyphens.";
   }
   if (!message) {
     errors.message = "Enter a message.";

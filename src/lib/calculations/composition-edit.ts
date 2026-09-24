@@ -37,11 +37,6 @@ function linesOf(current: CompositionAmounts): CompositionLine[] {
   return lines;
 }
 
-function amountOf(current: CompositionAmounts, id: string) {
-  if (id === UNATTRIBUTED_KEY) return current.unattributed;
-  return current.remainingByChemical[id] ?? 0;
-}
-
 function inferUnattributedPct(
   current: CompositionAmounts,
   chemicalPcts: Record<string, number>,

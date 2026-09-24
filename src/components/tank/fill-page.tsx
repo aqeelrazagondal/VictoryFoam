@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { EditableReport, type EditedPour, type ReportSuggestion } from "@/components/tank/editable-report";
-import { EmptyState, Field } from "@/components/tank/empty-state";
+import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
 import { ResultCard } from "@/components/tank/result-card";
 import { NeedChemicalHint } from "@/components/tank/need-chemical-hint";
 import { SuggestionList } from "@/components/tank/suggestion-list";
@@ -29,7 +29,15 @@ import {
   type FillApply,
   type StockCheck,
 } from "@/lib/calculations";
+import { trackEvent } from "@/lib/analytics";
 import { useTank } from "@/lib/tank/context";
+import {
+  clearJsonDraft,
+  draftStorageKey,
+  parseFillDraft,
+  readJsonDraft,
+  writeJsonDraft,
+} from "@/lib/tank/drafts";
 import type { Chemical, FillLastCalculation } from "@/lib/tank/models";
 import { toChemicalRef } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
@@ -37,7 +45,7 @@ import { getLastCalculation, insertLogEntries, saveLastCalculation } from "@/lib
 
 export function FillPage() {
   const router = useRouter();
-  const { tankReady, snapshot, settings, activeChemicals, activeTank, refresh } = useTank();
+  const { tankReady, snapshot, settings, activeChemicals, activeTank, refresh, loading } = useTank();
   const [step, setStep] = useState(0);
   const [targetVolume, setTargetVolume] = useState("");
   const [targetPct, setTargetPct] = useState("");
@@ -49,6 +57,7 @@ export function FillPage() {
   const [logging, setLogging] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
   const [last, setLast] = useState<FillLastCalculation | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   const tankId = activeTank?.id ?? null;
   const tankAtCalc = useRef(tankId);
 
@@ -128,7 +137,7 @@ export function FillPage() {
       chemicalB: selectedB ? toChemicalRef(selectedB) : null,
       chemicals: activeChemicals.map(toChemicalRef),
     });
-  }, [activeChemicals, pct, required, selectedA, selectedB, snapshot.solidPct, snapshot.volume, volume]);
+  }, [activeChemicals, pct, selectedA, selectedB, snapshot.solidPct, snapshot.volume, volume]);
 
   const otherPairs = alternatives.filter((item) => {
     if (!selectedA || !selectedB) return true;
@@ -161,9 +170,14 @@ export function FillPage() {
     let cancelled = false;
     getLastCalculation(tankId, "fill")
       .then((payload) => {
-        if (!cancelled) setLast(payload as FillLastCalculation | null);
+        if (!cancelled) {
+          setLast(payload && "targetVolume" in payload ? payload : null);
+          setLastError(null);
+        }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setLastError("Could not load the last fill.");
+      });
     return () => {
       cancelled = true;
     };
@@ -174,16 +188,30 @@ export function FillPage() {
       const previous = tankAtCalc.current;
       tankAtCalc.current = tankId;
       if (previous !== null) {
-        setStep(0);
-        setTargetVolume("");
-        setTargetPct("");
-        setChemA(null);
-        setChemB(null);
-        setShowThird(false);
-        setChemC(null);
-        setThirdQty("");
+        const draft = tankId ? readJsonDraft(draftStorageKey("fill", tankId), parseFillDraft) : null;
+        setStep(draft?.step ?? 0);
+        setTargetVolume(draft?.targetVolume ?? "");
+        setTargetPct(draft?.targetPct ?? "");
+        setChemA(draft ? activeChemicals.find((chemical) => chemical.id === draft.chemAId) ?? null : null);
+        setChemB(draft ? activeChemicals.find((chemical) => chemical.id === draft.chemBId) ?? null : null);
+        setShowThird(draft?.showThird ?? false);
+        setChemC(draft ? activeChemicals.find((chemical) => chemical.id === draft.chemCId) ?? null : null);
+        setThirdQty(draft?.thirdQty ?? "");
         setLogError(null);
         return;
+      }
+      if (tankId) {
+        const draft = readJsonDraft(draftStorageKey("fill", tankId), parseFillDraft);
+        if (draft) {
+          setStep(draft.step);
+          setTargetVolume(draft.targetVolume);
+          setTargetPct(draft.targetPct);
+          setChemA(activeChemicals.find((chemical) => chemical.id === draft.chemAId) ?? null);
+          setChemB(activeChemicals.find((chemical) => chemical.id === draft.chemBId) ?? null);
+          setShowThird(draft.showThird);
+          setChemC(activeChemicals.find((chemical) => chemical.id === draft.chemCId) ?? null);
+          setThirdQty(draft.thirdQty);
+        }
       }
     }
     if (!tankId || !result?.ok || !selectedA || !selectedB || volume === null || pct === null) return;
@@ -194,8 +222,28 @@ export function FillPage() {
       chemicalBId: selectedB.id,
       chemicalCId: usingThird && chemC ? chemC.id : null,
       thirdQty: usingThird && lockedThird !== null ? lockedThird : null,
+    }).catch(() => {
+      setLastError("Could not remember this fill.");
     });
-  }, [tankId, chemC, lockedThird, pct, result, selectedA, selectedB, usingThird, volume]);
+  }, [activeChemicals, tankId, chemC, lockedThird, pct, result, selectedA, selectedB, usingThird, volume]);
+
+  useEffect(() => {
+    if (!tankId) return;
+    writeJsonDraft(draftStorageKey("fill", tankId), {
+      step,
+      targetVolume,
+      targetPct,
+      chemAId: chemA?.id ?? null,
+      chemBId: chemB?.id ?? null,
+      chemCId: chemC?.id ?? null,
+      thirdQty,
+      showThird,
+    });
+  }, [chemA?.id, chemB?.id, chemC?.id, showThird, step, tankId, targetPct, targetVolume, thirdQty]);
+
+  if (loading) {
+    return <TankLoading title="Fill calculator" />;
+  }
 
   if (!tankReady) {
     return (
@@ -204,7 +252,7 @@ export function FillPage() {
         <EmptyState
           title="Set up your tank first"
           description="This tops up a tank that already has something in it. Say what is in the tank on Home first."
-          actionLabel="Set up tank"
+          actionLabel="Open tank"
           actionHref="/tank/"
         />
       </div>
@@ -226,6 +274,7 @@ export function FillPage() {
   }
 
   async function logFill(lines: EditedPour[]) {
+    if (logging) return;
     const addQty = lines.reduce((sum, line) => sum + Math.max(0, line.quantity), 0);
     const overflow = capacityOverflowMessage({
       volume: snapshot.volume,
@@ -256,9 +305,12 @@ export function FillPage() {
           })),
       );
       await refresh();
+      trackEvent("tank_pour_confirm", { surface: "fill" });
+      if (tankId) clearJsonDraft(draftStorageKey("fill", tankId));
       router.push("/tank/log/");
     } catch (caught) {
       setLogError(caught instanceof Error ? caught.message : "Could not write the log.");
+      trackEvent("tank_save_fail", { surface: "fill" });
     } finally {
       setLogging(false);
     }
@@ -279,6 +331,12 @@ export function FillPage() {
         Tank now: {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}. This is read
         from the log and cannot be edited here.
       </p>
+
+      {lastError ? (
+        <p className="text-sm text-destructive" role="alert">
+          {lastError}
+        </p>
+      ) : null}
 
       {last && step === 0 ? (
         <Button

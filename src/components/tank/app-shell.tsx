@@ -50,17 +50,19 @@ function isActive(pathname: string, href: string) {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { tankReady, loading } = useTank();
+  const { tankReady, loading, error, retry } = useTank();
   const configured = isSupabaseConfigured();
   const [moreOpen, setMoreOpen] = useState(false);
   const [workflowOpen, setWorkflowOpen] = useState(false);
 
-  const setupLink =
-    loading || tankReady ? null : { href: "/tank/setup/", label: "Set up tank" };
+  const setupLink = {
+    href: "/tank/setup/",
+    label: tankReady ? "Tank settings" : "Set up tank",
+  };
   const moreHrefs = [
     ...MORE_GROUPS.flatMap((group) => group.links.map((link) => link.href)),
     "/tank/guide/",
-    ...(setupLink ? [setupLink.href] : []),
+    setupLink.href,
   ];
   const moreCurrent = moreHrefs.some((href) => isActive(pathname, href));
 
@@ -70,7 +72,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   async function signOut() {
     const supabase = getSupabaseBrowser();
-    await supabase?.auth.signOut();
+    try {
+      await supabase?.auth.signOut();
+    } catch {
+      setMoreOpen(false);
+      return;
+    }
     setMoreOpen(false);
   }
 
@@ -105,6 +112,23 @@ export function AppShell({ children }: { children: ReactNode }) {
               Data is stored on this device until Supabase keys are added.
             </p>
           )}
+          {error ? (
+            <div
+              className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3"
+              role="alert"
+            >
+              <p className="text-sm">{error}</p>
+              <Button
+                className="mt-3"
+                size="touch"
+                type="button"
+                variant="outline"
+                onClick={() => void retry()}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : null}
           {children}
         </main>
         {workflowOpen ? null : (
@@ -186,17 +210,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               <section>
                 <h2 className="text-sm font-medium text-muted-foreground">Help and preferences</h2>
                 <ul className="mt-2 space-y-1">
-                  {setupLink ? (
-                    <li>
-                      <Link
-                        href={setupLink.href}
-                        className="flex min-h-11 items-center rounded-xl px-3 text-base font-medium hover:bg-muted"
-                        onClick={() => setMoreOpen(false)}
-                      >
-                        {setupLink.label}
-                      </Link>
-                    </li>
-                  ) : null}
+                  <li>
+                    <Link
+                      href={setupLink.href}
+                      className="flex min-h-11 items-center rounded-xl px-3 text-base font-medium hover:bg-muted"
+                      onClick={() => setMoreOpen(false)}
+                    >
+                      {setupLink.label}
+                    </Link>
+                  </li>
                   <li>
                     <Link
                       href="/tank/guide/"

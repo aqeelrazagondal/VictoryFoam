@@ -1,21 +1,28 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
-import { EmptyState, Field } from "@/components/tank/empty-state";
+import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
 import { StepWizard } from "@/components/tank/step-wizard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTank } from "@/lib/tank/context";
+import {
+  clearJsonDraft,
+  draftStorageKey,
+  parseSetupDraft,
+  readJsonDraft,
+  writeJsonDraft,
+} from "@/lib/tank/drafts";
 import type { Chemical } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
 import { insertLogEntry, saveTankSettings, TankError } from "@/lib/tank/repository";
 
 export function SetupPage() {
   const router = useRouter();
-  const { tankReady, activeTank, activeChemicals, refresh } = useTank();
+  const { tankReady, activeTank, activeChemicals, refresh, loading } = useTank();
   const [step, setStep] = useState(0);
   const [quantity, setQuantity] = useState("");
   const [pct, setPct] = useState("");
@@ -25,9 +32,47 @@ export function SetupPage() {
   const [heel, setHeel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const restored = useRef<string | null>(null);
+  const tankId = activeTank?.id ?? null;
 
   const qty = parseNumber(quantity);
   const solidPct = parseNumber(pct);
+
+  useEffect(() => {
+    if (!tankId) return;
+    if (restored.current === tankId) return;
+    restored.current = tankId;
+    const draft = readJsonDraft(draftStorageKey("setup", tankId), parseSetupDraft);
+    if (!draft) {
+      setCapacity(activeTank?.capacity != null ? String(activeTank.capacity) : "");
+      setHeel(activeTank?.heel ? String(activeTank.heel) : "");
+      return;
+    }
+    setStep(draft.step);
+    setQuantity(draft.quantity);
+    setPct(draft.pct);
+    setSkipChemical(draft.skipChemical);
+    setCapacity(draft.capacity);
+    setHeel(draft.heel);
+    setChemical(activeChemicals.find((item) => item.id === draft.chemicalId) ?? null);
+  }, [activeChemicals, activeTank?.capacity, activeTank?.heel, tankId]);
+
+  useEffect(() => {
+    if (!tankId || restored.current !== tankId || tankReady) return;
+    writeJsonDraft(draftStorageKey("setup", tankId), {
+      step,
+      quantity,
+      pct,
+      chemicalId: chemical?.id ?? null,
+      skipChemical,
+      capacity,
+      heel,
+    });
+  }, [capacity, chemical?.id, heel, pct, quantity, skipChemical, step, tankId, tankReady]);
+
+  if (loading) {
+    return <TankLoading title="Set up your tank" />;
+  }
 
   if (!activeTank) {
     return (
@@ -45,25 +90,8 @@ export function SetupPage() {
 
   const tank = activeTank;
 
-  if (tankReady) {
-    return (
-      <div className="space-y-4">
-        <h1>Set up your tank</h1>
-        <EmptyState
-          title="Tank already set up"
-          description="The tank already has a starting amount. Use Home to pour or record what you used."
-          actionLabel="Open tank log"
-          actionHref="/tank/log/"
-        />
-      </div>
-    );
-  }
-
-  async function complete() {
-    if (qty === null || !(qty > 0) || solidPct === null) {
-      setError("Opening quantity and Solid Content % are required.");
-      return;
-    }
+  async function saveSettings() {
+    if (saving) return;
     setSaving(true);
     setError(null);
     try {
@@ -71,6 +99,23 @@ export function SetupPage() {
         capacity: parseNumber(capacity),
         heel: parseNumber(heel) ?? 0,
       });
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof TankError ? caught.message : "Could not save tank settings.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function complete() {
+    if (saving) return;
+    if (qty === null || !(qty > 0) || solidPct === null) {
+      setError("Opening quantity and Solid Content % are required.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
       await insertLogEntry(tank.id, {
         type: "opening_balance",
         quantity: qty,
@@ -78,6 +123,11 @@ export function SetupPage() {
         chemicalId: skipChemical ? null : chemical?.id ?? null,
         note: null,
       });
+      await saveTankSettings(tank.id, {
+        capacity: parseNumber(capacity),
+        heel: parseNumber(heel) ?? 0,
+      });
+      clearJsonDraft(draftStorageKey("setup", tank.id));
       router.push("/tank/");
       await refresh();
     } catch (caught) {
@@ -85,6 +135,47 @@ export function SetupPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (tankReady) {
+    return (
+      <div className="space-y-5 pb-10">
+        <h1>Tank settings</h1>
+        <p className="text-muted-foreground">
+          Capacity and heel for {tank.name}. Opening mass is already on the log.
+        </p>
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field id="capacity" label="Tank capacity (optional)">
+            <Input
+              id="capacity"
+              inputMode="decimal"
+              value={capacity}
+              onChange={(event) => setCapacity(event.target.value)}
+            />
+          </Field>
+          <Field
+            id="heel"
+            label="Minimum left in the tank (optional)"
+            hint="A warning only, sometimes called the heel. The tank can still go below this."
+          >
+            <Input
+              id="heel"
+              inputMode="decimal"
+              value={heel}
+              onChange={(event) => setHeel(event.target.value)}
+            />
+          </Field>
+        </div>
+        <Button size="touch" className="w-full" disabled={saving} onClick={() => void saveSettings()}>
+          {saving ? "Saving…" : "Save settings"}
+        </Button>
+      </div>
+    );
   }
 
   const steps = [

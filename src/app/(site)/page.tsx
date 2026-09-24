@@ -83,8 +83,12 @@ export default function HomePage() {
   return (
     <SmoothScroll enabled={false}>
       <h1 className="sr-only">Victory Foam — Precision Foam Manufacturing</h1>
-      <MattressScrollDynamic />
-      <MobileMattressHeroDynamic />
+      <div className="hidden min-h-screen md:block">
+        <MattressScrollDynamic />
+      </div>
+      <div className="min-h-[70vh] md:hidden">
+        <MobileMattressHeroDynamic />
+      </div>
 
       <TrustStrip />
       <div className="section-divider" />

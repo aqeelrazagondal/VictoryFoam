@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
 
+import { ClientErrorBoundary } from "@/components/error-boundary";
+
 const MobileMattressHero = dynamic(() => import("./mobile-mattress-hero"), {
   ssr: false,
   loading: () => (
@@ -11,6 +13,14 @@ const MobileMattressHero = dynamic(() => import("./mobile-mattress-hero"), {
     </div>
   ),
 });
+
+function MobileHeroFallback() {
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center bg-[#0B1121] px-6 text-center text-slate-300">
+      <p>The interactive mattress view could not load. Scroll to see our products.</p>
+    </div>
+  );
+}
 
 export function MobileMattressHeroDynamic() {
   const [enabled, setEnabled] = useState(false);
@@ -23,10 +33,15 @@ export function MobileMattressHeroDynamic() {
     return () => media.removeEventListener("change", sync);
   }, []);
 
-  if (!enabled) return null;
   return (
     <div id="mobile-mattress-hero">
-      <MobileMattressHero />
+      {enabled ? (
+        <ClientErrorBoundary fallback={<MobileHeroFallback />}>
+          <MobileMattressHero />
+        </ClientErrorBoundary>
+      ) : (
+        <div className="min-h-[70vh] bg-[#0B1121]" aria-hidden="true" />
+      )}
     </div>
   );
 }

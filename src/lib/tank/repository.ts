@@ -13,16 +13,18 @@ import type {
   TankLogEntry,
   TankSettings,
 } from "@/lib/tank/models";
-import { isDuplicateName, STOCK_MOVEMENT_TYPES } from "@/lib/tank/models";
+import { isDuplicateName, parseLastCalculation, STOCK_MOVEMENT_TYPES } from "@/lib/tank/models";
 import { pageOf, pageRange, TANK_LIST_PAGE_SIZE, type PageResult } from "@/lib/tank/pagination";
 import { nextStockBalance, reversedBalance, shouldDeductStock } from "@/lib/tank/stock";
 import type { Database, Json } from "@/lib/tank/database.types";
+import { overviewsFromEntries, parseTankLogOverviews, type TankLogOverview } from "@/lib/tank/board";
 import {
   isDuplicateTankName,
   migrateStoredTankState,
   readActiveTankId,
   resolveActiveTankId,
   writeActiveTankId,
+  liveTankIds,
   type TankCalculationMemory,
 } from "@/lib/tank/tanks";
 
@@ -179,6 +181,61 @@ function mapTank(row: Database["public"]["Tables"]["tanks"]["Row"]): Tank {
   };
 }
 
+function mapEntryJson(value: Json): TankLogEntry {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new TankError("Could not read the tank log row.");
+  }
+  const type = value.type;
+  const id = value.id;
+  const tankId = value.tank_id;
+  const entryDate = value.entry_date;
+  const createdAt = value.created_at;
+  if (
+    typeof type !== "string" ||
+    (type !== "opening_balance" &&
+      type !== "add_batch" &&
+      type !== "consume_usage" &&
+      type !== "adjust_composition") ||
+    typeof id !== "string" ||
+    typeof tankId !== "string" ||
+    typeof entryDate !== "string" ||
+    typeof createdAt !== "string"
+  ) {
+    throw new TankError("Could not read the tank log row.");
+  }
+  return {
+    id,
+    tankId,
+    entryDate,
+    type,
+    chemicalId: typeof value.chemical_id === "string" ? value.chemical_id : null,
+    quantity: Number(value.quantity),
+    solidContentPct:
+      value.solid_content_pct === null || value.solid_content_pct === undefined
+        ? null
+        : Number(value.solid_content_pct),
+    note: typeof value.note === "string" ? value.note : null,
+    createdAt,
+  };
+}
+
+function mapEntryJsonList(value: Json | null): TankLogEntry[] {
+  if (!Array.isArray(value)) throw new TankError("Could not read the tank log.");
+  return value.map((row) => mapEntryJson(row as Json));
+}
+
+function draftToRpcPayload(draft: TankLogDraft): Json {
+  return {
+    entry_date: draft.entryDate ?? todayIsoDate(),
+    type: draft.type,
+    chemical_id: draft.chemicalId,
+    quantity: draft.quantity,
+    solid_content_pct: draft.solidContentPct,
+    note: draft.note,
+    ...(draft.loggedAt ? { created_at: draft.loggedAt } : {}),
+  };
+}
+
 function mapEntry(row: Database["public"]["Tables"]["tank_log_entries"]["Row"]): TankLogEntry {
   return {
     id: row.id,
@@ -308,8 +365,12 @@ export type FactoryData = {
   activeTankId: string | null;
   /** Log rows for the selected tank, oldest first. */
   entries: TankLogEntry[];
-  /** Log rows for every tank, oldest first. Home uses these to show each mix. */
+  /**
+   * Extra log rows already in memory. Local storage includes every tank.
+   * Remote loads only the open tank; Home uses `overviews` for the others.
+   */
   allEntries: TankLogEntry[];
+  overviews: TankLogOverview[];
   loggedChemicalIds: string[];
 };
 
@@ -338,6 +399,7 @@ export async function loadFactory(preferredTankId: string | null): Promise<Facto
       activeTankId,
       entries: allEntries.filter((entry) => entry.tankId === activeTankId),
       allEntries,
+      overviews: overviewsFromEntries(liveTankIds(local.tanks), allEntries),
       loggedChemicalIds: loggedChemicalIdsFrom(local.entries),
     };
   }
@@ -345,7 +407,7 @@ export async function loadFactory(preferredTankId: string | null): Promise<Facto
   const [chemicalsRes, tanksRes, usedRes] = await Promise.all([
     supabase.from("chemicals").select("*").order("name"),
     supabase.from("tanks").select("*").order("created_at").order("id"),
-    supabase.from("tank_log_entries").select("chemical_id").not("chemical_id", "is", null).limit(10000),
+    supabase.rpc("logged_chemical_ids"),
   ]);
 
   if (chemicalsRes.error) throw new TankError(chemicalsRes.error.message);
@@ -356,28 +418,34 @@ export async function loadFactory(preferredTankId: string | null): Promise<Facto
   const activeTankId = rememberActiveTank(
     resolveActiveTankId(tanks, preferredTankId ?? readActiveTankId()),
   );
-  const entriesRes = await supabase
-    .from("tank_log_entries")
-    .select("*")
-    .order("created_at")
-    .order("id");
-  if (entriesRes.error) throw new TankError(entriesRes.error.message);
-  const allEntries = (entriesRes.data ?? []).map(mapEntry);
-  const entries = activeTankId ? allEntries.filter((entry) => entry.tankId === activeTankId) : [];
+  const liveIds = liveTankIds(tanks);
+  let entries: TankLogEntry[] = [];
+  if (activeTankId) {
+    const entriesRes = await supabase
+      .from("tank_log_entries")
+      .select("*")
+      .eq("tank_id", activeTankId)
+      .order("created_at")
+      .order("id");
+    if (entriesRes.error) throw new TankError(entriesRes.error.message);
+    entries = (entriesRes.data ?? []).map(mapEntry);
+  }
+
+  let overviews: TankLogOverview[] = [];
+  if (liveIds.length > 0) {
+    const overviewRes = await supabase.rpc("tank_log_overviews", { p_tank_ids: liveIds });
+    if (overviewRes.error) throw new TankError(overviewRes.error.message);
+    overviews = parseTankLogOverviews(overviewRes.data);
+  }
 
   return {
     chemicals: (chemicalsRes.data ?? []).map(mapChemical),
     tanks,
     activeTankId,
     entries,
-    allEntries,
-    loggedChemicalIds: [
-      ...new Set(
-        (usedRes.data ?? [])
-          .map((row) => row.chemical_id)
-          .filter((id): id is string => typeof id === "string"),
-      ),
-    ],
+    allEntries: entries,
+    overviews,
+    loggedChemicalIds: usedRes.data ?? [],
   };
 }
 
@@ -426,25 +494,28 @@ export async function listLogEntriesPage(
   };
 }
 
-/** Newest usage across every tank, otherwise the newest pour. Openings and corrections are not jobs. */
-export async function latestFactoryProduction(): Promise<TankLogEntry | null> {
+/** Newest usage, otherwise the newest pour. Openings and corrections are not jobs. */
+export async function latestFactoryProduction(tankId?: string | null): Promise<TankLogEntry | null> {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
-    const newestFirst = newestLogFirst(readLocal().entries);
+    const newestFirst = newestLogFirst(
+      readLocal().entries.filter((entry) => tankId == null || entry.tankId === tankId),
+    );
     return (
       newestFirst.find((entry) => entry.type === "consume_usage" || entry.type === "add_batch") ??
       null
     );
   }
 
-  const job = await supabase
+  let query = supabase
     .from("tank_log_entries")
     .select("*")
     .in("type", ["consume_usage", "add_batch"])
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+  if (tankId) query = query.eq("tank_id", tankId);
+  const job = await query.maybeSingle();
   if (job.error) throw new TankError(job.error.message);
   return job.data ? mapEntry(job.data) : null;
 }
@@ -797,73 +868,28 @@ export async function insertLogEntries(tankId: string, drafts: TankLogDraft[]) {
     return created;
   }
 
-  const { data, error } = await supabase
-    .from("tank_log_entries")
-    .insert(
-      drafts.map((draft, index) => ({
-        tank_id: tankId,
-        entry_date: draft.entryDate ?? todayIsoDate(),
-        type: draft.type,
-        chemical_id: draft.chemicalId,
-        quantity: draft.quantity,
-        solid_content_pct: draft.solidContentPct,
-        note: draft.note,
-        created_at: draft.loggedAt ?? new Date(base + index).toISOString(),
-      })),
-    )
-    .select("*");
+  const { data, error } = await supabase.rpc("insert_tank_log_entries", {
+    p_tank_id: tankId,
+    p_entries: drafts.map((draft, index) =>
+      draftToRpcPayload({
+        ...draft,
+        loggedAt: draft.loggedAt ?? new Date(base + index).toISOString(),
+      }),
+    ),
+  });
   if (error) throw new TankError(error.message);
-  const created = (data ?? []).map(mapEntry).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  await deductRemotePours(created);
-  return created;
+  return mapEntryJsonList(data).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 /**
- * Writes one log row, then deducts shelf stock for pours in a separate call.
- * There is no idempotency key and no tank version check. A disabled button
- * does not make a repeated submit safe. Do not retry automatically after a
- * timeout; reload history and match the intended row first.
+ * Writes log rows and matching pour stock in one database call.
+ * There is no client retry. After a timeout, reload history and match the intended row first.
  */
 export async function insertLogEntry(tankId: string, draft: TankLogDraft) {
-  const supabase = getSupabaseBrowser();
-  if (!supabase) {
-    const local = readLocal();
-    activeLocalTank(local, tankId);
-    const created: TankLogEntry = {
-      id: crypto.randomUUID(),
-      tankId,
-      entryDate: draft.entryDate ?? todayIsoDate(),
-      type: draft.type,
-      chemicalId: draft.chemicalId,
-      quantity: draft.quantity,
-      solidContentPct: draft.solidContentPct,
-      note: draft.note,
-      createdAt: draft.loggedAt ?? nowIso(),
-    };
-    local.entries = [...local.entries, created];
-    deductLocalPours(local, [created]);
-    writeLocal(local);
-    return created;
-  }
-
-  const { data, error } = await supabase
-    .from("tank_log_entries")
-    .insert({
-      tank_id: tankId,
-      entry_date: draft.entryDate ?? todayIsoDate(),
-      type: draft.type,
-      chemical_id: draft.chemicalId,
-      quantity: draft.quantity,
-      solid_content_pct: draft.solidContentPct,
-      note: draft.note,
-      ...(draft.loggedAt ? { created_at: draft.loggedAt } : {}),
-    })
-    .select("*")
-    .single();
-  if (error) throw new TankError(error.message);
-  const created = mapEntry(data);
-  await deductRemotePours([created]);
-  return created;
+  const created = await insertLogEntries(tankId, [draft]);
+  const row = created[0];
+  if (!row) throw new TankError("Could not save the entry.");
+  return row;
 }
 
 export async function updateLogEntry(id: string, draft: TankLogDraft) {
@@ -897,32 +923,12 @@ export async function updateLogEntry(id: string, draft: TankLogDraft) {
     return;
   }
 
-  const { error: reverseError } = await supabase.rpc("reverse_stock_for_log_entry", {
-    p_entry_id: id,
+  const { data, error } = await supabase.rpc("replace_tank_log_entry", {
+    p_id: id,
+    p_entry: draftToRpcPayload(draft),
   });
-  if (reverseError) throw new TankError(reverseError.message);
-
-  const { error } = await supabase
-    .from("tank_log_entries")
-    .update({
-      entry_date: draft.entryDate,
-      type: draft.type,
-      chemical_id: draft.chemicalId,
-      quantity: draft.quantity,
-      solid_content_pct: draft.solidContentPct,
-      note: draft.note,
-      ...(draft.loggedAt ? { created_at: draft.loggedAt } : {}),
-    })
-    .eq("id", id);
   if (error) throw new TankError(error.message);
-  if (shouldDeductStock(draft.type) && draft.chemicalId && draft.quantity > 0) {
-    await applyStockMovement(draft.chemicalId, {
-      type: "pour",
-      quantity: draft.quantity,
-      tankLogEntryId: id,
-      note: "Poured into the tank",
-    });
-  }
+  mapEntryJson(data);
 }
 
 export async function deleteLogEntry(id: string) {
@@ -935,51 +941,46 @@ export async function deleteLogEntry(id: string) {
     return;
   }
 
-  const { error: reverseError } = await supabase.rpc("reverse_stock_for_log_entry", {
-    p_entry_id: id,
+  const { error } = await supabase.rpc("delete_tank_log_entry", {
+    p_id: id,
   });
-  if (reverseError) throw new TankError(reverseError.message);
-
-  const { error } = await supabase.from("tank_log_entries").delete().eq("id", id);
   if (error) throw new TankError(error.message);
 }
 
 const STOCK_HISTORY_LIMIT = 50;
 
+export async function applyStockMovements(
+  lines: { chemicalId: string; input: StockMovementInput }[],
+): Promise<(StockMovement | null)[]> {
+  if (lines.length === 0) return [];
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const local = readLocal();
+    const movements = lines.map((line) => applyLocalMovement(local, line.chemicalId, line.input));
+    writeLocal(local);
+    return movements;
+  }
+
+  const { data, error } = await supabase.rpc("apply_stock_movements", {
+    p_moves: lines.map((line) => ({
+      chemical_id: line.chemicalId,
+      type: line.input.type,
+      quantity: line.input.quantity,
+      note: line.input.note ?? null,
+      tank_log_entry_id: line.input.tankLogEntryId ?? null,
+    })),
+  });
+  if (error) throw new TankError(error.message);
+  if (!Array.isArray(data)) throw new TankError("Could not record stock movements.");
+  return data.map((row) => (row == null ? null : mapMovementJson(row)));
+}
+
 export async function applyStockMovement(
   chemicalId: string,
   input: StockMovementInput,
 ): Promise<StockMovement | null> {
-  const supabase = getSupabaseBrowser();
-  if (!supabase) {
-    const local = readLocal();
-    const movement = applyLocalMovement(local, chemicalId, input);
-    writeLocal(local);
-    return movement;
-  }
-
-  const { data, error } = await supabase.rpc("apply_stock_movement", {
-    p_chemical_id: chemicalId,
-    p_type: input.type,
-    p_quantity: input.quantity,
-    p_note: input.note ?? null,
-    p_tank_log_entry_id: input.tankLogEntryId ?? null,
-  });
-  if (error) throw new TankError(error.message);
-  if (data == null) return null;
-  return mapMovementJson(data);
-}
-
-async function deductRemotePours(entries: TankLogEntry[]) {
-  for (const entry of entries) {
-    if (!shouldDeductStock(entry.type) || !entry.chemicalId || !(entry.quantity > 0)) continue;
-    await applyStockMovement(entry.chemicalId, {
-      type: "pour",
-      quantity: entry.quantity,
-      tankLogEntryId: entry.id,
-      note: "Poured into the tank",
-    });
-  }
+  const [movement] = await applyStockMovements([{ chemicalId, input }]);
+  return movement ?? null;
 }
 
 export async function listStockMovements(chemicalId: string): Promise<StockMovement[]> {
@@ -1024,7 +1025,7 @@ export async function setReorderKg(id: string, reorderKg: number | null) {
 export async function getLastCalculation(tankId: string, calculator: LastCalculator) {
   const supabase = getSupabaseBrowser();
   if (!supabase) {
-    return readLocal().lastCalculation[tankId]?.[calculator] ?? null;
+    return parseLastCalculation(calculator, readLocal().lastCalculation[tankId]?.[calculator] ?? null);
   }
 
   const { data, error } = await supabase
@@ -1034,7 +1035,7 @@ export async function getLastCalculation(tankId: string, calculator: LastCalcula
     .eq("calculator", calculator)
     .maybeSingle();
   if (error) throw new TankError(error.message);
-  return (data?.payload as BlendLastCalculation | FillLastCalculation | null) ?? null;
+  return parseLastCalculation(calculator, data?.payload);
 }
 
 export async function saveLastCalculation(
