@@ -110,9 +110,10 @@ export function GuidePage() {
       <div>
         <h1>Guide</h1>
         <p className="mt-2 text-muted-foreground">
-          Short tasks for the tank calculator. The header shows the open tank. Open it to add,
-          rename, or switch tanks. Chemicals and Inventory stay shared. Numbers in the examples are
-          example data.
+          Short tasks for the tank calculator. On Tank home, open a tank and use Tank actions to
+          rename or remove it. Add a tank from the bottom of the list. On other screens, open the
+          header name to switch tanks. Chemicals and Inventory stay shared. Numbers in the examples
+          are example data.
         </p>
       </div>
       <Accordion type="single" collapsible defaultValue="add">

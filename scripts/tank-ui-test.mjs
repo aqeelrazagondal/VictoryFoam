@@ -1234,6 +1234,177 @@ async function run() {
     }
 
     {
+      const now = nowIso();
+      const { context, page } = await openPage(browser, {
+        chemicals: [chemical("c10", "POP 10", 10), chemical("c40", "POP 40", 40)],
+        tanks: [
+          {
+            id: "tank-empty",
+            name: "Empty tank",
+            capacity: 8000,
+            heel: 0,
+            archivedAt: null,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            updatedAt: now,
+          },
+          {
+            id: "tank-blend",
+            name: "Blend tank",
+            capacity: 8000,
+            heel: 0,
+            archivedAt: null,
+            createdAt: "2026-01-02T00:00:00.000Z",
+            updatedAt: now,
+          },
+        ],
+        entries: [
+          {
+            ...logEntry("1", "opening_balance", 1000, { chemicalId: "c10", solidContentPct: 10 }),
+            tankId: "tank-blend",
+          },
+        ],
+        movements: [],
+        lastCalculation: {},
+      });
+      await gotoTank(page, "/tank/");
+      const header = page.locator("header");
+      check(
+        "ui.tanks.header.plain",
+        "home shows the open tank name as text",
+        (await header.getByRole("button", { name: "Empty tank", exact: true }).count()) === 0 &&
+          (await header.getByText("Empty tank", { exact: true }).isVisible()),
+      );
+      check(
+        "ui.tanks.list.other",
+        "the other tank stays a row on the list",
+        await page.getByRole("button", { name: /Blend tank/ }).isVisible(),
+      );
+      check(
+        "ui.tanks.opening.in-list",
+        "a tank with no opening balance stays inside the list",
+        (await visibleText(page, "What's in the tank")) &&
+          (await page.getByRole("heading", { name: "Tanks", exact: true }).isVisible()),
+      );
+
+      await gotoTank(page, "/tank/blend/");
+      await page.locator("button[aria-controls='tank-switcher']").click();
+      const switcher = page.locator("#tank-switcher");
+      await switcher.waitFor();
+      check(
+        "ui.tanks.switch.names",
+        "the header switcher lists tank names",
+        (await switcher.getByRole("button", { name: "Empty tank", exact: true }).isVisible()) &&
+          (await switcher.getByRole("button", { name: "Blend tank", exact: true }).isVisible()),
+      );
+      check(
+        "ui.tanks.switch.names-only",
+        "the header switcher does not edit or create tanks",
+        (await switcher.getByRole("button", { name: "Edit tank" }).count()) === 0 &&
+          (await switcher.getByLabel("Tank name").count()) === 0,
+      );
+      await switcher.getByRole("button", { name: "Close" }).click();
+      await switcher.waitFor({ state: "hidden" });
+
+      await gotoTank(page, "/tank/");
+      await page.getByRole("button", { name: "Tank actions" }).click();
+      const actions = page.locator("#tank-actions");
+      await actions.waitFor();
+      await actions.getByRole("button", { name: "Edit tank" }).click();
+      await actions.locator("#rename-tank").fill("");
+      await actions.getByRole("button", { name: "Save tank" }).click();
+      check(
+        "ui.tanks.edit.empty",
+        "an empty tank name is rejected",
+        await visibleText(page, "Tank name is required."),
+      );
+      await actions.locator("#rename-tank").fill("   ");
+      await actions.getByRole("button", { name: "Save tank" }).click();
+      check(
+        "ui.tanks.edit.whitespace",
+        "a whitespace-only tank name is rejected",
+        await visibleText(page, "Tank name is required."),
+      );
+      await actions.locator("#rename-tank").fill("Blend tank");
+      await actions.locator("#edit-tank-size").fill("8000");
+      await actions.locator("#edit-tank-heel").fill("0");
+      await actions.getByRole("button", { name: "Save tank" }).click();
+      check(
+        "ui.tanks.edit.duplicate",
+        "a duplicate tank name is rejected",
+        await visibleText(page, "A tank with this name already exists."),
+      );
+      await actions.locator("#rename-tank").fill("Renamed tank");
+      await actions.locator("#edit-tank-size").fill("0");
+      await actions.getByRole("button", { name: "Save tank" }).click();
+      check(
+        "ui.tanks.edit.size",
+        "a zero tank size is rejected",
+        await visibleText(page, "Tank size must be greater than zero."),
+      );
+      await actions.locator("#edit-tank-size").fill("8000");
+      await actions.locator("#edit-tank-heel").fill("-1");
+      await actions.getByRole("button", { name: "Save tank" }).click();
+      check(
+        "ui.tanks.edit.heel",
+        "a negative heel is rejected",
+        await visibleText(page, "Heel cannot be negative."),
+      );
+      await actions.getByRole("button", { name: "Close" }).click();
+      await actions.waitFor({ state: "hidden" });
+
+      await page.getByRole("button", { name: "Tank actions" }).click();
+      await actions.waitFor();
+      await actions.getByRole("button", { name: "Remove tank" }).click();
+      await actions.getByRole("button", { name: "Remove tank" }).click();
+      await actions.waitFor({ state: "hidden" });
+      check(
+        "ui.tanks.remove.empty",
+        "removing a tank with no log drops it from the list",
+        !(await visibleText(page, "Empty tank", 1500)),
+      );
+      check(
+        "ui.tanks.remove.remaining",
+        "the remaining tank stays open",
+        (await visibleText(page, "Blend tank")) && (await visibleText(page, "Add to the tank")),
+      );
+
+      await page.getByRole("button", { name: "Add a tank" }).click();
+      const addTank = page.getByRole("dialog");
+      await addTank.waitFor();
+      await addTank.locator("#list-tank-name").fill("Night tank");
+      await addTank.getByRole("button", { name: "Create tank" }).click();
+      await addTank.waitFor({ state: "hidden" });
+      check(
+        "ui.tanks.add",
+        "Add a tank puts the new tank on the list",
+        await page.getByRole("button", { name: /Night tank/ }).isVisible(),
+      );
+      await context.close();
+    }
+
+    {
+      const { context, page } = await openPage(
+        browser,
+        tankState({
+          chemicals: [chemical("c10", "POP 10", 10), chemical("c40", "POP 40", 40)],
+        }),
+      );
+      await gotoTank(page, "/tank/blend/");
+      await page.locator("ul.grid").getByRole("button", { name: /POP 10/ }).click();
+      await page.locator("ul.grid").getByRole("button", { name: /POP 40/ }).click();
+      await page.locator("#blend-pct").fill("22,5");
+      await primaryButton(page, "Next").click();
+      await page.locator("#blend-qty").fill("1 000");
+      await primaryButton(page, "See result").click();
+      check(
+        "ui.blend.pos.comma",
+        "a decimal comma and grouped quantity solve the blend",
+        (await visibleText(page, /583/)) && !(await visibleText(page, "Not reachable", 800)),
+      );
+      await context.close();
+    }
+
+    {
       const { context, page } = await openPage(browser);
       await gotoTank(page, "/about/");
       check("ui.brochure.header", "brochure chrome is still on marketing pages", (await page.locator("header").count()) > 0);

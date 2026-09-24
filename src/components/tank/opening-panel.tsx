@@ -192,9 +192,9 @@ export function OpeningPanel() {
   }
 
   return (
-    <div className="space-y-5 pb-10">
+    <div className="space-y-5">
       <div>
-        <h1>What&apos;s in the tank</h1>
+        <h2 className="font-heading text-xl font-semibold">What&apos;s in the tank</h2>
         <p className="mt-2 text-muted-foreground">
           {activeTank ? `${activeTank.name}. ` : ""}
           Choose the chemical already in the tank, or type one such as Conventional polyol. Then

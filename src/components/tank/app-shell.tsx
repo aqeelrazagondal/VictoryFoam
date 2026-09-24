@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { CircleHelp, Droplets, Ellipsis, History, LogOut, Warehouse } from "lucide-react";
 
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { TankSwitcher } from "@/components/tank/tank-switcher";
+import { TankNameLabel, TankSwitcher } from "@/components/tank/tank-switcher";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/tank/client";
@@ -89,7 +89,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link href="/tank/" className="font-heading text-base font-semibold">
                 Tank calculator
               </Link>
-              <TankSwitcher />
+              {isActive(pathname, "/tank/") && !workflowOpen ? <TankNameLabel /> : <TankSwitcher />}
             </div>
             <Button asChild variant="ghost" className="h-11 min-h-11 gap-1.5 px-3">
               <Link href="/tank/guide/">

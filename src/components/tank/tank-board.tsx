@@ -2,6 +2,7 @@
 
 import { useMemo, type ReactNode } from "react";
 
+import { TankActionsMenu } from "@/components/tank/tank-switcher";
 import { cn } from "@/lib/utils";
 import {
   compositionRows,
@@ -99,9 +100,10 @@ export function TankBoard({
                 open ? "border-primary" : "border-border",
               )}
             >
+              <div className={cn("flex items-start", open && "pr-1 pt-1")}>
               <button
                 type="button"
-                className="flex w-full flex-col gap-2 rounded-2xl px-4 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-w-0 flex-1 flex-col gap-2 rounded-2xl px-4 py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-expanded={open}
                 aria-controls={`tank-detail-${item.tank.id}`}
                 disabled={pendingId != null}
@@ -136,6 +138,8 @@ export function TankBoard({
                   </span>
                 ) : null}
               </button>
+              {open ? <TankActionsMenu /> : null}
+              </div>
               {open ? (
                 <div id={`tank-detail-${item.tank.id}`} className="space-y-4 border-t border-border px-4 py-4">
                   {item.tank.heel > 0 ? (

@@ -9,7 +9,7 @@ import { CorrectionPanel } from "@/components/tank/correction-panel";
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { EmptyState } from "@/components/tank/empty-state";
 import { OpeningPanel } from "@/components/tank/opening-panel";
-import { NameTankPanel } from "@/components/tank/tank-switcher";
+import { AddTankButton, NameTankPanel } from "@/components/tank/tank-switcher";
 import { buildTankBoard, TankBoard } from "@/components/tank/tank-board";
 import { TankSummary } from "@/components/tank/tank-summary";
 import { UsePanel } from "@/components/tank/use-panel";
@@ -231,8 +231,7 @@ export function HubPage() {
   }
 
   if (!activeTank) return <NameTankPanel />;
-  if (!tankReady) return <OpeningPanel key={activeTank.id} />;
-  if (panel === "add") {
+  if (tankReady && panel === "add") {
     return (
       <AddPanel
         onCancel={closePanel}
@@ -243,7 +242,7 @@ export function HubPage() {
       />
     );
   }
-  if (panel === "use") {
+  if (tankReady && panel === "use") {
     return (
       <UsePanel
         initialTotal={repeatKg}
@@ -259,7 +258,7 @@ export function HubPage() {
       />
     );
   }
-  if (panel === "correct") {
+  if (tankReady && panel === "correct") {
     return (
       <CorrectionPanel
         onCancel={closePanel}
@@ -287,13 +286,16 @@ export function HubPage() {
       ) : null}
 
       <TankBoard items={board} openId={activeTank.id} pendingId={openingTankId} onOpen={(id) => void openTank(id)}>
-      {isHeelBreach(amounts.volume, heel) ? (
+      {tankReady ? null : <OpeningPanel key={activeTank.id} />}
+      {tankReady && isHeelBreach(amounts.volume, heel) ? (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
           The tank is below the heel, the minimum you want left in it. Check the log if that looks
           wrong.
         </p>
       ) : null}
 
+      {tankReady ? (
+      <>
       <TankSummary
         volume={shown.volume}
         solidPct={shown.solidPct}
@@ -370,7 +372,10 @@ export function HubPage() {
       <Button type="button" variant="outline" size="touch" className="w-full" onClick={() => openPanel("correct")}>
         Correct tank readings
       </Button>
+      </>
+      ) : null}
       </TankBoard>
+      <AddTankButton />
     </div>
   );
 }
