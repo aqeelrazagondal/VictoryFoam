@@ -20,10 +20,20 @@ import { cn } from "@/lib/utils";
 
 type UseMode = "total" | "rate";
 
-export function UsePanel({ onDone, onCancel }: { onDone: (message: string) => void; onCancel: () => void }) {
+export function UsePanel({
+  onDone,
+  onCancel,
+  initialTotal = null,
+}: {
+  onDone: (message: string) => void;
+  onCancel: () => void;
+  initialTotal?: number | null;
+}) {
   const { snapshot, settings, chemicals, activeTank, refresh } = useTank();
-  const [mode, setMode] = useState<UseMode>("rate");
-  const [totalText, setTotalText] = useState("");
+  const [mode, setMode] = useState<UseMode>(initialTotal != null && initialTotal > 0 ? "total" : "rate");
+  const [totalText, setTotalText] = useState(
+    initialTotal != null && initialTotal > 0 ? String(initialTotal) : "",
+  );
   const [rateText, setRateText] = useState("");
   const [minutesText, setMinutesText] = useState("");
   const [reviewing, setReviewing] = useState(false);

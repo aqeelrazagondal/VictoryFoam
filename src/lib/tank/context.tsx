@@ -29,6 +29,7 @@ type TankContextValue = {
   tanks: Tank[];
   activeTank: Tank | null;
   entries: TankLogEntry[];
+  allEntries: TankLogEntry[];
   settings: TankSettings | null;
   snapshot: TankSnapshot;
   tankReady: boolean;
@@ -49,6 +50,7 @@ function applyData(
   setTanks: (value: Tank[]) => void,
   setActiveTankId: (value: string | null) => void,
   setEntries: (value: TankLogEntry[]) => void,
+  setAllEntries: (value: TankLogEntry[]) => void,
   setLoggedChemicalIds: (value: string[]) => void,
   setError: (value: string | null) => void,
 ) {
@@ -56,6 +58,7 @@ function applyData(
   setTanks(data.tanks);
   setActiveTankId(data.activeTankId);
   setEntries(data.entries);
+  setAllEntries(data.allEntries);
   setLoggedChemicalIds(data.loggedChemicalIds);
   setError(null);
 }
@@ -65,6 +68,7 @@ export function TankProvider({ children }: { children: ReactNode }) {
   const [tanks, setTanks] = useState<Tank[]>([]);
   const [activeTankId, setActiveTankId] = useState<string | null>(null);
   const [entries, setEntries] = useState<TankLogEntry[]>([]);
+  const [allEntries, setAllEntries] = useState<TankLogEntry[]>([]);
   const [loggedChemicalIds, setLoggedChemicalIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +84,7 @@ export function TankProvider({ children }: { children: ReactNode }) {
       setTanks,
       setActiveTankId,
       setEntries,
+      setAllEntries,
       setLoggedChemicalIds,
       setError,
     );
@@ -133,6 +138,7 @@ export function TankProvider({ children }: { children: ReactNode }) {
           setTanks,
           setActiveTankId,
           setEntries,
+          setAllEntries,
           setLoggedChemicalIds,
           setError,
         );
@@ -184,6 +190,7 @@ export function TankProvider({ children }: { children: ReactNode }) {
       tanks: tanks.filter((tank) => tank.archivedAt === null),
       activeTank,
       entries,
+      allEntries,
       settings,
       snapshot,
       tankReady: snapshot.hasOpeningBalance,
@@ -199,6 +206,7 @@ export function TankProvider({ children }: { children: ReactNode }) {
       activeTank,
       chemicals,
       createTank,
+      allEntries,
       entries,
       error,
       loading,

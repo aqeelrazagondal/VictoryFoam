@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -43,6 +44,7 @@ import {
   deleteLogEntry,
   insertLogEntries,
   insertLogEntry,
+  latestFactoryProduction,
   listLogEntriesPage,
   TANK_LIST_PAGE_SIZE,
   TankError,
@@ -63,21 +65,6 @@ const LOG_ROW_LABEL: Record<LogEntryType, string> = {
   consume_usage: "Used",
   adjust_composition: "Correction",
 };
-
-function compareLogNewestFirst(a: TankLogEntry, b: TankLogEntry) {
-  const byTime = b.createdAt.localeCompare(a.createdAt);
-  return byTime !== 0 ? byTime : b.id.localeCompare(a.id);
-}
-
-/** Latest real production: newest consume if any, else newest pour. Home edits and openings are not jobs. */
-function findLastProduction(entries: TankLogEntry[]): TankLogEntry | null {
-  const newestFirst = [...entries].sort(compareLogNewestFirst);
-  return (
-    newestFirst.find((entry) => entry.type === "consume_usage") ??
-    newestFirst.find((entry) => entry.type === "add_batch") ??
-    null
-  );
-}
 
 function chemicalLabelForEntry(
   entry: TankLogEntry,
@@ -102,7 +89,8 @@ function lastProductionHeadline(
 }
 
 export function LogPage() {
-  const { tankReady, snapshot, settings, entries, activeChemicals, chemicals, activeTank, refresh } = useTank();
+  const router = useRouter();
+  const { tankReady, snapshot, settings, entries, activeChemicals, chemicals, activeTank, tanks, selectTank, refresh } = useTank();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TankLogEntry | null>(null);
   const [type, setType] = useState<LogEntryType>("add_batch");
@@ -123,6 +111,8 @@ export function LogPage() {
   const [pageTotal, setPageTotal] = useState(0);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+  const [factoryJob, setFactoryJob] = useState<TankLogEntry | null>(null);
+  const [repeating, setRepeating] = useState(false);
 
   const heel = settings?.heel ?? 0;
   const capacity = settings?.capacity ?? null;
@@ -132,24 +122,21 @@ export function LogPage() {
     () => new Map(snapshot.entries.map((entry) => [entry.id, entry])),
     [snapshot.entries],
   );
-  const lastProduction = useMemo(() => findLastProduction(entries), [entries]);
+  const lastProduction = factoryJob;
 
   useEffect(() => {
-    if (!activeTank) {
-      setPageRows([]);
-      setPageTotal(0);
-      setListLoading(false);
-      return;
-    }
-    const tankId = activeTank.id;
     let cancelled = false;
     setListLoading(true);
     setListError(null);
-    void listLogEntriesPage(tankId, { page, pageSize: TANK_LIST_PAGE_SIZE })
-      .then((result) => {
+    void Promise.all([
+      listLogEntriesPage(null, { page, pageSize: TANK_LIST_PAGE_SIZE }),
+      latestFactoryProduction(),
+    ])
+      .then(([result, job]) => {
         if (cancelled) return;
         setPageRows(result.rows);
         setPageTotal(result.total);
+        setFactoryJob(job);
         const lastPage = Math.max(1, Math.ceil(result.total / TANK_LIST_PAGE_SIZE));
         if (page > lastPage) setPage(lastPage);
       })
@@ -164,7 +151,22 @@ export function LogPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeTank, page, entries]);
+  }, [page, entries]);
+
+  function tankLabel(tankId: string) {
+    return tanks.find((tank) => tank.id === tankId)?.name ?? "Tank";
+  }
+
+  async function repeatLastProduction() {
+    if (!lastProduction || lastProduction.type !== "consume_usage" || repeating) return;
+    setRepeating(true);
+    try {
+      await selectTank(lastProduction.tankId);
+      router.push(`/tank/?repeat=${lastProduction.quantity}`);
+    } finally {
+      setRepeating(false);
+    }
+  }
   const consumeQty = parseNumber(quantity);
   const consumePreview =
     type === "consume_usage" && consumeQty !== null
@@ -356,7 +358,7 @@ export function LogPage() {
     }
   }
 
-  if (!tankReady && entries.length === 0) {
+  if (!activeTank || (!tankReady && !listLoading && pageTotal === 0 && factoryJob == null)) {
     return (
       <div className="space-y-4">
         <h1>Tank log</h1>
@@ -386,8 +388,7 @@ export function LogPage() {
         <div>
           <h1>Activity</h1>
           <p className="text-muted-foreground">
-            History of what went into {activeTank?.name ?? "this tank"} and what was used. Deleting a
-            pour puts those kilograms back on the shelf.
+            History of every tank. Deleting a pour puts those kilograms back on the shelf.
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
             {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
@@ -418,6 +419,7 @@ export function LogPage() {
             <p className="font-heading text-2xl font-semibold leading-snug text-foreground">
               {lastProductionHeadline(lastProduction, lastProductionName)}
             </p>
+            <p className="text-sm font-medium text-foreground">{tankLabel(lastProduction.tankId)}</p>
             {lastProductionWhen ? (
               <time
                 dateTime={lastProduction.createdAt ?? lastProduction.entryDate}
@@ -425,6 +427,17 @@ export function LogPage() {
               >
                 {lastProductionWhen}
               </time>
+            ) : null}
+            {lastProduction.type === "consume_usage" ? (
+              <Button
+                type="button"
+                size="touch"
+                className="w-full"
+                disabled={repeating}
+                onClick={() => void repeatLastProduction()}
+              >
+                {repeating ? "Opening…" : "Use last production"}
+              </Button>
             ) : null}
             {lastProduction.solidContentPct !== null ? (
               <p className="text-sm text-muted-foreground">
@@ -499,6 +512,7 @@ export function LogPage() {
                       {whenLabel}
                     </time>
                   ) : null}
+                  <p className="mt-1 text-sm font-medium text-foreground">{tankLabel(entry.tankId)}</p>
                   <p className="mt-1 text-sm font-medium text-foreground">
                     {LOG_ROW_LABEL[entry.type]}
                     {isHomeEdit ? null : (

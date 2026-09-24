@@ -275,19 +275,8 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
         </Field>
       </div>
       ) : null}
-      {step === 0 ? (
-        <Button
-          type="button"
-          size="touch"
-          className="w-full"
-          onClick={() => setStep(1)}
-          disabled={parseNumber(targetPctText) == null || (mode !== "one" && parseNumber(targetVolume) == null)}
-        >
-          Next
-        </Button>
-      ) : null}
 
-      {step === 1 ? (
+      {step < 2 ? (
       <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-sm font-medium">{mode === "one" ? "Polyol" : "First polyol"}</p>
@@ -337,6 +326,17 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
             </div>
           ) : null}
         </div>
+      ) : null}
+      {step === 0 ? (
+        <Button
+          type="button"
+          size="touch"
+          className="w-full"
+          onClick={() => setStep(1)}
+          disabled={parseNumber(targetPctText) == null || (mode !== "one" && parseNumber(targetVolume) == null)}
+        >
+          Next
+        </Button>
       ) : null}
 
       {error ? (

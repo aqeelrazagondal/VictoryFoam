@@ -1,25 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AddPanel } from "@/components/tank/add-panel";
 import { useWorkflowChrome } from "@/components/tank/app-shell";
 import { CorrectionPanel } from "@/components/tank/correction-panel";
+import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { EmptyState } from "@/components/tank/empty-state";
 import { OpeningPanel } from "@/components/tank/opening-panel";
 import { NameTankPanel } from "@/components/tank/tank-switcher";
+import { buildTankBoard, TankBoard } from "@/components/tank/tank-board";
 import { TankSummary } from "@/components/tank/tank-summary";
 import { UsePanel } from "@/components/tank/use-panel";
 import { Button } from "@/components/ui/button";
 import {
+  amountsEqual,
   compositionRows,
-  formatLogWhen,
+  encodeAdjustNote,
+  formatPct,
+  formatQty,
   isHeelBreach,
   roomToCapacity,
+  scaleTankTotal,
   snapshotToAmounts,
+  type CompositionAmounts,
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
+import { parseNumber } from "@/lib/tank/parse";
+import { insertLogEntry, TankError } from "@/lib/tank/repository";
 
 type Panel = "home" | "add" | "use" | "correct";
 
@@ -33,11 +42,23 @@ export function HubPage() {
     snapshot,
     settings,
     entries,
+    allEntries,
     activeTank,
+    tanks,
+    refresh,
+    selectTank,
   } = useTank();
   const setWorkflow = useWorkflowChrome();
   const [panel, setPanel] = useState<Panel>("home");
   const [notice, setNotice] = useState<string | null>(null);
+  const [repeatKg, setRepeatKg] = useState<number | null>(null);
+  const repeatApplied = useRef(false);
+  const [volumeText, setVolumeText] = useState("");
+  const [massDraft, setMassDraft] = useState<CompositionAmounts | null>(null);
+  const [massError, setMassError] = useState<string | null>(null);
+  const [reviewingMass, setReviewingMass] = useState(false);
+  const [savingMass, setSavingMass] = useState(false);
+  const [openingTankId, setOpeningTankId] = useState<string | null>(null);
 
   const names = useMemo(
     () =>
@@ -47,23 +68,87 @@ export function HubPage() {
     [chemicals],
   );
   const amounts = useMemo(() => snapshotToAmounts(snapshot), [snapshot]);
-  const room = settings?.capacity != null ? roomToCapacity(settings.capacity, amounts.volume) : null;
-  const rows = compositionRows(snapshot, names).map((row) => ({
+  const shown = massDraft ?? amounts;
+  const room = settings?.capacity != null ? roomToCapacity(settings.capacity, shown.volume) : null;
+  const rows = compositionRows(
+    massDraft
+      ? {
+          ...snapshot,
+          volume: massDraft.volume,
+          solidPct: massDraft.solidPct,
+          remainingByChemical: massDraft.remainingByChemical,
+          unattributed: massDraft.unattributed,
+          trackedTotal:
+            Object.values(massDraft.remainingByChemical).reduce((sum, qty) => sum + qty, 0) +
+            massDraft.unattributed,
+        }
+      : snapshot,
+    names,
+  ).map((row) => ({
     id: row.id,
     name: row.name,
     amount: row.amount,
   }));
+  const massDirty = massDraft != null && !amountsEqual(massDraft, amounts);
   const heel = settings?.heel ?? 0;
-  const latest = useMemo(() => {
-    const stamped = entries.filter((entry) => entry.createdAt || entry.entryDate);
-    if (stamped.length === 0) return null;
-    return [...stamped].sort((a, b) => {
-      const aTime = a.createdAt ?? a.entryDate ?? "";
-      const bTime = b.createdAt ?? b.entryDate ?? "";
-      return aTime < bTime ? 1 : -1;
-    })[0];
-  }, [entries]);
-  const updated = latest ? formatLogWhen(latest.entryDate, latest.createdAt) : null;
+  const board = useMemo(
+    () => buildTankBoard(tanks, allEntries, activeTank?.id ?? null, entries, names),
+    [activeTank?.id, allEntries, entries, names, tanks],
+  );
+  useEffect(() => {
+    if (massDraft) return;
+    setVolumeText(formatQty(amounts.volume));
+  }, [amounts.volume, massDraft, activeTank?.id]);
+
+  function commitVolume(nextText: string) {
+    const parsed = parseNumber(nextText);
+    if (parsed === null) {
+      setMassError("Enter the total kilograms.");
+      setVolumeText(formatQty(shown.volume));
+      return;
+    }
+    const result = scaleTankTotal(amounts, parsed, settings?.capacity ?? null);
+    if (!result.ok) {
+      setMassError(result.reason);
+      setVolumeText(formatQty(shown.volume));
+      return;
+    }
+    setMassError(null);
+    setReviewingMass(false);
+    if (amountsEqual(result.next, amounts)) {
+      setMassDraft(null);
+      setVolumeText(formatQty(amounts.volume));
+      return;
+    }
+    setMassDraft(result.next);
+    setVolumeText(formatQty(result.next.volume));
+  }
+
+  async function saveMass() {
+    if (!massDraft || !activeTank || savingMass) return;
+    setSavingMass(true);
+    setMassError(null);
+    try {
+      await insertLogEntry(activeTank.id, {
+        type: "adjust_composition",
+        chemicalId: null,
+        quantity: massDraft.volume,
+        solidContentPct: massDraft.solidPct,
+        note: encodeAdjustNote({
+          remainingByChemical: massDraft.remainingByChemical,
+          unattributed: massDraft.unattributed,
+        }),
+      });
+      setMassDraft(null);
+      setReviewingMass(false);
+      await refresh();
+      setNotice("Saved the new kilograms on Home.");
+    } catch (caught) {
+      setMassError(caught instanceof TankError ? caught.message : "Could not save this change.");
+    } finally {
+      setSavingMass(false);
+    }
+  }
 
   useEffect(() => {
     setWorkflow(panel !== "home");
@@ -71,6 +156,20 @@ export function HubPage() {
   }, [panel, setWorkflow]);
 
   useEffect(() => {
+    const repeat = new URLSearchParams(window.location.search).get("repeat");
+    const parsed = repeat == null ? null : Number(repeat);
+    if (parsed != null && Number.isFinite(parsed) && parsed > 0) {
+      repeatApplied.current = true;
+      setRepeatKg(parsed);
+      setPanel("use");
+      window.history.replaceState(window.history.state, "", "/tank/");
+      return;
+    }
+    if (repeatApplied.current) {
+      repeatApplied.current = false;
+      return;
+    }
+    setRepeatKg(null);
     setPanel("home");
   }, [activeTank?.id]);
 
@@ -81,6 +180,19 @@ export function HubPage() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+
+  async function openTank(id: string) {
+    if (!activeTank || id === activeTank.id || openingTankId) return;
+    setOpeningTankId(id);
+    setMassDraft(null);
+    setMassError(null);
+    setReviewingMass(false);
+    try {
+      await selectTank(id);
+    } finally {
+      setOpeningTankId(null);
+    }
+  }
 
   function openPanel(next: Exclude<Panel, "home">) {
     window.history.pushState({ tankFlow: next }, "");
@@ -134,8 +246,13 @@ export function HubPage() {
   if (panel === "use") {
     return (
       <UsePanel
-        onCancel={closePanel}
+        initialTotal={repeatKg}
+        onCancel={() => {
+          setRepeatKg(null);
+          closePanel();
+        }}
         onDone={(message) => {
+          setRepeatKg(null);
           setNotice(message);
           setPanel("home");
         }}
@@ -157,9 +274,10 @@ export function HubPage() {
   return (
     <div className="space-y-6 pb-4">
       <div>
-        <h1>{activeTank.name}</h1>
-        <p className="mt-2 text-muted-foreground">View the tank, add chemicals or record usage.</p>
-        {updated ? <p className="mt-1 text-sm text-muted-foreground">Updated {updated}</p> : null}
+        <h1>Tanks</h1>
+        <p className="mt-2 text-muted-foreground">
+          Every tank is listed here. Open one to see its mix. Add, use, and correct apply only to that tank.
+        </p>
       </div>
 
       {notice ? (
@@ -167,6 +285,8 @@ export function HubPage() {
           {notice}
         </p>
       ) : null}
+
+      <TankBoard items={board} openId={activeTank.id} pendingId={openingTankId} onOpen={(id) => void openTank(id)}>
       {isHeelBreach(amounts.volume, heel) ? (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
           The tank is below the heel, the minimum you want left in it. Check the log if that looks
@@ -175,12 +295,47 @@ export function HubPage() {
       ) : null}
 
       <TankSummary
-        volume={amounts.volume}
-        solidPct={amounts.solidPct}
+        volume={shown.volume}
+        solidPct={shown.solidPct}
         room={room}
         capacity={settings?.capacity ?? null}
         rows={rows}
+        volumeEditable
+        volumeText={volumeText}
+        onVolumeChange={(value) => {
+          setVolumeText(value);
+          setMassError(null);
+          setReviewingMass(false);
+          const parsed = parseNumber(value);
+          if (parsed === null) return;
+          const result = scaleTankTotal(amounts, parsed, settings?.capacity ?? null);
+          if (!result.ok) {
+            setMassError(result.reason);
+            return;
+          }
+          setMassDraft(amountsEqual(result.next, amounts) ? null : result.next);
+        }}
+        onVolumeBlur={() => commitVolume(volumeText)}
+        editError={massError}
       />
+      {massDirty && reviewingMass ? (
+        <DeleteConfirm
+          confirmLabel={savingMass ? "Saving…" : "Save correction"}
+          confirmVariant="default"
+          busy={savingMass}
+          onConfirm={() => void saveMass()}
+          onCancel={() => setReviewingMass(false)}
+        >
+          <p>
+            This changes the total from {formatQty(amounts.volume)} kg to {formatQty(shown.volume)} kg.
+            Every chemical is scaled by the same factor. Solid content stays {formatPct(shown.solidPct)}.
+          </p>
+        </DeleteConfirm>
+      ) : massDirty ? (
+        <Button type="button" size="touch" className="w-full" onClick={() => setReviewingMass(true)}>
+          Review correction
+        </Button>
+      ) : null}
 
       <div className="flex justify-end">
         <Button asChild variant="outline" size="touch">
@@ -215,6 +370,7 @@ export function HubPage() {
       <Button type="button" variant="outline" size="touch" className="w-full" onClick={() => openPanel("correct")}>
         Correct tank readings
       </Button>
+      </TankBoard>
     </div>
   );
 }

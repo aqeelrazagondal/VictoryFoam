@@ -10,6 +10,7 @@ export function TankSummary({
   capacity = null,
   rows,
   editable = false,
+  volumeEditable = false,
   volumeText,
   onVolumeChange,
   onVolumeBlur,
@@ -24,6 +25,8 @@ export function TankSummary({
   capacity?: number | null;
   rows?: { id: string; name: string; amount: number }[];
   editable?: boolean;
+  /** Home: only the total kilograms can be edited. Chemical rows stay as text and follow the total. */
+  volumeEditable?: boolean;
   volumeText?: string;
   onVolumeChange?: (value: string) => void;
   onVolumeBlur?: () => void;
@@ -35,7 +38,7 @@ export function TankSummary({
   return (
     <section className="rounded-2xl border border-border bg-card p-5" aria-live="polite">
       <p className="text-sm font-medium text-muted-foreground">Total mass</p>
-      {editable ? (
+      {editable || volumeEditable ? (
         <div className="mt-1 space-y-2">
           <label htmlFor="tank-total-kg" className="sr-only">
             Total kilograms in the tank

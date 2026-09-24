@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useTank } from "@/lib/tank/context";
 import { parseNumber } from "@/lib/tank/parse";
-import { TankError } from "@/lib/tank/repository";
+import { saveTankSettings, TankError } from "@/lib/tank/repository";
 import { cn } from "@/lib/utils";
 
 function TankDraftForm({
@@ -103,30 +103,62 @@ export function NameTankPanel() {
   );
 }
 
+function editableNumber(value: number | null) {
+  if (value == null) return "";
+  return new Intl.NumberFormat("en-ZA", {
+    maximumFractionDigits: 2,
+    useGrouping: false,
+  }).format(value);
+}
+
 export function TankSwitcher() {
-  const { loading, tanks, activeTank, selectTank, renameTank, removeTank } = useTank();
+  const { loading, tanks, activeTank, selectTank, renameTank, removeTank, refresh } = useTank();
   const [open, setOpen] = useState(false);
   const [rename, setRename] = useState(activeTank?.name ?? "");
+  const [capacityText, setCapacityText] = useState("");
+  const [heelText, setHeelText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
 
   function openSheet() {
     setRename(activeTank?.name ?? "");
+    setCapacityText(editableNumber(activeTank?.capacity ?? null));
+    setHeelText(editableNumber(activeTank?.heel ?? 0));
     setError(null);
     setConfirmRemove(false);
     setOpen(true);
   }
 
-  async function saveName() {
+  async function saveEdit() {
     if (!activeTank) return;
+    const trimmed = rename.trim();
+    if (!trimmed) {
+      setError("Tank name is required.");
+      return;
+    }
+    let capacity: number | null = null;
+    if (capacityText.trim()) {
+      capacity = parseNumber(capacityText);
+      if (capacity === null || !(capacity > 0)) {
+        setError("Tank size must be greater than zero.");
+        return;
+      }
+    }
+    const heel = parseNumber(heelText.trim() ? heelText : "0");
+    if (heel === null || heel < 0) {
+      setError("Heel cannot be negative.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      await renameTank(activeTank.id, rename);
+      await renameTank(activeTank.id, trimmed);
+      await saveTankSettings(activeTank.id, { capacity, heel });
+      await refresh();
       setOpen(false);
     } catch (caught) {
-      setError(caught instanceof TankError ? caught.message : "Could not rename the tank.");
+      setError(caught instanceof TankError ? caught.message : "Could not save the tank.");
     } finally {
       setSaving(false);
     }
@@ -206,7 +238,7 @@ export function TankSwitcher() {
 
             {activeTank ? (
               <section className="space-y-3">
-                <h2 className="text-sm font-medium text-muted-foreground">Rename {activeTank.name}</h2>
+                <h2 className="text-sm font-medium text-muted-foreground">Edit tank</h2>
                 <Field id="rename-tank" label="Tank name">
                   <Input
                     id="rename-tank"
@@ -215,15 +247,30 @@ export function TankSwitcher() {
                     autoComplete="off"
                   />
                 </Field>
+                <Field id="edit-tank-size" label="Tank size (kg)" hint="Leave blank if this tank has no size set.">
+                  <Input
+                    id="edit-tank-size"
+                    inputMode="decimal"
+                    value={capacityText}
+                    onChange={(event) => setCapacityText(event.target.value)}
+                  />
+                </Field>
+                <Field id="edit-tank-heel" label="Heel (kg)" hint="The minimum you want left in the tank.">
+                  <Input
+                    id="edit-tank-heel"
+                    inputMode="decimal"
+                    value={heelText}
+                    onChange={(event) => setHeelText(event.target.value)}
+                  />
+                </Field>
                 <Button
                   type="button"
-                  variant="outline"
                   size="touch"
                   className="w-full"
-                  disabled={saving || rename.trim() === activeTank.name}
-                  onClick={() => void saveName()}
+                  disabled={saving || !rename.trim()}
+                  onClick={() => void saveEdit()}
                 >
-                  Save name
+                  {saving ? "Saving…" : "Save tank"}
                 </Button>
                 {confirmRemove ? (
                   <div className="space-y-2 rounded-xl border border-border p-3">

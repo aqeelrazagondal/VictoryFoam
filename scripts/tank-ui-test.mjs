@@ -1001,7 +1001,12 @@ async function run() {
         }),
       );
       await gotoTank(page, "/tank/");
-      check("ui.home.edit.readonly", "viewing the tank does not show kg inputs", (await page.locator("input#tank-total-kg").count()) === 0);
+      check(
+        "ui.home.edit.readonly",
+        "home edits the total kilograms and leaves each chemical as text",
+        (await page.locator("input#tank-total-kg").count()) === 1 &&
+          (await page.locator("input[id^='tank-chem-']").count()) === 0,
+      );
       await page.getByRole("button", { name: "Correct tank readings" }).click();
       const total = page.locator("#tank-total-kg");
       const chemA = page.locator("#tank-chem-c45");

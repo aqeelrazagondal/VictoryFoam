@@ -306,7 +306,10 @@ export type FactoryData = {
   chemicals: Chemical[];
   tanks: Tank[];
   activeTankId: string | null;
+  /** Log rows for the selected tank, oldest first. */
   entries: TankLogEntry[];
+  /** Log rows for every tank, oldest first. Home uses these to show each mix. */
+  allEntries: TankLogEntry[];
   loggedChemicalIds: string[];
 };
 
@@ -326,13 +329,15 @@ export async function loadFactory(preferredTankId: string | null): Promise<Facto
     const activeTankId = rememberActiveTank(
       resolveActiveTankId(local.tanks, preferredTankId ?? readActiveTankId()),
     );
+    const allEntries = [...local.entries].sort(
+      (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+    );
     return {
       chemicals: local.chemicals,
       tanks: local.tanks,
       activeTankId,
-      entries: local.entries
-        .filter((entry) => entry.tankId === activeTankId)
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id)),
+      entries: allEntries.filter((entry) => entry.tankId === activeTankId),
+      allEntries,
       loggedChemicalIds: loggedChemicalIdsFrom(local.entries),
     };
   }
@@ -351,23 +356,21 @@ export async function loadFactory(preferredTankId: string | null): Promise<Facto
   const activeTankId = rememberActiveTank(
     resolveActiveTankId(tanks, preferredTankId ?? readActiveTankId()),
   );
-  let entries: TankLogEntry[] = [];
-  if (activeTankId) {
-    const entriesRes = await supabase
-      .from("tank_log_entries")
-      .select("*")
-      .eq("tank_id", activeTankId)
-      .order("created_at")
-      .order("id");
-    if (entriesRes.error) throw new TankError(entriesRes.error.message);
-    entries = (entriesRes.data ?? []).map(mapEntry);
-  }
+  const entriesRes = await supabase
+    .from("tank_log_entries")
+    .select("*")
+    .order("created_at")
+    .order("id");
+  if (entriesRes.error) throw new TankError(entriesRes.error.message);
+  const allEntries = (entriesRes.data ?? []).map(mapEntry);
+  const entries = activeTankId ? allEntries.filter((entry) => entry.tankId === activeTankId) : [];
 
   return {
     chemicals: (chemicalsRes.data ?? []).map(mapChemical),
     tanks,
     activeTankId,
     entries,
+    allEntries,
     loggedChemicalIds: [
       ...new Set(
         (usedRes.data ?? [])
@@ -382,8 +385,15 @@ export async function loadFactory(preferredTankId: string | null): Promise<Facto
  * One page of tank log rows, newest first. Local storage pages the array here;
  * Supabase uses `.range()` with an exact count — the UI must not slice a full list.
  */
+function newestLogFirst(entries: TankLogEntry[]) {
+  return [...entries].sort((a, b) => {
+    const byTime = b.createdAt.localeCompare(a.createdAt);
+    return byTime !== 0 ? byTime : b.id.localeCompare(a.id);
+  });
+}
+
 export async function listLogEntriesPage(
-  tankId: string,
+  tankId: string | null,
   options?: {
     page?: number;
     pageSize?: number;
@@ -395,28 +405,48 @@ export async function listLogEntriesPage(
   );
   const supabase = getSupabaseBrowser();
   if (!supabase) {
-    const newestFirst = readLocal()
-      .entries.filter((entry) => entry.tankId === tankId)
-      .sort((a, b) => {
-        const byTime = b.createdAt.localeCompare(a.createdAt);
-        return byTime !== 0 ? byTime : b.id.localeCompare(a.id);
-      });
+    const newestFirst = newestLogFirst(
+      readLocal().entries.filter((entry) => tankId == null || entry.tankId === tankId),
+    );
     return pageOf(newestFirst, page, pageSize);
   }
 
-  const { data, error, count } = await supabase
+  let query = supabase
     .from("tank_log_entries")
     .select("*", { count: "exact" })
-    .eq("tank_id", tankId)
     .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .range(from, to);
+    .order("id", { ascending: false });
+  if (tankId) query = query.eq("tank_id", tankId);
+  const { data, error, count } = await query.range(from, to);
 
   if (error) throw new TankError(error.message);
   return {
     rows: (data ?? []).map(mapEntry),
     total: count ?? 0,
   };
+}
+
+/** Newest usage across every tank, otherwise the newest pour. Openings and corrections are not jobs. */
+export async function latestFactoryProduction(): Promise<TankLogEntry | null> {
+  const supabase = getSupabaseBrowser();
+  if (!supabase) {
+    const newestFirst = newestLogFirst(readLocal().entries);
+    return (
+      newestFirst.find((entry) => entry.type === "consume_usage" || entry.type === "add_batch") ??
+      null
+    );
+  }
+
+  const job = await supabase
+    .from("tank_log_entries")
+    .select("*")
+    .in("type", ["consume_usage", "add_batch"])
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (job.error) throw new TankError(job.error.message);
+  return job.data ? mapEntry(job.data) : null;
 }
 
 /**
