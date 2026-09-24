@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
@@ -16,7 +16,9 @@ import type { ListSort } from "@/lib/tank/list-query";
 import type { Chemical, ChemicalDraft, StockMovement } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
 import {
+  archiveChemical,
   createChemical,
+  deleteChemical,
   listChemicalsPage,
   listStockMovements,
   setReorderKg,
@@ -111,7 +113,8 @@ function signedQty(movement: StockMovement, unit: string) {
 }
 
 export function InventoryPage() {
-  const { chemicals, persistStock, refresh, loading } = useTank();
+  const { chemicals, loggedChemicalIds, persistStock, refresh, loading } = useTank();
+  const usedIds = useMemo(() => new Set(loggedChemicalIds), [loggedChemicalIds]);
   const [page, setPage] = useState(1);
   const [pageRows, setPageRows] = useState<Chemical[]>([]);
   const [pageTotal, setPageTotal] = useState(0);
@@ -141,6 +144,9 @@ export function InventoryPage() {
   const [pctError, setPctError] = useState<string | null>(null);
   const [chemSaving, setChemSaving] = useState(false);
   const [menuFor, setMenuFor] = useState<Chemical | null>(null);
+  const [deleteFor, setDeleteFor] = useState<Chemical | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -300,6 +306,33 @@ export function InventoryPage() {
       setReorderError(caught instanceof TankError ? caught.message : "Could not save the low-stock line.");
     } finally {
       setReorderSaving(false);
+    }
+  }
+
+  async function removeInventory(chemical: Chemical) {
+    if (deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      if (usedIds.has(chemical.id)) {
+        await archiveChemical(chemical.id);
+      } else {
+        try {
+          await deleteChemical(chemical.id);
+        } catch (caught) {
+          const message = caught instanceof TankError ? caught.message : "";
+          if (!message.includes("Archive it instead")) throw caught;
+          await archiveChemical(chemical.id);
+        }
+      }
+      await refresh();
+      setDeleteFor(null);
+      setMenuFor(null);
+      setNotice(`${chemical.name} was removed from inventory.`);
+    } catch (caught) {
+      setDeleteError(caught instanceof TankError ? caught.message : "Could not remove this chemical.");
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
@@ -484,12 +517,64 @@ export function InventoryPage() {
         </SheetContent>
       </Sheet>
 
-      <Sheet open={menuFor !== null} onOpenChange={(open) => !open && setMenuFor(null)}>
+      <Sheet
+        open={menuFor !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMenuFor(null);
+            setDeleteFor(null);
+            setDeleteError(null);
+          }
+        }}
+      >
         <SheetContent side="bottom">
           <SheetHeader>
-            <SheetTitle>{menuFor ? `Other change for ${menuFor.name}` : "Other change"}</SheetTitle>
+            <SheetTitle>
+              {deleteFor
+                ? `Remove ${deleteFor.name}`
+                : menuFor
+                  ? `Other change for ${menuFor.name}`
+                  : "Other change"}
+            </SheetTitle>
           </SheetHeader>
-          {menuFor ? (
+          {menuFor && deleteFor ? (
+            <div className="mt-6">
+              {deleteError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {deleteError}
+                </p>
+              ) : null}
+              <DeleteConfirm
+                confirmLabel={
+                  deleteBusy ? "Removing…" : usedIds.has(deleteFor.id) ? "Yes, archive it" : "Yes, delete it"
+                }
+                busy={deleteBusy}
+                onConfirm={() => void removeInventory(deleteFor)}
+                onCancel={() => {
+                  setDeleteFor(null);
+                  setDeleteError(null);
+                }}
+              >
+                {usedIds.has(deleteFor.id) ? (
+                  <>
+                    <p>
+                      {deleteFor.name} will leave Inventory and the list you pick from when you add, fill, blend,
+                      or plan.
+                    </p>
+                    <p>Old log rows stay, so the kilograms already in the tank do not change.</p>
+                  </>
+                ) : (
+                  <>
+                    <p>{deleteFor.name} will leave Inventory.</p>
+                    <p>
+                      If drums were already received, the chemical is archived so past shelf history stays. The
+                      tank does not change.
+                    </p>
+                  </>
+                )}
+              </DeleteConfirm>
+            </div>
+          ) : menuFor ? (
             <div className="mt-6 space-y-3">
               <p className="text-sm text-muted-foreground">
                 Pick what happened on the shelf. None of these pour into the tank.
@@ -521,6 +606,19 @@ export function InventoryPage() {
                 <span className="block font-medium">History</span>
                 <span className="mt-1 block text-sm text-muted-foreground">
                   Deliveries, uses, spills, counts, and pours into the tank.
+                </span>
+              </button>
+              <button
+                type="button"
+                className="w-full rounded-xl border border-destructive/40 bg-card px-4 py-3 text-left"
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteFor(menuFor);
+                }}
+              >
+                <span className="block font-medium text-destructive">Delete</span>
+                <span className="mt-1 block text-sm text-muted-foreground">
+                  Remove {menuFor.name} from Inventory. The tank stays as it is.
                 </span>
               </button>
             </div>
