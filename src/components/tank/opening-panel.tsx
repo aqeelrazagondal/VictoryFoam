@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { Field } from "@/components/tank/empty-state";
 import { TankSummary } from "@/components/tank/tank-summary";
 import { Button } from "@/components/ui/button";
@@ -191,15 +192,12 @@ export function OpeningPanel() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="font-heading text-xl font-semibold">What&apos;s in the tank</h2>
-        <p className="mt-2 text-muted-foreground">
-          {activeTank ? `${activeTank.name}. ` : ""}
-          Choose the chemical already in the tank, or type one such as Conventional polyol. Then
-          enter the solid content and the kg. The overall solid content is calculated for you. This
-          does not change Shelf stock.
-        </p>
-      </div>
+      <ScreenHeading as="h2" className="font-heading text-xl font-semibold" title="What's in the tank">
+        {activeTank ? `${activeTank.name}. ` : ""}
+        Choose the chemical already in the tank, or type one such as Conventional polyol. Then enter
+        the solid content and the kg. The overall solid content is calculated for you. This does not
+        change Shelf stock.
+      </ScreenHeading>
 
       {error ? (
         <p className="text-sm text-destructive" role="alert">

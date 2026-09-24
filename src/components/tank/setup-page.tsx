@@ -1,6 +1,7 @@
 "use client";
 
 import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTank } from "@/lib/tank/context";
@@ -22,13 +23,10 @@ export function SetupPage() {
   if (!activeTank) {
     return (
       <div className="space-y-4">
-        <h1>Tank settings</h1>
-        <EmptyState
-          title="Name a tank first"
-          description="Choose a name on Home. Then you can set capacity and heel."
-          actionLabel="Name a tank"
-          actionHref="/tank/"
-        />
+        <ScreenHeading title="Tank settings">
+          Choose a name on Home. Then you can set capacity and heel.
+        </ScreenHeading>
+        <EmptyState title="Name a tank first" actionLabel="Name a tank" actionHref="/tank/" />
       </div>
     );
   }
@@ -36,13 +34,10 @@ export function SetupPage() {
   if (!tankReady) {
     return (
       <div className="space-y-4">
-        <h1>Tank settings</h1>
-        <EmptyState
-          title="Set the opening on Home"
-          description="Capacity and heel wait until this tank has an opening amount."
-          actionLabel="Open tank"
-          actionHref="/tank/"
-        />
+        <ScreenHeading title="Tank settings">
+          Capacity and heel wait until this tank has an opening amount.
+        </ScreenHeading>
+        <EmptyState title="Set the opening on Home" actionLabel="Open tank" actionHref="/tank/" />
       </div>
     );
   }
@@ -67,10 +62,9 @@ export function SetupPage() {
 
   return (
     <div className="space-y-5 pb-10">
-      <h1>Tank settings</h1>
-      <p className="text-muted-foreground">
+      <ScreenHeading title="Tank settings">
         Capacity and heel for {activeTank.name}. Opening mass is already on the log.
-      </p>
+      </ScreenHeading>
       {error ? (
         <p className="text-sm text-destructive" role="alert">
           {error}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { TankContextNav } from "@/components/tank/tank-context-nav";
 import { ListPagination } from "@/components/tank/list-pagination";
 import { Button } from "@/components/ui/button";
@@ -308,16 +309,14 @@ export function InventoryPage() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1>Inventory</h1>
+          <ScreenHeading title="Inventory">
+            <p>On the shelf. Drums you still have. The tank is what is already mixed.</p>
+            <p>When you confirm a pour on Home, the number here goes down on its own.</p>
+            <p>A name and a solid content are enough. Then tap Drums arrived and enter the kilograms.</p>
+          </ScreenHeading>
           <div className="mt-2">
             <TankContextNav current="inventory" />
           </div>
-          <p className="mt-1 text-muted-foreground">
-            On the shelf. Drums you still have. The tank is what is already mixed.
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            When you confirm a pour on Home, the number here goes down on its own.
-          </p>
         </div>
         {!listLoading && pageTotal > 0 ? (
           <Button size="touch" onClick={startAddChemical}>
@@ -367,12 +366,7 @@ export function InventoryPage() {
       ) : null}
 
       {!listLoading && pageTotal === 0 ? (
-        <EmptyState
-          title="Add a chemical"
-          description="A name and a solid content are enough. Then tap Drums arrived and enter the kilograms."
-          actionLabel="Add a chemical"
-          onAction={startAddChemical}
-        />
+        <EmptyState title="Add a chemical" actionLabel="Add a chemical" onAction={startAddChemical} />
       ) : (
         <>
           <ul className="grid gap-3">

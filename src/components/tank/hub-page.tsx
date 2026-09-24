@@ -10,6 +10,7 @@ import { CorrectionPanel } from "@/components/tank/correction-panel";
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { EmptyState, TankLoading } from "@/components/tank/empty-state";
 import { OpeningPanel } from "@/components/tank/opening-panel";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { TankContextNav } from "@/components/tank/tank-context-nav";
 import { AddTankButton, NameTankPanel } from "@/components/tank/tank-switcher";
 import { buildTankBoard, TankBoard } from "@/components/tank/tank-board";
@@ -195,13 +196,14 @@ export function HubPage() {
 
   if (!activeTank) return <NameTankPanel />;
   if (panel !== "home" && !tankReady) {
+    const title = panel === "add" ? "Add to the tank" : panel === "use" ? "Record usage" : "Correct tank readings";
     return (
-      <EmptyState
-        title="Set the opening on Home"
-        description="Add, use, and correct need an opening amount on this tank first."
-        actionLabel="Open tank"
-        actionHref="/tank/"
-      />
+      <div className="space-y-4">
+        <ScreenHeading title={title}>
+          Add, use, and correct need an opening amount on this tank first.
+        </ScreenHeading>
+        <EmptyState title="Set the opening on Home" actionLabel="Open tank" actionHref="/tank/" />
+      </div>
     );
   }
   if (tankReady && panel === "add") {
@@ -246,10 +248,12 @@ export function HubPage() {
   return (
     <div className="space-y-6 pb-4">
       <div>
-        <h1>Tanks</h1>
-        <p className="mt-2 text-muted-foreground">
-          Every tank is listed here. Open one to see its mix. Add, use, and correct apply only to that tank.
-        </p>
+        <ScreenHeading title="Tanks">
+          <p>Every tank is listed here. Open one to see its mix. Add, use, and correct apply only to that tank.</p>
+          <p>Pour drums in. When you confirm, those kilograms leave Inventory.</p>
+          <p>After a job, record usage. Each chemical drops by the same share. Shelf stock stays as it is.</p>
+          <p>Add a polyol, with a name and a solid content, before you add to the tank, fill, or plan a pour.</p>
+        </ScreenHeading>
         <div className="mt-3">
           <TankContextNav current="tank" />
         </div>
@@ -322,26 +326,15 @@ export function HubPage() {
       </div>
 
       {activeChemicals.length === 0 ? (
-        <EmptyState
-          title="Add a polyol first"
-          description="Add a polyol, with a name and a solid content. Then you can add to the tank, fill, or plan a pour."
-          actionLabel="Add a polyol"
-          actionHref="/tank/chemicals/"
-        />
+        <EmptyState title="Add a polyol first" actionLabel="Add a polyol" actionHref="/tank/chemicals/" />
       ) : (
         <div className="space-y-3">
           <Button size="touch" className="w-full" asChild>
             <Link href="/tank/add/">Add to the tank</Link>
           </Button>
-          <p className="text-sm text-muted-foreground">
-            Pour drums in. When you confirm, those kilograms leave Inventory.
-          </p>
           <Button size="touch" variant="secondary" className="w-full" asChild>
             <Link href="/tank/use/">Record usage</Link>
           </Button>
-          <p className="text-sm text-muted-foreground">
-            After a job. Each chemical drops by the same share. Shelf stock stays as it is.
-          </p>
         </div>
       )}
 

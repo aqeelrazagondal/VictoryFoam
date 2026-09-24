@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { ResultCard } from "@/components/tank/result-card";
 import { NeedChemicalHint } from "@/components/tank/need-chemical-hint";
 import { SuggestionList } from "@/components/tank/suggestion-list";
@@ -270,16 +271,18 @@ export function BlendPage() {
 
   return (
     <div className="space-y-5 pb-10">
-      <h1>Blend calculator</h1>
-      <p className="text-muted-foreground">
-        Mix a fresh batch in a drum or mixer. This does not change the tank. Take this off the shelf
-        when those drums are gone. To change what is already in the tank, go back to Home. To try
-        one chemical first, use{" "}
-        <Link href="/tank/planner/" className="font-medium text-primary underline-offset-4 hover:underline">
-          Tank Planner
-        </Link>
-        .
-      </p>
+      <ScreenHeading title="Blend calculator">
+        <p>
+          Mix a fresh batch in a drum or mixer. This does not change the tank. Take this off the shelf
+          when those drums are gone. To change what is already in the tank, go back to Home. To try
+          one chemical first, use{" "}
+          <Link href="/tank/planner/" className="font-medium text-primary underline-offset-4 hover:underline">
+            Tank Planner
+          </Link>
+          .
+        </p>
+        <p>Blend Calculator needs at least two chemicals in the library.</p>
+      </ScreenHeading>
 
       {lastError ? (
         <p className="text-sm text-destructive" role="alert">
@@ -294,12 +297,7 @@ export function BlendPage() {
       ) : null}
 
       {activeChemicals.length === 0 ? (
-        <EmptyState
-          title="Add your first chemical"
-          description="Blend Calculator needs at least two chemicals in the library."
-          actionLabel="Add chemical"
-          actionHref="/tank/chemicals/"
-        />
+        <EmptyState title="Add your first chemical" actionLabel="Add chemical" actionHref="/tank/chemicals/" />
       ) : (
         <StepWizard steps={steps} currentIndex={step} onJump={setStep}>
           {step === 0 ? (

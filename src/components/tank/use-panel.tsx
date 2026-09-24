@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { ConsumptionTable } from "@/components/tank/consumption-table";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { Field } from "@/components/tank/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -95,13 +96,10 @@ export function UsePanel({
 
   return (
     <div className="space-y-5 pb-10">
-      <div>
-        <h1>Record usage</h1>
-        <p className="mt-2 text-muted-foreground">
-          The tank is one mixture, so each chemical is used in the same proportion and the solid
-          content stays the same. This does not change shelf stock.
-        </p>
-      </div>
+      <ScreenHeading title="Record usage">
+        The tank is one mixture, so each chemical is used in the same proportion and the solid
+        content stays the same. This does not change shelf stock.
+      </ScreenHeading>
 
       <p className="text-sm">
         Available to use: <span className="font-medium tabular-nums">{formatQty(available)} kg</span>

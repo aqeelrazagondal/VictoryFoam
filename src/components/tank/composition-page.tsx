@@ -1,6 +1,7 @@
 "use client";
 
 import { EmptyState, TankLoading } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { TankContextNav } from "@/components/tank/tank-context-nav";
 import {
   compositionRows,
@@ -21,16 +22,13 @@ export function CompositionPage() {
   if (!tankReady) {
     return (
       <div className="space-y-4">
-        <h1>Tank composition</h1>
+        <ScreenHeading title="Tank composition">
+          Kilograms of each chemical, taken from the tank log. Set the tank up first.
+        </ScreenHeading>
         <div className="mt-3">
           <TankContextNav current="tank" />
         </div>
-        <EmptyState
-          title="Set up your tank first"
-          description="Kilograms of each chemical, taken from the tank log. Set the tank up first."
-          actionLabel="Open tank"
-          actionHref="/tank/"
-        />
+        <EmptyState title="Set up your tank first" actionLabel="Open tank" actionHref="/tank/" />
       </div>
     );
   }
@@ -45,12 +43,11 @@ export function CompositionPage() {
 
   return (
     <div className="space-y-5 pb-10">
-      <h1>Tank composition</h1>
-      <TankContextNav current="tank" />
-      <p className="text-muted-foreground">
+      <ScreenHeading title="Tank composition">
         Kilograms of each chemical still in the tank. To change a number, use Correct tank readings
         on Tank.
-      </p>
+      </ScreenHeading>
+      <TankContextNav current="tank" />
       <p className="tank-metric">{formatQty(snapshot.volume)} kg</p>
       {snapshot.volume > 0 && rows.length > 0 ? (
         <div className="flex h-3 overflow-hidden rounded-full bg-muted" aria-hidden="true">

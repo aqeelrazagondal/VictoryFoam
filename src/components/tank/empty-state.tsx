@@ -14,7 +14,7 @@ export function EmptyState({
   icon,
 }: {
   title: string;
-  description: string;
+  description?: string;
   actionLabel?: string;
   actionHref?: string;
   onAction?: () => void;
@@ -24,7 +24,7 @@ export function EmptyState({
     <div className="rounded-2xl border border-dashed border-border bg-card/60 px-5 py-10 text-center">
       {icon ? <div className="mb-4 flex justify-center text-primary">{icon}</div> : null}
       <h2 className="font-heading text-xl font-semibold">{title}</h2>
-      <p className="mx-auto mt-2 max-w-md text-muted-foreground">{description}</p>
+      {description ? <p className="mx-auto mt-2 max-w-md text-muted-foreground">{description}</p> : null}
       {actionLabel && actionHref ? (
         <Button asChild size="touch" className="mt-6">
           <Link href={actionHref}>{actionLabel}</Link>

@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { EditableReport, type EditedPour, type ReportSuggestion } from "@/components/tank/editable-report";
 import { EmptyState, Field } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { ResultCard } from "@/components/tank/result-card";
 import { TankSummary } from "@/components/tank/tank-summary";
 import { Button } from "@/components/ui/button";
@@ -143,20 +144,12 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
   if (activeChemicals.length === 0) {
     return (
       <div className="space-y-5 pb-10">
-        <div>
-          <h1>Add to the tank</h1>
-          <p className="mt-2 text-muted-foreground">
-            Add a polyol first. Then you can choose how full the tank should be and the solid
-            content you need.
-          </p>
-        </div>
+        <ScreenHeading title="Add to the tank">
+          <p>Add a polyol first. Then you can choose how full the tank should be and the solid content you need.</p>
+          <p>The calculator needs a polyol, with a name and a solid content, before it can tell you what to pour.</p>
+        </ScreenHeading>
         <TankSummary volume={snapshot.volume} solidPct={snapshot.solidPct} room={room} />
-        <EmptyState
-          title="Add a polyol first"
-          description="The calculator needs a polyol, with a name and a solid content, before it can tell you what to pour."
-          actionLabel="Add a polyol"
-          actionHref="/tank/chemicals/"
-        />
+        <EmptyState title="Add a polyol first" actionLabel="Add a polyol" actionHref="/tank/chemicals/" />
         <Button type="button" variant="outline" size="touch" className="w-full" onClick={onCancel}>
           Back
         </Button>
@@ -166,13 +159,10 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
 
   return (
     <div className="space-y-5 pb-10">
-      <div>
-        <h1>Add to the tank</h1>
-        <p className="mt-2 text-muted-foreground">
-          Enter the total quantity you want in the tank after adding chemicals. Confirming the pour
-          takes those kilograms off the shelf.
-        </p>
-      </div>
+      <ScreenHeading title="Add to the tank">
+        Enter the total quantity you want in the tank after adding chemicals. Confirming the pour
+        takes those kilograms off the shelf.
+      </ScreenHeading>
 
       <ol className="flex gap-2 text-sm" aria-label="Addition steps">
         {["Target", "Chemicals", "Review"].map((label, index) => (

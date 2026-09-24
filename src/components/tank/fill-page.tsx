@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { EditableReport, type EditedPour, type ReportSuggestion } from "@/components/tank/editable-report";
 import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { ResultCard } from "@/components/tank/result-card";
 import { NeedChemicalHint } from "@/components/tank/need-chemical-hint";
 import { SuggestionList } from "@/components/tank/suggestion-list";
@@ -248,13 +249,10 @@ export function FillPage() {
   if (!tankReady) {
     return (
       <div className="space-y-4">
-        <h1>Fill calculator</h1>
-        <EmptyState
-          title="Set up your tank first"
-          description="This tops up a tank that already has something in it. Say what is in the tank on Home first."
-          actionLabel="Open tank"
-          actionHref="/tank/"
-        />
+        <ScreenHeading title="Fill calculator">
+          This tops up a tank that already has something in it. Say what is in the tank on Home first.
+        </ScreenHeading>
+        <EmptyState title="Set up your tank first" actionLabel="Open tank" actionHref="/tank/" />
       </div>
     );
   }
@@ -262,13 +260,10 @@ export function FillPage() {
   if (activeChemicals.length === 0) {
     return (
       <div className="space-y-4">
-        <h1>Fill calculator</h1>
-        <EmptyState
-          title="Add a polyol first"
-          description="Add a polyol, with a name and a solid content. Then Fill can suggest what to pour."
-          actionLabel="Add a polyol"
-          actionHref="/tank/chemicals/"
-        />
+        <ScreenHeading title="Fill calculator">
+          Add a polyol, with a name and a solid content. Then Fill can suggest what to pour.
+        </ScreenHeading>
+        <EmptyState title="Add a polyol first" actionLabel="Add a polyol" actionHref="/tank/chemicals/" />
       </div>
     );
   }
@@ -324,11 +319,12 @@ export function FillPage() {
 
   return (
     <div className="space-y-5 pb-10">
-      <h1>Fill calculator</h1>
-      <p className="text-sm text-muted-foreground">
+      <ScreenHeading title="Fill calculator">
         Home, then Add to the tank, is the shorter way to top up. This screen does the same sums.
-        Tank now: {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}. This is read
-        from the log and cannot be edited here.
+        The tank quantity is read from the log and cannot be edited here.
+      </ScreenHeading>
+      <p className="text-sm text-muted-foreground">
+        Tank now: {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}.
       </p>
 
       {lastError ? (

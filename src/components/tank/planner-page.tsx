@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 
 import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { NeedChemicalHint } from "@/components/tank/need-chemical-hint";
 import { ResultCard } from "@/components/tank/result-card";
 import { Button } from "@/components/ui/button";
@@ -114,13 +115,10 @@ export function PlannerPage() {
   if (!tankReady) {
     return (
       <div className="space-y-4">
-        <h1>Tank planner</h1>
-        <EmptyState
-          title="Set up your tank first"
-          description="This tries one chemical against the tank you already have. Say what is in the tank on Home first. Nothing is saved here."
-          actionLabel="Open tank"
-          actionHref="/tank/"
-        />
+        <ScreenHeading title="Tank planner">
+          This tries one chemical against the tank you already have. Say what is in the tank on Home first. Nothing is saved here.
+        </ScreenHeading>
+        <EmptyState title="Set up your tank first" actionLabel="Open tank" actionHref="/tank/" />
       </div>
     );
   }
@@ -128,13 +126,10 @@ export function PlannerPage() {
   if (activeChemicals.length === 0) {
     return (
       <div className="space-y-4">
-        <h1>Tank planner</h1>
-        <EmptyState
-          title="Add a polyol first"
-          description="Add a polyol, with a name and a solid content. Then Planner can tell you how much of that one drum to pour."
-          actionLabel="Add a polyol"
-          actionHref="/tank/chemicals/"
-        />
+        <ScreenHeading title="Tank planner">
+          Add a polyol, with a name and a solid content. Then Planner can tell you how much of that one drum to pour.
+        </ScreenHeading>
+        <EmptyState title="Add a polyol first" actionLabel="Add a polyol" actionHref="/tank/chemicals/" />
       </div>
     );
   }
@@ -154,19 +149,22 @@ export function PlannerPage() {
 
   return (
     <div className="space-y-5 pb-10">
-      <h1>Tank planner</h1>
-      <p className="text-muted-foreground">
-        Try one chemical before you pour. Nothing is saved here. Planner uses{" "}
-        <strong className="text-foreground">one chemical</strong>. For two or three drums use{" "}
-        <Link href="/tank/fill/" className="font-medium text-primary underline-offset-4 hover:underline">
-          Fill
-        </Link>{" "}
-        (tank already has something) or{" "}
-        <Link href="/tank/blend/" className="font-medium text-primary underline-offset-4 hover:underline">
-          Blend
-        </Link>{" "}
-        (fresh batch). You can still use {formatQty(drawableNow(snapshot.volume, heel))} kg. Log
-        entries: {logCount}.
+      <ScreenHeading title="Tank planner">
+        <p>
+          Try one chemical before you pour. Nothing is saved here. Planner uses one chemical. For two
+          or three drums use{" "}
+          <Link href="/tank/fill/" className="font-medium text-primary underline-offset-4 hover:underline">
+            Fill
+          </Link>{" "}
+          (tank already has something) or{" "}
+          <Link href="/tank/blend/" className="font-medium text-primary underline-offset-4 hover:underline">
+            Blend
+          </Link>{" "}
+          (fresh batch).
+        </p>
+      </ScreenHeading>
+      <p className="text-sm text-muted-foreground">
+        You can still use {formatQty(drawableNow(snapshot.volume, heel))} kg. Log entries: {logCount}.
       </p>
       <div className="grid grid-cols-2 gap-2">
         <Button

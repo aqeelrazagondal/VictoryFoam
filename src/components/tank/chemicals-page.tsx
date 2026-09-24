@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { ListPagination } from "@/components/tank/list-pagination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -168,8 +169,10 @@ export function ChemicalsPage() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1>Chemicals</h1>
-          <p className="mt-1 text-muted-foreground">Manage chemicals and their solid content.</p>
+          <ScreenHeading title="Chemicals">
+            <p>Manage chemicals and their solid content.</p>
+            <p>A name and a solid content are enough. Kilograms go on Shelf stock after that.</p>
+          </ScreenHeading>
         </div>
         {!listLoading && pageTotal > 0 ? (
           <Button size="touch" onClick={startAdd}>
@@ -213,12 +216,7 @@ export function ChemicalsPage() {
       ) : null}
 
       {!listLoading && pageTotal === 0 ? (
-        <EmptyState
-          title="Add your first chemical"
-          description="A name and a solid content are enough. Kilograms go on Shelf stock after that."
-          actionLabel="Add chemical"
-          onAction={startAdd}
-        />
+        <EmptyState title="Add your first chemical" actionLabel="Add chemical" onAction={startAdd} />
       ) : (
         <>
           <ul className="grid gap-3">

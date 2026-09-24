@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 
+import { ScreenHeading } from "@/components/tank/screen-help";
+
 const LINKS = [
   {
     href: "/tank/blend/",
@@ -23,10 +25,7 @@ const LINKS = [
 export function MixPage() {
   return (
     <div className="space-y-6 pb-4">
-      <div>
-        <h1>Mix</h1>
-        <p className="mt-2 text-muted-foreground">Blend a batch, fill the tank, or plan a pour.</p>
-      </div>
+      <ScreenHeading title="Mix">Blend a batch, fill the tank, or plan a pour.</ScreenHeading>
       <ul className="space-y-3">
         {LINKS.map((link) => (
           <li key={link.href}>

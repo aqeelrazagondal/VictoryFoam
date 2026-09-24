@@ -4,6 +4,7 @@ import { ChevronDown, Ellipsis } from "lucide-react";
 import { useState } from "react";
 
 import { Field } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -91,13 +92,10 @@ function TankDraftForm({
 export function NameTankPanel() {
   return (
     <div className="space-y-5 pb-10">
-      <div>
-        <h1>Name your tank</h1>
-        <p className="mt-2 text-muted-foreground">
-          Give this tank a name you will recognise, such as Blend tank. You can add more later.
-          Chemicals and shelf stock stay shared.
-        </p>
-      </div>
+      <ScreenHeading title="Name your tank">
+        Give this tank a name you will recognise, such as Blend tank. You can add more later.
+        Chemicals and shelf stock stay shared.
+      </ScreenHeading>
       <TankDraftForm idPrefix="first-tank" />
     </div>
   );

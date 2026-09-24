@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -261,14 +262,11 @@ export function CorrectionPanel({
 
   return (
     <div className="space-y-5 pb-8">
-      <div>
-        <h1>Correct tank readings</h1>
-        <p className="mt-2 text-muted-foreground">
-          Review the updated readings before saving a correction. Changing the total scales every
-          chemical. Changing one chemical redistributes the others. Changing solid content keeps the
-          total and moves the chemicals.
-        </p>
-      </div>
+      <ScreenHeading title="Correct tank readings">
+        Review the updated readings before saving a correction. Changing the total scales every
+        chemical. Changing one chemical redistributes the others. Changing solid content keeps the
+        total and moves the chemicals.
+      </ScreenHeading>
       <section className="space-y-4 rounded-2xl border border-border bg-card p-4">
         <div className="space-y-2">
           <label htmlFor="tank-total-kg" className="text-sm font-medium">

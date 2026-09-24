@@ -13,6 +13,7 @@ import { ChemicalPicker } from "@/components/tank/chemical-picker";
 import { DeleteConfirm } from "@/components/tank/delete-confirm";
 import { ConsumptionTable } from "@/components/tank/consumption-table";
 import { EmptyState, Field, TankLoading } from "@/components/tank/empty-state";
+import { ScreenHeading } from "@/components/tank/screen-help";
 import { TankContextNav } from "@/components/tank/tank-context-nav";
 import { ListPagination } from "@/components/tank/list-pagination";
 import { Button } from "@/components/ui/button";
@@ -394,13 +395,10 @@ export function LogPage() {
   if (!activeTank || (!tankReady && !listLoading && pageTotal === 0 && factoryJob == null)) {
     return (
       <div className="space-y-4">
-        <h1>Tank log</h1>
-        <EmptyState
-          title="Set up your tank first"
-          description="The log starts when you say what is already in the tank."
-          actionLabel="Open tank"
-          actionHref="/tank/"
-        />
+        <ScreenHeading title="Activity">
+          The log starts when you say what is already in the tank.
+        </ScreenHeading>
+        <EmptyState title="Set up your tank first" actionLabel="Open tank" actionHref="/tank/" />
       </div>
     );
   }
@@ -419,15 +417,14 @@ export function LogPage() {
     <div className="space-y-5 pb-10">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1>Activity</h1>
-          <div className="mt-2">
-            <TankContextNav current="activity" />
-          </div>
-          <p className="text-muted-foreground">
+          <ScreenHeading title="Activity">
             {scope === "tank"
               ? "History for the open tank. Deleting a pour puts those kilograms back on the shelf."
               : "History of every tank. Deleting a pour puts those kilograms back on the shelf."}
-          </p>
+          </ScreenHeading>
+          <div className="mt-2">
+            <TankContextNav current="activity" />
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">
             {formatQty(snapshot.volume)} kg at {formatPct(snapshot.solidPct)}
             {room != null ? ` · room for ${formatQty(room)} kg more` : ""}
