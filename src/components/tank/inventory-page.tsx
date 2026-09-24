@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatLogWhen, formatPct, formatQty } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
+import type { ListSort } from "@/lib/tank/list-query";
 import type { Chemical, ChemicalDraft, StockMovement } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
 import {
-  applyStockMovement,
   createChemical,
   listChemicalsPage,
   listStockMovements,
@@ -110,12 +110,14 @@ function signedQty(movement: StockMovement, unit: string) {
 }
 
 export function InventoryPage() {
-  const { chemicals, refresh, loading } = useTank();
+  const { chemicals, persistStock, refresh, loading } = useTank();
   const [page, setPage] = useState(1);
   const [pageRows, setPageRows] = useState<Chemical[]>([]);
   const [pageTotal, setPageTotal] = useState(0);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<ListSort>("name");
   const [action, setAction] = useState<{ chemical: Chemical; type: ActionType } | null>(null);
   const [quantityText, setQuantityText] = useState("");
   const [note, setNote] = useState("");
@@ -124,6 +126,8 @@ export function InventoryPage() {
   const [wasteConfirm, setWasteConfirm] = useState(false);
   const [historyFor, setHistoryFor] = useState<Chemical | null>(null);
   const [history, setHistory] = useState<StockMovement[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyPage, setHistoryPage] = useState(1);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [reorderText, setReorderText] = useState("");
@@ -142,7 +146,7 @@ export function InventoryPage() {
     let cancelled = false;
     setListLoading(true);
     setListError(null);
-    void listChemicalsPage({ page, pageSize: TANK_LIST_PAGE_SIZE })
+    void listChemicalsPage({ page, pageSize: TANK_LIST_PAGE_SIZE, q: query, sort })
       .then((result) => {
         if (cancelled) return;
         setPageRows(result.rows);
@@ -161,7 +165,7 @@ export function InventoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, chemicals]);
+  }, [page, chemicals, query, sort]);
 
   if (loading) {
     return <TankLoading title="Inventory" />;
@@ -185,13 +189,17 @@ export function InventoryPage() {
 
   async function openHistory(chemical: Chemical) {
     setHistoryFor(chemical);
+    setHistoryPage(1);
     setReorderText(chemical.reorderKg === null ? "" : String(chemical.reorderKg));
     setReorderError(null);
     setHistory([]);
+    setHistoryTotal(0);
     setHistoryError(null);
     setHistoryLoading(true);
     try {
-      setHistory(await listStockMovements(chemical.id));
+      const result = await listStockMovements(chemical.id, { page: 1, pageSize: TANK_LIST_PAGE_SIZE });
+      setHistory(result.rows);
+      setHistoryTotal(result.total);
     } catch (caught) {
       setHistoryError(caught instanceof Error ? caught.message : "Could not load history.");
     } finally {
@@ -245,13 +253,25 @@ export function InventoryPage() {
     setSaving(true);
     setActionError(null);
     try {
-      const movement = await applyStockMovement(action.chemical.id, {
-        type: action.type,
-        quantity,
-        note: note.trim() || null,
-      });
-      await refresh();
-      const left = movement ? formatQty(movement.balanceAfter) : formatQty(quantity);
+      await persistStock([
+        {
+          chemicalId: action.chemical.id,
+          input: {
+            type: action.type,
+            quantity,
+            note: note.trim() || null,
+          },
+        },
+      ]);
+      const left = formatQty(
+        action.type === "count"
+          ? quantity
+          : action.chemical.qtyAvailable == null
+            ? quantity
+            : action.type === "receive"
+              ? action.chemical.qtyAvailable + quantity
+              : action.chemical.qtyAvailable - quantity,
+      );
       setNotice(`${action.chemical.name} now has ${left} ${action.chemical.unit} on the shelf.`);
       setAction(null);
       setWasteConfirm(false);
@@ -311,6 +331,34 @@ export function InventoryPage() {
           {notice}
         </p>
       ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+        <Field id="stock-search" label="Search names">
+          <Input
+            id="stock-search"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+          />
+        </Field>
+        <Field id="stock-sort" label="Sort">
+          <select
+            id="stock-sort"
+            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value === "qty" ? "qty" : "name");
+              setPage(1);
+            }}
+          >
+            <option value="name">Name</option>
+            <option value="qty">On-hand</option>
+          </select>
+        </Field>
+      </div>
+
       {listLoading ? <p className="text-muted-foreground">Loading…</p> : null}
       {listError ? (
         <p className="text-sm text-destructive" role="alert">
@@ -599,8 +647,27 @@ export function InventoryPage() {
                   ))}
                 </ul>
               )}
-              {history.length === 50 ? (
-                <p className="text-sm text-muted-foreground">Showing the latest 50 movements.</p>
+              {historyTotal > TANK_LIST_PAGE_SIZE ? (
+                <ListPagination
+                  page={historyPage}
+                  pageSize={TANK_LIST_PAGE_SIZE}
+                  total={historyTotal}
+                  onPageChange={(next) => {
+                    setHistoryPage(next);
+                    if (!historyFor) return;
+                    setHistoryLoading(true);
+                    void listStockMovements(historyFor.id, { page: next, pageSize: TANK_LIST_PAGE_SIZE })
+                      .then((result) => {
+                        setHistory(result.rows);
+                        setHistoryTotal(result.total);
+                      })
+                      .catch((caught: unknown) => {
+                        setHistoryError(caught instanceof Error ? caught.message : "Could not load history.");
+                      })
+                      .finally(() => setHistoryLoading(false));
+                  }}
+                  label="Stock history pages"
+                />
               ) : null}
             </div>
           ) : null}

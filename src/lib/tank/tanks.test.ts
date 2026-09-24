@@ -8,12 +8,15 @@ import {
   resolveActiveTankId,
 } from "./tanks.ts";
 import type { Tank } from "./models.ts";
+import { emptyBoundSnapshot } from "./writes.ts";
 
 const tank = (patch: Partial<Tank> & Pick<Tank, "id" | "name" | "createdAt">): Tank => ({
   capacity: null,
   heel: 0,
   archivedAt: null,
   updatedAt: patch.createdAt,
+  rowVersion: 1,
+  snapshot: emptyBoundSnapshot(),
   ...patch,
 });
 

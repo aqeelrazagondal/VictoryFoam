@@ -52,6 +52,8 @@ export function ChemicalsPage() {
   const [pageTotal, setPageTotal] = useState(0);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"name" | "newest">("name");
 
   const usedIds = useMemo(() => new Set(loggedChemicalIds), [loggedChemicalIds]);
 
@@ -59,7 +61,7 @@ export function ChemicalsPage() {
     let cancelled = false;
     setListLoading(true);
     setListError(null);
-    void listChemicalsPage({ page, pageSize: TANK_LIST_PAGE_SIZE })
+    void listChemicalsPage({ page, pageSize: TANK_LIST_PAGE_SIZE, q: query, sort })
       .then((result) => {
         if (cancelled) return;
         setPageRows(result.rows);
@@ -78,7 +80,7 @@ export function ChemicalsPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, chemicals]);
+  }, [page, chemicals, query, sort]);
 
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get("suggestPct");
@@ -174,6 +176,33 @@ export function ChemicalsPage() {
             Add chemical
           </Button>
         ) : null}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+        <Field id="chem-search" label="Search names">
+          <Input
+            id="chem-search"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+          />
+        </Field>
+        <Field id="chem-sort" label="Sort">
+          <select
+            id="chem-sort"
+            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value === "newest" ? "newest" : "name");
+              setPage(1);
+            }}
+          >
+            <option value="name">Name</option>
+            <option value="newest">Newest</option>
+          </select>
+        </Field>
       </div>
 
       {listLoading ? <p className="text-muted-foreground">Loading…</p> : null}

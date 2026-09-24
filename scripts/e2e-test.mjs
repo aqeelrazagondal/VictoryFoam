@@ -157,6 +157,10 @@ check("9.4", "theme toggle", /theme|sun|moon/i.test(home));
 const tankHome = readPage("/tank/");
 const tankRoutes = [
   "/tank/",
+  "/tank/add/",
+  "/tank/use/",
+  "/tank/correct/",
+  "/tank/mix/",
   "/tank/chemicals/",
   "/tank/blend/",
   "/tank/blend/setup/",

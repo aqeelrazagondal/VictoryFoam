@@ -23,18 +23,18 @@ Routes live under `src/app/tank/`. Screens live under `src/components/tank/`. Sh
 
 | Tab | Route | Role |
 | --- | --- | --- |
-| Tank | `/tank/` | Live tank: add, use, correct |
+| Tank | `/tank/` | Live tank: opening, add, use, correct |
+| Mix | `/tank/mix/` | Blend, Fill, Planner |
 | Inventory | `/tank/inventory/` | Shelf stock |
 | Activity | `/tank/log/` | Factory log |
-| More | sheet | Blend, Fill, Planner, Chemicals, Composition, setup, guide, theme, sign out |
+| More | sheet | Chemicals, Composition, settings, guide, theme, sign out |
 
-While Add, Record usage, or Correct readings is open, the bottom bar hides. Browser Back closes that panel.
+Add, Record usage, and Correct readings are real routes (`/tank/add/`, `/tank/use/`, `/tank/correct/`). Repeat usage is `/tank/use/?repeat=`. While those screens are open, the bottom bar hides.
 
 **More sheet**
 
-- Calculate: Blend, Fill, Planner.
 - Manage: Chemicals, Composition.
-- Help and preferences: Set up tank / Tank settings, Guide, light/dark theme, Sign out (only when Supabase is configured).
+- Help and preferences: Tank settings, Guide, light/dark theme, Sign out (only when Supabase is configured).
 
 **Old paths**
 
@@ -53,12 +53,14 @@ Short tasks: add chemicals, record usage, correct readings, manage shelf stock, 
 
 **Supabase configured** (`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
 
-- Email and password sign-in for a shared factory account. No public sign-up screen.
-- Forgot password sends a Supabase reset email. The link returns to `/tank/` and asks for a new password.
+- Email and password sign-in for several factory logins that share one dataset. No public sign-up screen.
+- Cloudflare Turnstile (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`) is passed as `captchaToken` on sign-in and password reset. Enable Turnstile in the Supabase Auth captcha settings; the secret stays in the dashboard.
+- Forgot password sends a Supabase reset email. Add `/tank/` to the Auth redirect URLs. The link returns to `/tank/` and asks for a new password.
 - Show / hide password.
 - Session persists and refreshes in the browser. If restore hangs or fails, the sign-in screen offers “Try restoring the session”. If the session ends, a short message asks the operator to sign in again.
 - Sign out is in More.
-- Authenticated users can read and write every tank table (row-level security policies are “authenticated, all”).
+- After a factory account is created in the dashboard, insert its `user_id` into `factory_users`. Only those logins can read or write tank tables. Load failure copy: “This login is not on the factory list.”
+- Writes go through RPCs that call `assert_factory_write()` (about 30 saves per user per minute) and require a `write_key` plus the tank `row_version`. Retry a timeout only with the same write key. A version mismatch is: “This tank was updated on another tablet. Reload and try again.”
 
 **Supabase not configured**
 
@@ -79,7 +81,7 @@ Defined in `src/lib/tank/models.ts`. Cloud shape is in `supabase/migrations/`.
 | --- | --- | --- |
 | Chemical | Shared | Name, solid content %, on-hand quantity (or untracked), unit, optional OH value and viscosity, reorder warning, archive time |
 | Stock movement | Shared (per chemical) | Receive, issue, waste, count, or pour. Signed quantity, balance after, note, optional link to a tank log row |
-| Tank | Per tank | Name, capacity (kg, optional), heel (kg), archive time |
+| Tank | Per tank | Name, capacity (kg, optional), heel (kg), archive time, `row_version`, bound `snapshot` (volume, solid %, remaining-by-chemical, unattributed, has opening) |
 | Tank log entry | Per tank | Date, type, chemical, quantity, solid content, note, created time |
 | Last calculation | Per tank | Last successful Blend inputs, or last successful Fill inputs |
 
@@ -113,7 +115,7 @@ Chemicals and shelf stock are shared. Each tank has its own log, capacity, heel,
 **Create**
 
 - Name is required and must be unique among active tanks (for example “Blend tank”).
-- Tank size in kilograms is optional. When the opening screen has no saved size, the field starts at 8000 kg.
+- Tank size in kilograms is optional. Opening and add fields start empty.
 - Heel defaults to 0.
 
 **Switcher**
@@ -133,7 +135,7 @@ A tank with no log shows the opening panel:
 - Optional tank size and heel.
 - Live mix summary, then save writes the opening balance.
 
-`/tank/setup/` is the older single-line wizard: opening kilograms, solid content %, optional chemical or unattributed, then capacity and heel. It stops once the tank already has a starting amount.
+`/tank/setup/` is capacity and heel only. If the tank has no opening amount, it points back to Home.
 
 **Tank home, after setup**
 
@@ -158,7 +160,7 @@ A tank with no log shows the opening panel:
 - Optional OH value and viscosity.
 - Remove deletes a chemical that has never appeared in a log.
 - Remove archives a chemical that has been logged, so old rows still have a name.
-- The list is paged (`TANK_LIST_PAGE_SIZE`).
+- The list is paged (`TANK_LIST_PAGE_SIZE`) with a search field and a name/newest sort. Queries use `.ilike` / `.order` / `.range()` on Supabase, or `pageOf` on this device.
 - `?suggestPct=` opens Add with that solid content filled in and a name like `POP {percent}`. Blend, Fill, and Planner use this when no chemical on the shelf can reach the target.
 
 Inventory can add a chemical without leaving the stock screen. The chemical picker used by Blend, Fill, Planner, Add, and the log only lists active (not archived) chemicals.
@@ -186,7 +188,7 @@ Shelf only. Receive, issue, waste, and count do not change any tank.
 - Waste asks for confirmation.
 - A preview sentence shows the shelf balance before save.
 - Optional note.
-- History lists every movement, newest first, including pours into a tank and stock put back.
+- History is a paged list (search notes, newest first). There is no 50-row ceiling.
 - Reorder warning (kg) is edited from History.
 
 ---
@@ -228,7 +230,7 @@ Withdraws mass for a job.
 - Shelf stock does not change.
 - The quantity cannot exceed what is available above the heel.
 
-Activity can reopen this panel with the last job’s quantity (`/tank/?repeat={kg}`) on that job’s tank.
+Activity can reopen this panel with the last job’s quantity (`/tank/use/?repeat={kg}`) on that job’s tank.
 
 ---
 
@@ -359,7 +361,7 @@ Enter kilograms and a solid content percent. The planner shows the tank afterwar
 
 `/tank/log/`.
 
-Factory history, newest first, paged. Defaults to the open tank. An All tanks toggle shows the whole factory.
+Factory history, newest first, paged, with a note search and newest/oldest sort. Defaults to the open tank. An All tanks toggle shows the whole factory.
 
 **Latest production**
 
@@ -447,18 +449,18 @@ Usage removes a proportional slice. A pour adds that chemical’s mass and moves
 
 | Function | Effect |
 | --- | --- |
-| `loadFactory` | Chemicals, live tanks, the open tank’s log, one-row overviews for other live tanks, distinct chemicals used in the log, and which tank is open |
-| `listChemicalsPage` / `listLogEntriesPage` | Paged lists |
+| `loadFactory` | Chemicals, live tanks (including snapshot and row_version), overviews, distinct chemicals used in the log, and which tank is open. Does not pull the full active-tank log. |
+| `listChemicalsPage` / `listLogEntriesPage` / `listStockMovements` | Paged lists with optional `q` and `sort` |
 | `latestFactoryProduction` | Newest pour or usage, optionally for one tank |
 | `createChemical` / `updateChemical` / `archiveChemical` / `deleteChemical` | Chemical catalogue |
 | `createTank` / `renameTank` / `removeTank` / `saveTankSettings` | Tanks |
-| `insertLogEntry` / `insertLogEntries` / `updateLogEntry` / `deleteLogEntry` | Tank log. Remote writes go through one Postgres function so an `add_batch` pour and the log row commit together. Do not auto-retry after a timeout |
-| `applyStockMovement` / `applyStockMovements` / `listStockMovements` / `setReorderKg` | Shelf. Several Blend issues are one database call |
+| `insertLogEntry` / `insertLogEntries` / `updateLogEntry` / `deleteLogEntry` | Tank log. Remote writes go through one Postgres function with `write_key` and `expected_version`. Same key returns the stored result. Do not mint a new key to retry a timeout |
+| `applyStockMovement` / `applyStockMovements` / `listStockMovements` / `setReorderKg` | Shelf. Several Blend issues are one database call with a write key |
 | `getLastCalculation` / `saveLastCalculation` | Last Blend or Fill inputs for one tank. Payloads are schema-checked on read |
 
 Errors are `TankError` with a message the screen can show.
 
-`src/lib/tank/context.tsx` loads the factory once, holds the open tank, and exposes `refresh` after every save.
+`src/lib/tank/context.tsx` loads the factory once, holds the open tank, and uses the bound tank snapshot for Hub, composition, and header metrics. Confirm patches that snapshot in memory, then calls the RPC. Network failures enqueue the same write key (`Saved on this tablet, waiting to sync.`). Occupancy rolls back and reloads. Realtime `postgres_changes` plus a `BroadcastChannel` between tabs call `refresh()`; the generation token ignores stale loads.
 
 `src/lib/tank/parse.ts` turns typed decimals into numbers (`28,65` or `28.65`). Thousands may be grouped with spaces or commas (`8,000`). `src/lib/tank/pagination.ts` slices lists. `src/lib/tank/tanks.ts` resolves the active tank and migrates old on-device state.
 

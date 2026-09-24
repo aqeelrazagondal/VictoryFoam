@@ -15,7 +15,7 @@ import {
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
 import { parseNumber } from "@/lib/tank/parse";
-import { insertLogEntry, TankError } from "@/lib/tank/repository";
+import { TankError } from "@/lib/tank/repository";
 import { cn } from "@/lib/utils";
 
 type UseMode = "total" | "rate";
@@ -29,7 +29,7 @@ export function UsePanel({
   onCancel: () => void;
   initialTotal?: number | null;
 }) {
-  const { snapshot, settings, chemicals, activeTank, refresh } = useTank();
+  const { snapshot, settings, chemicals, activeTank, persistLogEntry } = useTank();
   const [mode, setMode] = useState<UseMode>(initialTotal != null && initialTotal > 0 ? "total" : "rate");
   const [totalText, setTotalText] = useState(
     initialTotal != null && initialTotal > 0 ? String(initialTotal) : "",
@@ -75,14 +75,13 @@ export function UsePanel({
     setError(null);
     try {
       if (!activeTank) throw new TankError("Choose a tank first.");
-      await insertLogEntry(activeTank.id, {
+      await persistLogEntry(activeTank.id, {
         type: "consume_usage",
         chemicalId: null,
         quantity,
         solidContentPct: null,
         note: null,
       });
-      await refresh();
       onDone(
         `Remaining tank is ${formatQty(breakdown.leftoverVolume)} kg, still ${formatPct(breakdown.leftoverPct)}.`,
       );
@@ -155,7 +154,7 @@ export function UsePanel({
                 setReviewing(false);
                 setError(null);
               }}
-              placeholder="57"
+              placeholder=""
             />
           </Field>
           <Field id="use-minutes" label="Minutes">
@@ -168,7 +167,7 @@ export function UsePanel({
                 setReviewing(false);
                 setError(null);
               }}
-              placeholder="77"
+              placeholder=""
             />
           </Field>
         </div>

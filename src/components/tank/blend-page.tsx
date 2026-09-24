@@ -35,10 +35,10 @@ import {
 import type { BlendLastCalculation, Chemical } from "@/lib/tank/models";
 import { toChemicalRef } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
-import { applyStockMovements, getLastCalculation, saveLastCalculation, TankError } from "@/lib/tank/repository";
+import { getLastCalculation, saveLastCalculation, TankError } from "@/lib/tank/repository";
 
 export function BlendPage() {
-  const { activeChemicals, activeTank, refresh, loading } = useTank();
+  const { activeChemicals, activeTank, persistStock, loading } = useTank();
   const [step, setStep] = useState(0);
   const [chem1, setChem1] = useState<Chemical | null>(null);
   const [chem2, setChem2] = useState<Chemical | null>(null);
@@ -234,7 +234,7 @@ export function BlendPage() {
     setUsedError(null);
     setUsedMessage(null);
     try {
-      await applyStockMovements(
+      await persistStock(
         lines.map((line) => ({
           chemicalId: line.chemical.id,
           input: {
@@ -244,7 +244,6 @@ export function BlendPage() {
           },
         })),
       );
-      await refresh();
       trackEvent("tank_pour_confirm", { surface: "blend" });
       setRecordedKey(useKey);
       setUsedMessage("Taken off the shelf. The tank was not filled.");

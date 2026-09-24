@@ -15,7 +15,6 @@ import type { Chemical } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
 import {
   createChemical,
-  insertLogEntries,
   saveTankSettings,
   TankError,
 } from "@/lib/tank/repository";
@@ -43,11 +42,11 @@ function isBlank(line: OpeningLine) {
 }
 
 export function OpeningPanel() {
-  const { activeChemicals, settings, activeTank, refresh } = useTank();
+  const { activeChemicals, settings, activeTank, persistLogEntries } = useTank();
   const [lines, setLines] = useState<OpeningLine[]>([blankLine("line-1")]);
   const [nextKey, setNextKey] = useState(2);
   const [capacityText, setCapacityText] = useState(
-    settings?.capacity != null ? String(settings.capacity) : "8000",
+    settings?.capacity != null ? String(settings.capacity) : "",
   );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -173,7 +172,7 @@ export function OpeningPanel() {
 
       if (!activeTank) throw new TankError("Choose a tank first.");
       await saveTankSettings(activeTank.id, { capacity, heel: settings?.heel ?? 0 });
-      await insertLogEntries(
+      await persistLogEntries(
         activeTank.id,
         rows.map((row) => ({
           type: "opening_balance" as const,
@@ -183,7 +182,6 @@ export function OpeningPanel() {
           note: null,
         })),
       );
-      await refresh();
     } catch (caught) {
       setError(caught instanceof TankError ? caught.message : "Could not save the tank.");
     } finally {
@@ -376,7 +374,7 @@ function OpeningLineFields({
               inputMode="decimal"
               value={line.kg}
               onChange={(event) => onChange({ kg: event.target.value })}
-              placeholder="700"
+              placeholder=""
             />
           </Field>
         </div>

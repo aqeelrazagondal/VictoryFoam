@@ -3,7 +3,8 @@ import type {
   FillLastCalculation,
   Tank,
   TankLogEntry,
-} from "@/lib/tank/models";
+} from "./models.ts";
+import { emptyBoundSnapshot, parseBoundSnapshot } from "./writes.ts";
 
 export const ACTIVE_TANK_STORAGE_KEY = "victory-foam-active-tank";
 export const LEGACY_TANK_NAME = "Tank";
@@ -34,6 +35,8 @@ function normalizeStoredTank(value: unknown): Tank | null {
     archivedAt: typeof value.archivedAt === "string" ? value.archivedAt : null,
     createdAt: typeof value.createdAt === "string" ? value.createdAt : new Date(0).toISOString(),
     updatedAt: typeof value.updatedAt === "string" ? value.updatedAt : new Date(0).toISOString(),
+    rowVersion: typeof value.rowVersion === "number" && Number.isFinite(value.rowVersion) ? value.rowVersion : 1,
+    snapshot: parseBoundSnapshot(value.snapshot) ?? emptyBoundSnapshot(),
   };
 }
 
@@ -112,6 +115,8 @@ export function migrateStoredTankState(raw: unknown, newTankId: string): Migrate
     archivedAt: null,
     createdAt: now,
     updatedAt: now,
+    rowVersion: 1,
+    snapshot: emptyBoundSnapshot(),
   };
   return {
     migrated: true,

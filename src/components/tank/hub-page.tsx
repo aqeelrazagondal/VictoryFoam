@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 
 import { AddPanel } from "@/components/tank/add-panel";
 import { useWorkflowChrome } from "@/components/tank/app-shell";
@@ -28,17 +29,14 @@ import {
   type CompositionAmounts,
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
-import {
-  clearHubPanel,
-  readHubPanel,
-  writeHubPanel,
-} from "@/lib/tank/drafts";
 import { parseNumber } from "@/lib/tank/parse";
-import { insertLogEntry, TankError } from "@/lib/tank/repository";
+import { TankError } from "@/lib/tank/repository";
 
 type Panel = "home" | "add" | "use" | "correct";
 
 export function HubPage() {
+  const pathname = usePathname();
+  const router = useRouter();
   const {
     loading,
     chemicals,
@@ -46,19 +44,22 @@ export function HubPage() {
     tankReady,
     snapshot,
     settings,
-    entries,
-    allEntries,
     overviews,
     activeTank,
     tanks,
-    refresh,
+    persistLogEntry,
     selectTank,
   } = useTank();
   const setWorkflow = useWorkflowChrome();
-  const [panel, setPanel] = useState<Panel>("home");
+  const panel: Panel = pathname.includes("/tank/add")
+    ? "add"
+    : pathname.includes("/tank/use")
+      ? "use"
+      : pathname.includes("/tank/correct")
+        ? "correct"
+        : "home";
   const [notice, setNotice] = useState<string | null>(null);
   const [repeatKg, setRepeatKg] = useState<number | null>(null);
-  const repeatApplied = useRef(false);
   const [volumeText, setVolumeText] = useState("");
   const [massDraft, setMassDraft] = useState<CompositionAmounts | null>(null);
   const [massError, setMassError] = useState<string | null>(null);
@@ -98,8 +99,8 @@ export function HubPage() {
   const massDirty = massDraft != null && !amountsEqual(massDraft, amounts);
   const heel = settings?.heel ?? 0;
   const board = useMemo(
-    () => buildTankBoard(tanks, allEntries, activeTank?.id ?? null, entries, names, overviews),
-    [activeTank?.id, allEntries, entries, names, overviews, tanks],
+    () => buildTankBoard(tanks, [], activeTank?.id ?? null, [], names, overviews),
+    [activeTank?.id, names, overviews, tanks],
   );
   useEffect(() => {
     if (massDraft) return;
@@ -135,7 +136,7 @@ export function HubPage() {
     setSavingMass(true);
     setMassError(null);
     try {
-      await insertLogEntry(activeTank.id, {
+      await persistLogEntry(activeTank.id, {
         type: "adjust_composition",
         chemicalId: null,
         quantity: massDraft.volume,
@@ -147,7 +148,6 @@ export function HubPage() {
       });
       setMassDraft(null);
       setReviewingMass(false);
-      await refresh();
       setNotice("Saved the new kilograms on Home.");
     } catch (caught) {
       setMassError(caught instanceof TankError ? caught.message : "Could not save this change.");
@@ -162,32 +162,14 @@ export function HubPage() {
   }, [panel, setWorkflow]);
 
   useEffect(() => {
-    const repeat = new URLSearchParams(window.location.search).get("repeat");
-    const parsed = repeat == null ? null : Number(repeat);
-    if (parsed != null && Number.isFinite(parsed) && parsed > 0) {
-      repeatApplied.current = true;
-      setRepeatKg(parsed);
-      setPanel("use");
-      window.history.replaceState(window.history.state, "", "/tank/");
+    if (!pathname.includes("/tank/use")) {
+      setRepeatKg(null);
       return;
     }
-    if (repeatApplied.current) {
-      repeatApplied.current = false;
-      return;
-    }
-    const restored = activeTank ? readHubPanel(activeTank.id) : null;
-    setRepeatKg(null);
-    setPanel(restored ?? "home");
-  }, [activeTank]);
-
-  useEffect(() => {
-    function onPop() {
-      if (activeTank) clearHubPanel(activeTank.id);
-      setPanel("home");
-    }
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, [activeTank]);
+    const raw = new URLSearchParams(window.location.search).get("repeat");
+    const parsed = raw == null ? null : Number(raw);
+    setRepeatKg(parsed != null && Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+  }, [pathname]);
 
   async function openTank(id: string) {
     if (!activeTank || id === activeTank.id || openingTankId) return;
@@ -202,26 +184,9 @@ export function HubPage() {
     }
   }
 
-  function openPanel(next: Exclude<Panel, "home">) {
-    window.history.pushState({ tankFlow: next }, "");
-    if (activeTank) writeHubPanel(activeTank.id, next);
-    setNotice(null);
-    setPanel(next);
-  }
-
-  function closePanel() {
-    if (activeTank) clearHubPanel(activeTank.id);
-    const state = window.history.state as { tankFlow?: string } | null;
-    if (state?.tankFlow) {
-      window.history.back();
-      return;
-    }
-    setPanel("home");
-  }
-
   function goHome() {
-    if (activeTank) clearHubPanel(activeTank.id);
-    setPanel("home");
+    setNotice(null);
+    router.push("/tank/");
   }
 
   if (loading) {
@@ -229,10 +194,20 @@ export function HubPage() {
   }
 
   if (!activeTank) return <NameTankPanel />;
+  if (panel !== "home" && !tankReady) {
+    return (
+      <EmptyState
+        title="Set the opening on Home"
+        description="Add, use, and correct need an opening amount on this tank first."
+        actionLabel="Open tank"
+        actionHref="/tank/"
+      />
+    );
+  }
   if (tankReady && panel === "add") {
     return (
       <AddPanel
-        onCancel={closePanel}
+        onCancel={goHome}
         onDone={(message) => {
           setNotice(message);
           goHome();
@@ -246,7 +221,7 @@ export function HubPage() {
         initialTotal={repeatKg}
         onCancel={() => {
           setRepeatKg(null);
-          closePanel();
+          goHome();
         }}
         onDone={(message) => {
           setRepeatKg(null);
@@ -259,7 +234,7 @@ export function HubPage() {
   if (tankReady && panel === "correct") {
     return (
       <CorrectionPanel
-        onCancel={closePanel}
+        onCancel={goHome}
         onDone={(message) => {
           setNotice(message);
           goHome();
@@ -355,14 +330,14 @@ export function HubPage() {
         />
       ) : (
         <div className="space-y-3">
-          <Button size="touch" className="w-full" onClick={() => openPanel("add")}>
-            Add to the tank
+          <Button size="touch" className="w-full" asChild>
+            <Link href="/tank/add/">Add to the tank</Link>
           </Button>
           <p className="text-sm text-muted-foreground">
             Pour drums in. When you confirm, those kilograms leave Inventory.
           </p>
-          <Button size="touch" variant="secondary" className="w-full" onClick={() => openPanel("use")}>
-            Record usage
+          <Button size="touch" variant="secondary" className="w-full" asChild>
+            <Link href="/tank/use/">Record usage</Link>
           </Button>
           <p className="text-sm text-muted-foreground">
             After a job. Each chemical drops by the same share. Shelf stock stays as it is.
@@ -370,8 +345,8 @@ export function HubPage() {
         </div>
       )}
 
-      <Button type="button" variant="outline" size="touch" className="w-full" onClick={() => openPanel("correct")}>
-        Correct tank readings
+      <Button type="button" variant="outline" size="touch" className="w-full" asChild>
+        <Link href="/tank/correct/">Correct tank readings</Link>
       </Button>
       </>
       ) : null}

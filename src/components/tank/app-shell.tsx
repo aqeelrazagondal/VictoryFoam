@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { CircleHelp, Droplets, Ellipsis, History, LogOut, Warehouse } from "lucide-react";
+import { CircleHelp, Droplets, Ellipsis, FlaskConical, History, LogOut, Warehouse } from "lucide-react";
 
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { TankNameLabel, TankSwitcher } from "@/components/tank/tank-switcher";
@@ -21,19 +21,12 @@ export function useWorkflowChrome() {
 
 const PRIMARY = [
   { href: "/tank/", label: "Tank", icon: Droplets },
+  { href: "/tank/mix/", label: "Mix", icon: FlaskConical, match: ["/tank/mix", "/tank/blend", "/tank/fill", "/tank/planner"] },
   { href: "/tank/inventory/", label: "Inventory", icon: Warehouse },
   { href: "/tank/log/", label: "Activity", icon: History },
 ] as const;
 
 const MORE_GROUPS = [
-  {
-    label: "Calculate",
-    links: [
-      { href: "/tank/blend/", label: "Blend" },
-      { href: "/tank/fill/", label: "Fill" },
-      { href: "/tank/planner/", label: "Planner" },
-    ],
-  },
   {
     label: "Manage",
     links: [
@@ -43,21 +36,22 @@ const MORE_GROUPS = [
   },
 ] as const;
 
-function isActive(pathname: string, href: string) {
+function isActive(pathname: string, href: string, match?: readonly string[]) {
+  if (match) return match.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`) || pathname === `${prefix}`);
   if (href === "/tank/") return pathname === "/tank" || pathname === "/tank/";
   return pathname === href || pathname === href.replace(/\/$/, "");
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { tankReady, loading, error, retry } = useTank();
+  const { tankReady, loading, error, retry, syncNotice } = useTank();
   const configured = isSupabaseConfigured();
   const [moreOpen, setMoreOpen] = useState(false);
   const [workflowOpen, setWorkflowOpen] = useState(false);
 
   const setupLink = {
     href: "/tank/setup/",
-    label: tankReady ? "Tank settings" : "Set up tank",
+    label: "Tank settings",
   };
   const moreHrefs = [
     ...MORE_GROUPS.flatMap((group) => group.links.map((link) => link.href)),
@@ -112,6 +106,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               Data is stored on this device until Supabase keys are added.
             </p>
           )}
+          {syncNotice ? (
+            <p className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm" role="status">
+              {syncNotice}
+            </p>
+          ) : null}
           {error ? (
             <div
               className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3"
@@ -137,9 +136,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             data-tank-state={loading ? "loading" : tankReady ? "ready" : "empty"}
             className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background pb-[env(safe-area-inset-bottom,0px)]"
           >
-            <ul className="mx-auto grid w-full max-w-xl grid-cols-4 md:max-w-3xl lg:max-w-[48rem]">
+            <ul className="mx-auto grid w-full max-w-xl grid-cols-5 md:max-w-3xl lg:max-w-[48rem]">
               {PRIMARY.map((item) => {
-                const current = isActive(pathname, item.href);
+                const current = isActive(pathname, item.href, "match" in item ? item.match : undefined);
                 const Icon = item.icon;
                 return (
                   <li key={item.href}>

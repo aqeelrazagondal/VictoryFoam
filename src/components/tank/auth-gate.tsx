@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "rea
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TurnstileField, turnstileSiteKey } from "@/components/tank/turnstile-field";
 import { trackEvent } from "@/lib/analytics";
 import { getSupabaseBrowser, isSupabaseConfigured } from "@/lib/tank/client";
 
@@ -21,6 +22,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const hadSession = useRef(false);
   const restoreRequest = useRef(0);
 
@@ -98,9 +100,15 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setSubmitting(true);
     setError(null);
     try {
+      if (turnstileSiteKey() && !captchaToken) {
+        setError("Complete the check before signing in.");
+        setSubmitting(false);
+        return;
+      }
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
+        options: captchaToken ? { captchaToken } : undefined,
       });
       if (signInError) {
         setError(signInError.message);
@@ -124,8 +132,14 @@ export function AuthGate({ children }: { children: ReactNode }) {
     setError(null);
     setNotice(null);
     try {
+      if (turnstileSiteKey() && !captchaToken) {
+        setError("Complete the check before sending a reset link.");
+        setSubmitting(false);
+        return;
+      }
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: `${window.location.origin}/tank/`,
+        captchaToken: captchaToken ?? undefined,
       });
       if (resetError) {
         setError(resetError.message);
@@ -267,6 +281,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
               {error}
             </p>
           ) : null}
+          {mode !== "recover" ? <TurnstileField onToken={setCaptchaToken} /> : null}
           <Button type="submit" size="touch" className="w-full" disabled={submitting}>
             {submitting
               ? mode === "forgot"

@@ -20,7 +20,7 @@ import {
 } from "@/lib/calculations";
 import { useTank } from "@/lib/tank/context";
 import { parseNumber } from "@/lib/tank/parse";
-import { insertLogEntry, TankError } from "@/lib/tank/repository";
+import { TankError } from "@/lib/tank/repository";
 
 function formatEditableNumber(value: number) {
   return new Intl.NumberFormat("en-ZA", {
@@ -96,7 +96,7 @@ export function CorrectionPanel({
   onDone: (message: string) => void;
   onCancel: () => void;
 }) {
-  const { chemicals, snapshot, settings, activeTank, refresh } = useTank();
+  const { chemicals, snapshot, settings, activeTank, persistLogEntry } = useTank();
   const [draft, setDraft] = useState<CompositionAmounts | null>(null);
   const [volumeText, setVolumeText] = useState("");
   const [solidText, setSolidText] = useState("");
@@ -242,7 +242,7 @@ export function CorrectionPanel({
     setSaveError(null);
     try {
       if (!activeTank) throw new TankError("Choose a tank first.");
-      await insertLogEntry(activeTank.id, {
+      await persistLogEntry(activeTank.id, {
         type: "adjust_composition",
         chemicalId: null,
         quantity: draft.volume,
@@ -252,7 +252,6 @@ export function CorrectionPanel({
           unattributed: draft.unattributed,
         }),
       });
-      await refresh();
       onDone("Saved the new kilograms on Home.");
     } catch (caught) {
       setSaveError(caught instanceof TankError ? caught.message : "Could not save this change.");

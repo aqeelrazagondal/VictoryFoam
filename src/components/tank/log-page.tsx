@@ -40,17 +40,14 @@ import {
 } from "@/lib/calculations";
 import { trackEvent } from "@/lib/analytics";
 import { useTank } from "@/lib/tank/context";
+import type { ListSort } from "@/lib/tank/list-query";
 import type { Chemical, TankLogDraft, TankLogEntry } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
 import {
-  deleteLogEntry,
-  insertLogEntries,
-  insertLogEntry,
   latestFactoryProduction,
   listLogEntriesPage,
   TANK_LIST_PAGE_SIZE,
   TankError,
-  updateLogEntry,
 } from "@/lib/tank/repository";
 
 /** Labels in the add/edit sheet (action names). */
@@ -92,7 +89,21 @@ function lastProductionHeadline(
 
 export function LogPage() {
   const router = useRouter();
-  const { tankReady, snapshot, settings, entries, activeChemicals, chemicals, activeTank, tanks, selectTank, refresh, loading } = useTank();
+  const {
+    tankReady,
+    snapshot,
+    settings,
+    activeChemicals,
+    chemicals,
+    activeTank,
+    tanks,
+    selectTank,
+    persistLogEntries,
+    persistLogEntry,
+    persistReplaceLog,
+    persistDeleteLog,
+    loading,
+  } = useTank();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TankLogEntry | null>(null);
   const [type, setType] = useState<LogEntryType>("add_batch");
@@ -118,6 +129,8 @@ export function LogPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [scope, setScope] = useState<"tank" | "factory">("tank");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<ListSort>("newest");
 
   const heel = settings?.heel ?? 0;
   const capacity = settings?.capacity ?? null;
@@ -136,7 +149,7 @@ export function LogPage() {
     setListLoading(true);
     setListError(null);
     void Promise.all([
-      listLogEntriesPage(listTankId, { page, pageSize: TANK_LIST_PAGE_SIZE }),
+      listLogEntriesPage(listTankId, { page, pageSize: TANK_LIST_PAGE_SIZE, q: query, sort }),
       latestFactoryProduction(listTankId),
     ])
       .then(([result, job]) => {
@@ -158,7 +171,7 @@ export function LogPage() {
     return () => {
       cancelled = true;
     };
-  }, [page, entries, listTankId]);
+  }, [page, listTankId, query, sort]);
 
   function tankLabel(tankId: string) {
     return tanks.find((tank) => tank.id === tankId)?.name ?? "Tank";
@@ -169,7 +182,7 @@ export function LogPage() {
     setRepeating(true);
     try {
       await selectTank(lastProduction.tankId);
-      router.push(`/tank/?repeat=${lastProduction.quantity}`);
+      router.push(`/tank/use/?repeat=${lastProduction.quantity}`);
     } finally {
       setRepeating(false);
     }
@@ -260,7 +273,7 @@ export function LogPage() {
       try {
         setSaving(true);
         if (!activeTank) throw new TankError("Choose a tank first.");
-        await insertLogEntries(
+        await persistLogEntries(
           activeTank.id,
           parsed.rows.map((row, index) => ({
             type,
@@ -274,12 +287,9 @@ export function LogPage() {
               : {}),
           })),
         );
-        setPage(1);
-        await refresh();
         setOpen(false);
       } catch (caught) {
         setError(caught instanceof TankError ? caught.message : "Could not save the entry.");
-        trackEvent("tank_save_fail", { surface: "activity" });
         trackEvent("tank_save_fail", { surface: "activity" });
       } finally {
         setSaving(false);
@@ -349,12 +359,11 @@ export function LogPage() {
     try {
       setSaving(true);
       if (!activeTank) throw new TankError("Choose a tank first.");
-      if (editing) await updateLogEntry(editing.id, draft);
+      if (editing) await persistReplaceLog(editing.id, draft);
       else {
-        await insertLogEntry(activeTank.id, draft);
+        await persistLogEntry(activeTank.id, draft);
         setPage(1);
       }
-      await refresh();
       setOpen(false);
     } catch (caught) {
       setError(caught instanceof TankError ? caught.message : "Could not save the entry.");
@@ -369,8 +378,7 @@ export function LogPage() {
     setDeleteError(null);
     setDeleting(true);
     try {
-      await deleteLogEntry(id);
-      await refresh();
+      await persistDeleteLog(id);
       setPendingDeleteId(null);
     } catch (caught) {
       setDeleteError(caught instanceof TankError ? caught.message : "Could not delete this entry.");
@@ -457,6 +465,33 @@ export function LogPage() {
         >
           All tanks
         </Button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+        <Field id="log-search" label="Search notes">
+          <Input
+            id="log-search"
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setPage(1);
+            }}
+          />
+        </Field>
+        <Field id="log-sort" label="Sort">
+          <select
+            id="log-sort"
+            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm"
+            value={sort}
+            onChange={(event) => {
+              setSort(event.target.value === "oldest" ? "oldest" : "newest");
+              setPage(1);
+            }}
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </Field>
       </div>
 
       {isHeelBreach(snapshot.volume, heel) ? (
@@ -627,7 +662,7 @@ export function LogPage() {
                         chemicalName,
                         snapshot.volume,
                         snapshot.solidPct,
-                        entries,
+                        [],
                       ).map((line) => (
                         <p key={line}>{line}</p>
                       ))}
@@ -876,18 +911,21 @@ function logDeleteCopy(
     note?: string | null;
   }[],
 ) {
-  const next = replayLog(
-    entries
-      .filter((item) => item.id !== entry.id)
-      .map((item) => ({
-        id: item.id,
-        type: item.type,
-        chemicalId: item.chemicalId,
-        quantity: item.quantity,
-        solidContentPct: item.solidContentPct,
-        note: item.note,
-      })),
-  );
+  const next =
+    entries.length === 0
+      ? null
+      : replayLog(
+          entries
+            .filter((item) => item.id !== entry.id)
+            .map((item) => ({
+              id: item.id,
+              type: item.type,
+              chemicalId: item.chemicalId,
+              quantity: item.quantity,
+              solidContentPct: item.solidContentPct,
+              note: item.note,
+            })),
+        );
   const amount = `${formatQty(entry.quantity)} kg${
     entry.solidContentPct !== null ? ` at ${formatPct(entry.solidContentPct)}` : ""
   }`;
@@ -905,7 +943,7 @@ function logDeleteCopy(
     `This removes the ${deleteNoun[entry.type]} of ${what} from the log.`,
   ];
 
-  if (entry.type === "opening_balance" && !next.hasOpeningBalance) {
+  if (next && entry.type === "opening_balance" && !next.hasOpeningBalance) {
     lines.push(
       "This row is the start of the tank. After it is gone, Home asks what is already in the tank before you can fill again. Later rows stay in the log and are counted from an empty tank.",
     );
@@ -919,12 +957,17 @@ function logDeleteCopy(
     lines.push("The tank is counted again from the rows that remain.");
   }
 
-  lines.push(
-    `The tank will show ${formatQty(next.volume)} kg at ${formatPct(next.solidPct)}, instead of ${formatQty(currentVolume)} kg at ${formatPct(currentPct)}.`,
-  );
-
-  const problem = next.errors[0]?.reason;
-  if (problem) lines.push(`The log will also show this problem: ${problem}`);
+  if (next) {
+    lines.push(
+      `The tank will show ${formatQty(next.volume)} kg at ${formatPct(next.solidPct)}, instead of ${formatQty(currentVolume)} kg at ${formatPct(currentPct)}.`,
+    );
+    const problem = next.errors[0]?.reason;
+    if (problem) lines.push(`The log will also show this problem: ${problem}`);
+  } else {
+    lines.push(
+      `The tank is now ${formatQty(currentVolume)} kg at ${formatPct(currentPct)}. After this row is gone, Home reloads the mix from the remaining log.`,
+    );
+  }
 
   lines.push("This cannot be undone. You would have to type the row again.");
   return lines;

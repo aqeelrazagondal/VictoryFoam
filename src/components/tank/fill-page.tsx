@@ -41,11 +41,11 @@ import {
 import type { Chemical, FillLastCalculation } from "@/lib/tank/models";
 import { toChemicalRef } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
-import { getLastCalculation, insertLogEntries, saveLastCalculation } from "@/lib/tank/repository";
+import { getLastCalculation, saveLastCalculation } from "@/lib/tank/repository";
 
 export function FillPage() {
   const router = useRouter();
-  const { tankReady, snapshot, settings, activeChemicals, activeTank, refresh, loading } = useTank();
+  const { tankReady, snapshot, settings, activeChemicals, activeTank, persistLogEntries, loading } = useTank();
   const [step, setStep] = useState(0);
   const [targetVolume, setTargetVolume] = useState("");
   const [targetPct, setTargetPct] = useState("");
@@ -292,7 +292,7 @@ export function FillPage() {
     setLogging(true);
     setLogError(null);
     try {
-      await insertLogEntries(
+      await persistLogEntries(
         activeTank.id,
         lines
           .filter((line) => line.quantity > 1e-9)
@@ -304,7 +304,6 @@ export function FillPage() {
             note: "Fill calculator",
           })),
       );
-      await refresh();
       trackEvent("tank_pour_confirm", { surface: "fill" });
       if (tankId) clearJsonDraft(draftStorageKey("fill", tankId));
       router.push("/tank/log/");
@@ -386,7 +385,7 @@ export function FillPage() {
                   setChemA(null);
                   setChemB(null);
                 }}
-                placeholder="8000"
+                placeholder=""
               />
             </Field>
             {amountToAdd != null ? (

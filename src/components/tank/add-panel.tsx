@@ -25,7 +25,7 @@ import { trackEvent } from "@/lib/analytics";
 import { useTank } from "@/lib/tank/context";
 import type { Chemical } from "@/lib/tank/models";
 import { parseNumber } from "@/lib/tank/parse";
-import { insertLogEntries, saveTankSettings, TankError } from "@/lib/tank/repository";
+import { saveTankSettings, TankError } from "@/lib/tank/repository";
 import { cn } from "@/lib/utils";
 
 type PolyolMode = "one" | "two" | "three";
@@ -47,10 +47,10 @@ const MODES: { id: PolyolMode; label: string }[] = [
 ];
 
 export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => void; onCancel: () => void }) {
-  const { snapshot, settings, activeChemicals, activeTank, refresh } = useTank();
+  const { snapshot, settings, activeChemicals, activeTank, persistLogEntries } = useTank();
   const [mode, setMode] = useState<PolyolMode>("two");
   const [capacityText, setCapacityText] = useState(
-    settings?.capacity != null ? String(settings.capacity) : "8000",
+    settings?.capacity != null ? String(settings.capacity) : "",
   );
   const [targetVolume, setTargetVolume] = useState("");
   const [targetPctText, setTargetPctText] = useState("");
@@ -118,7 +118,7 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
       if (settings?.capacity == null && capacity != null) {
         await saveTankSettings(activeTank.id, { capacity, heel: settings?.heel ?? 0 });
       }
-      await insertLogEntries(
+      await persistLogEntries(
         activeTank.id,
         lines
           .filter((line) => line.quantity > 1e-6)
@@ -130,7 +130,6 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
             note: null,
           })),
       );
-      await refresh();
       trackEvent("tank_pour_confirm", { surface: "add" });
       onDone(`The tank is now ${formatQty(preview.volume)} kg at ${formatPct(preview.solidPct)}.`);
     } catch (caught) {
@@ -241,7 +240,7 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
             inputMode="decimal"
             value={targetVolume}
             onChange={(event) => setTargetVolume(event.target.value)}
-            placeholder="8000"
+            placeholder=""
           />
           {parseNumber(targetVolume) != null ? (
             <p className="mt-2 text-sm">
@@ -263,7 +262,7 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
             inputMode="decimal"
             value={useAbout}
             onChange={(event) => onUseAboutChange(event.target.value)}
-            placeholder="4389"
+            placeholder=""
           />
         </Field>
 
@@ -273,7 +272,7 @@ export function AddPanel({ onDone, onCancel }: { onDone: (message: string) => vo
             inputMode="decimal"
             value={targetPctText}
             onChange={(event) => setTargetPctText(event.target.value)}
-            placeholder="28,65"
+            placeholder=""
           />
         </Field>
       </div>

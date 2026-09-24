@@ -1,4 +1,5 @@
-import type { LogEntryType } from "@/lib/calculations";
+import type { LogEntryType } from "../calculations/types.ts";
+import type { BoundTankSnapshot } from "./writes.ts";
 
 export type Chemical = {
   id: string;
@@ -63,6 +64,8 @@ export type Tank = {
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  rowVersion: number;
+  snapshot: BoundTankSnapshot;
 };
 
 export type TankLogEntry = {

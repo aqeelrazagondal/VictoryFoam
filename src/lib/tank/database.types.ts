@@ -133,6 +133,7 @@ export type Database = {
           solid_content_pct: number | null;
           tank_id: string;
           type: "opening_balance" | "add_batch" | "consume_usage" | "adjust_composition";
+          write_key: string | null;
         };
         Insert: {
           chemical_id?: string | null;
@@ -144,6 +145,7 @@ export type Database = {
           solid_content_pct?: number | null;
           tank_id: string;
           type: "opening_balance" | "add_batch" | "consume_usage" | "adjust_composition";
+          write_key?: string | null;
         };
         Update: {
           chemical_id?: string | null;
@@ -155,6 +157,7 @@ export type Database = {
           solid_content_pct?: number | null;
           tank_id?: string;
           type?: "opening_balance" | "add_batch" | "consume_usage" | "adjust_composition";
+          write_key?: string | null;
         };
         Relationships: [
           {
@@ -181,6 +184,8 @@ export type Database = {
           heel: number;
           id: string;
           name: string;
+          row_version: number;
+          snapshot: Json;
           updated_at: string;
         };
         Insert: {
@@ -190,6 +195,8 @@ export type Database = {
           heel?: number;
           id?: string;
           name: string;
+          row_version?: number;
+          snapshot?: Json;
           updated_at?: string;
         };
         Update: {
@@ -199,7 +206,24 @@ export type Database = {
           heel?: number;
           id?: string;
           name?: string;
+          row_version?: number;
+          snapshot?: Json;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      factory_users: {
+        Row: {
+          created_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          user_id?: string;
         };
         Relationships: [];
       };
@@ -229,6 +253,7 @@ export type Database = {
       apply_stock_movements: {
         Args: {
           p_moves: Json;
+          p_write_key: string;
         };
         Returns: Json;
       };
@@ -238,10 +263,16 @@ export type Database = {
         };
         Returns: Json;
       };
+      is_factory_member: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
       insert_tank_log_entries: {
         Args: {
           p_tank_id: string;
           p_entries: Json;
+          p_write_key: string;
+          p_expected_version: number;
         };
         Returns: Json;
       };
@@ -249,14 +280,18 @@ export type Database = {
         Args: {
           p_id: string;
           p_entry: Json;
+          p_write_key: string;
+          p_expected_version: number;
         };
         Returns: Json;
       };
       delete_tank_log_entry: {
         Args: {
           p_id: string;
+          p_write_key: string;
+          p_expected_version: number;
         };
-        Returns: undefined;
+        Returns: Json;
       };
     };
     Enums: Record<string, never>;
