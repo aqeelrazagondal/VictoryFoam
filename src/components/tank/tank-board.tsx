@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { TankActionsMenu } from "@/components/tank/tank-switcher";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   compositionRows,
@@ -15,6 +16,9 @@ import {
 } from "@/lib/calculations";
 import { logSourceForTank, type TankLogOverview } from "@/lib/tank/board";
 import type { Tank, TankLogEntry } from "@/lib/tank/models";
+import { boundToTankSnapshot } from "@/lib/tank/writes";
+
+type ChemicalName = { name: string; unit: string; solidContentPct?: number };
 
 export type TankBoardItem = {
   tank: Tank;
@@ -31,7 +35,7 @@ export function buildTankBoard(
   allEntries: TankLogEntry[],
   activeTankId: string | null,
   activeEntries: TankLogEntry[],
-  names: Record<string, { name: string; unit: string }>,
+  names: Record<string, ChemicalName>,
   overviews: TankLogOverview[] = [],
 ): TankBoardItem[] {
   return tanks.map((tank) => {
@@ -79,12 +83,14 @@ export function buildTankBoard(
 
 export function TankBoard({
   items,
+  names,
   openId,
   pendingId,
   onOpen,
   children,
 }: {
   items: TankBoardItem[];
+  names: Record<string, ChemicalName>;
   openId: string;
   pendingId: string | null;
   onOpen: (id: string) => void;
@@ -159,7 +165,10 @@ export function TankBoard({
                   </span>
                 ) : null}
               </button>
-              {open ? <TankActionsMenu /> : null}
+              <div className="flex shrink-0 items-center gap-1 pr-2 pt-3">
+                <TankPdfButton item={item} names={names} />
+                {open ? <TankActionsMenu /> : null}
+              </div>
               </div>
               {open ? (
                 <div id={`tank-detail-${item.tank.id}`} className="space-y-4 border-t border-border px-4 py-4">
@@ -176,5 +185,54 @@ export function TankBoard({
         })}
       </ul>
     </section>
+  );
+}
+
+function TankPdfButton({
+  item,
+  names,
+}: {
+  item: TankBoardItem;
+  names: Record<string, ChemicalName>;
+}) {
+  const [downloading, setDownloading] = useState(false);
+
+  async function download() {
+    setDownloading(true);
+    try {
+      const { downloadTankContents } = await import("@/lib/tank/report-pdf");
+      const snapshot = boundToTankSnapshot(item.tank.snapshot);
+      const rows = compositionRows(snapshot, names);
+      downloadTankContents({
+        tankName: item.tank.name,
+        date: new Date().toISOString().slice(0, 10),
+        ready: snapshot.hasOpeningBalance,
+        volume: snapshot.volume,
+        solidPct: snapshot.solidPct,
+        capacity: item.tank.capacity,
+        heel: item.tank.heel,
+        rows: rows.map((row) => ({
+          name: row.name,
+          amount: row.amount,
+          solidContentPct: names[row.id]?.solidContentPct ?? null,
+        })),
+      });
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-11 min-h-11"
+      aria-label={`Download PDF for ${item.tank.name}`}
+      disabled={downloading}
+      onClick={() => void download()}
+    >
+      {downloading ? "PDF…" : "PDF"}
+    </Button>
   );
 }

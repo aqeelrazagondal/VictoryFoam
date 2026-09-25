@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { tankReportLines, tankReportPdfBytes } from "./report-pdf.ts";
+import { tankContentsPdfBytes, tankReportLines, tankReportPdfBytes } from "./report-pdf.ts";
 
 test("tank report names the typed pour and the suggested kg when they differ", () => {
   const lines = tankReportLines({
@@ -45,7 +45,8 @@ test("the pour sheet draws the solid content, the pours, and the capacity note",
   assert.match(pdf, /^%PDF-1\.4/);
   assert.match(pdf, /Helvetica-Bold/);
   assert.match(pdf, / re\nf/);
-  assert.match(pdf, /UMAR/);
+  assert.match(pdf, /Umar Bin Mushtaq/);
+  assert.match(pdf, /Chemical Engineer/);
   assert.doesNotMatch(pdf, /Victory Foam|VICTORY FOAM/);
   assert.match(pdf, /Tank report/);
   assert.match(pdf, /Blend tank/);
@@ -57,4 +58,23 @@ test("the pour sheet draws the solid content, the pours, and the capacity note",
   assert.match(pdf, /5 250 kg/);
   assert.match(pdf, /8 520 kg/);
   assert.match(pdf, /holds 8 000 kg/);
+});
+
+test("a tank contents sheet names the engineer and the chemicals in the tank", () => {
+  const bytes = tankContentsPdfBytes({
+    tankName: "Blend tank",
+    date: "2026-09-23",
+    ready: true,
+    volume: 1000,
+    solidPct: 22.5,
+    capacity: 8000,
+    heel: 50,
+    rows: [{ name: "Conventional polyol", amount: 1000, solidContentPct: 0 }],
+  });
+  const pdf = new TextDecoder().decode(bytes);
+  assert.match(pdf, /Umar Bin Mushtaq/);
+  assert.match(pdf, /Chemical Engineer/);
+  assert.match(pdf, /Tank contents/);
+  assert.match(pdf, /Conventional polyol/);
+  assert.match(pdf, /Heel/);
 });

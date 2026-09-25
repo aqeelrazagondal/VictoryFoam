@@ -137,7 +137,8 @@ export function EditableReport({
       <div className="bg-[#14322c] px-5 py-5 text-[#f4f7f4]">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[0.7rem] font-semibold tracking-[0.22em] text-[#b7d0c6]">UMAR</p>
+            <p className="text-sm font-semibold text-[#f4f7f4]">Umar Bin Mushtaq</p>
+            <p className="text-[0.7rem] font-medium text-[#b7d0c6]">Chemical Engineer</p>
             <p className="mt-1 font-heading text-2xl font-semibold tracking-tight">Tank report</p>
             <p className="text-sm text-[#d5e4de]">{tankName}</p>
           </div>

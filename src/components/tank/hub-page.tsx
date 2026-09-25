@@ -71,7 +71,10 @@ export function HubPage() {
   const names = useMemo(
     () =>
       Object.fromEntries(
-        chemicals.map((chemical) => [chemical.id, { name: chemical.name, unit: chemical.unit }]),
+        chemicals.map((chemical) => [
+          chemical.id,
+          { name: chemical.name, unit: chemical.unit, solidContentPct: chemical.solidContentPct },
+        ]),
       ),
     [chemicals],
   );
@@ -265,7 +268,13 @@ export function HubPage() {
         </p>
       ) : null}
 
-      <TankBoard items={board} openId={activeTank.id} pendingId={openingTankId} onOpen={(id) => void openTank(id)}>
+      <TankBoard
+        items={board}
+        names={names}
+        openId={activeTank.id}
+        pendingId={openingTankId}
+        onOpen={(id) => void openTank(id)}
+      >
       {tankReady ? null : <OpeningPanel key={activeTank.id} />}
       {tankReady && isHeelBreach(amounts.volume, heel) ? (
         <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">

@@ -32,6 +32,8 @@ const MUTED = rgb(0.36, 0.43, 0.4);
 const HAIR = rgb(0.82, 0.86, 0.83);
 const ALERT_BG = rgb(0.976, 0.918, 0.863);
 const ALERT_INK = rgb(0.55, 0.2, 0.08);
+const AUTHOR = "Umar Bin Mushtaq";
+const AUTHOR_ROLE = "Chemical Engineer";
 
 export function tankReportLines(report: TankReport) {
   const lines = [
@@ -67,13 +69,39 @@ export function tankReportPdfBytes(report: TankReport) {
   return buildPdf(paintReport(report));
 }
 
+export type TankContentsReport = {
+  tankName: string;
+  date: string;
+  ready: boolean;
+  volume: number;
+  solidPct: number;
+  capacity: number | null;
+  heel: number;
+  rows: { name: string; amount: number; solidContentPct: number | null }[];
+};
+
+export function tankContentsPdfBytes(report: TankContentsReport) {
+  return buildPdf(paintContents(report));
+}
+
 export function downloadTankReport(report: TankReport) {
-  const bytes = tankReportPdfBytes(report);
+  savePdf(tankReportPdfBytes(report), "tank-report.pdf");
+}
+
+export function downloadTankContents(report: TankContentsReport) {
+  const slug = report.tankName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  savePdf(tankContentsPdfBytes(report), `${slug || "tank"}-contents.pdf`);
+}
+
+function savePdf(bytes: ReturnType<typeof buildPdf>, filename: string) {
   const blob = new Blob([bytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "tank-report.pdf";
+  anchor.download = filename;
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
@@ -83,14 +111,7 @@ export function downloadTankReport(report: TankReport) {
 function paintReport(report: TankReport) {
   const ops: string[] = [];
   fill(ops, 0, 0, PAGE_W, PAGE_H, PAPER);
-
-  const headerH = 104;
-  fill(ops, 0, PAGE_H - headerH, PAGE_W, headerH, PINE);
-  text(ops, MARGIN, PAGE_H - 40, 10, "F1", MIST, "UMAR");
-  text(ops, MARGIN, PAGE_H - 74, 28, "F2", WHITE, "Tank report");
-  text(ops, MARGIN, PAGE_H - 92, 11, "F1", MIST, report.tankName);
-  const date = prettyDate(report.date);
-  text(ops, PAGE_W - MARGIN - textWidth(date, 11), PAGE_H - 42, 11, "F1", MIST, date);
+  const headerH = paintMasthead(ops, "Tank report", report.tankName, prettyDate(report.date));
 
   const contentW = PAGE_W - MARGIN * 2;
   const gap = 10;
@@ -171,12 +192,124 @@ function paintReport(report: TankReport) {
     });
   }
 
-  stroke(ops, MARGIN, 36, PAGE_W - MARGIN, 36, HAIR);
-  text(ops, MARGIN, 20, 9, "F1", MUTED, "Factory pour sheet");
-  const foot = prettyDate(report.date);
-  text(ops, PAGE_W - MARGIN - textWidth(foot, 9), 20, 9, "F1", MUTED, foot);
+  paintSignOff(ops, prettyDate(report.date));
 
   return ops.join("\n");
+}
+
+function paintContents(report: TankContentsReport) {
+  const ops: string[] = [];
+  fill(ops, 0, 0, PAGE_W, PAGE_H, PAPER);
+  const headerH = paintMasthead(ops, "Tank contents", report.tankName, prettyDate(report.date));
+
+  const contentW = PAGE_W - MARGIN * 2;
+  const gap = 10;
+  const colW = (contentW - gap) / 2;
+  const factH = 78;
+  let top = PAGE_H - headerH - 16;
+  const factY = top - factH;
+  fill(ops, MARGIN, factY, colW, factH, WHITE);
+  fill(ops, MARGIN + colW + gap, factY, colW, factH, WHITE);
+  text(ops, MARGIN + 16, factY + 52, 9, "F1", MUTED, "IN THE TANK");
+  text(ops, MARGIN + 16, factY + 28, 16, "F2", INK, report.ready ? `${formatQty(report.volume)} kg` : "Not set up");
+  text(
+    ops,
+    MARGIN + 16,
+    factY + 12,
+    11,
+    "F1",
+    MUTED,
+    report.ready ? formatPct(report.solidPct) : "Record an opening first",
+  );
+
+  const rightX = MARGIN + colW + gap + 16;
+  const capacity =
+    report.capacity != null && report.capacity > 0 ? `${formatQty(report.capacity)} kg` : "Not set";
+  text(ops, rightX, factY + 52, 9, "F1", MUTED, "TANK SIZE");
+  text(ops, rightX, factY + 28, 16, "F2", INK, capacity);
+  text(
+    ops,
+    rightX,
+    factY + 12,
+    11,
+    "F1",
+    MUTED,
+    report.heel > 0 ? `Heel ${formatQty(report.heel)} kg` : "No heel set",
+  );
+
+  top = factY - 26;
+  text(ops, MARGIN, top, 9, "F1", MUTED, "CHEMICALS IN THE TANK");
+  top -= 14;
+
+  const rows = report.ready ? report.rows.filter((row) => Math.abs(row.amount) > 0.05) : [];
+  if (!report.ready || rows.length === 0) {
+    const emptyH = 48;
+    const emptyY = top - emptyH;
+    fill(ops, MARGIN, emptyY, contentW, emptyH, WHITE);
+    text(
+      ops,
+      MARGIN + 16,
+      emptyY + 20,
+      12,
+      "F1",
+      MUTED,
+      report.ready ? "No chemical quantities recorded." : "This tank has no opening amount yet.",
+    );
+    top = emptyY - 12;
+  }
+
+  rows.forEach((line, index) => {
+    const share = report.volume > 0 ? (line.amount / report.volume) * 100 : 0;
+    const detail =
+      line.solidContentPct != null
+        ? `${formatPct(share)} of the tank · ${formatPct(line.solidContentPct)} solid`
+        : `${formatPct(share)} of the tank`;
+    const nameRows = wrap(line.name, 13, contentW - 170);
+    const rowH = 40 + nameRows.length * 16;
+    const rowY = top - rowH;
+    fill(ops, MARGIN, rowY, contentW, rowH, WHITE);
+    fill(ops, MARGIN, rowY, 4, rowH, PINE);
+    text(ops, MARGIN + 16, rowY + rowH - 22, 9, "F1", MUTED, String(index + 1).padStart(2, "0"));
+    nameRows.forEach((row, rowIndex) => {
+      text(ops, MARGIN + 40, rowY + rowH - 22 - rowIndex * 16, 13, "F2", INK, row);
+    });
+    text(ops, MARGIN + 40, rowY + 14, 9, "F1", MUTED, detail);
+    const kg = `${formatQty(line.amount)} kg`;
+    text(ops, PAGE_W - MARGIN - 16 - textWidth(kg, 14, true), rowY + rowH - 24, 14, "F2", INK, kg);
+    top = rowY - 8;
+  });
+
+  if (report.capacity != null && report.capacity > 0 && report.volume > report.capacity + 0.05) {
+    const note = `The tank holds ${formatQty(report.capacity)} kg. It is ${formatQty(report.volume)} kg now.`;
+    const noteRows = wrap(note, 11, contentW - 32);
+    const noteH = 22 + noteRows.length * 15;
+    const noteY = top - noteH - 4;
+    fill(ops, MARGIN, noteY, contentW, noteH, ALERT_BG);
+    noteRows.forEach((row, index) => {
+      text(ops, MARGIN + 16, noteY + noteH - 20 - index * 15, 11, "F1", ALERT_INK, row);
+    });
+  }
+
+  paintSignOff(ops, prettyDate(report.date));
+  return ops.join("\n");
+}
+
+function paintMasthead(ops: string[], title: string, subtitle: string, dateLabel: string) {
+  const headerH = 118;
+  fill(ops, 0, PAGE_H - headerH, PAGE_W, headerH, PINE);
+  text(ops, MARGIN, PAGE_H - 32, 12, "F2", WHITE, AUTHOR);
+  text(ops, MARGIN, PAGE_H - 48, 9, "F1", MIST, AUTHOR_ROLE);
+  text(ops, MARGIN, PAGE_H - 82, 26, "F2", WHITE, title);
+  text(ops, MARGIN, PAGE_H - 102, 11, "F1", MIST, subtitle);
+  text(ops, PAGE_W - MARGIN - textWidth(dateLabel, 11), PAGE_H - 34, 11, "F1", MIST, dateLabel);
+  return headerH;
+}
+
+function paintSignOff(ops: string[], dateLabel: string) {
+  const sign = `${AUTHOR}, ${AUTHOR_ROLE}`;
+  stroke(ops, MARGIN, 36, PAGE_W - MARGIN, 36, HAIR);
+  text(ops, MARGIN, 20, 9, "F1", MUTED, sign);
+  text(ops, PAGE_W - MARGIN - textWidth(dateLabel, 9), 20, 9, "F1", MUTED, dateLabel);
 }
 
 function buildPdf(content: string) {
